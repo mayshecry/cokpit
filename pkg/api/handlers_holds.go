@@ -24,12 +24,13 @@ func (s *Server) handlePlaceHold(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hold, updated, err := s.store.PlaceHold(r.Context(), id, reason, s.currentUser(r).Username, s.now().UTC())
+	hold, updated, err := s.store.PlaceHoldGuarded(r.Context(), id, reason, s.currentUser(r).Username, req.ExpectedUpdatedAt, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
 		s.writeError(w, status, code, msg)
 		return
 	}
+	s.publishOrder(id, s.currentUser(r).Username)
 	s.writeJSON(w, http.StatusCreated, map[string]any{
 		"hold":  hold,
 		"order": updated,
@@ -49,6 +50,7 @@ func (s *Server) handleResolveHold(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, status, code, msg)
 		return
 	}
+	s.publishOrder(hold.OrderID, s.currentUser(r).Username)
 	s.writeJSON(w, http.StatusOK, map[string]any{
 		"hold":  hold,
 		"order": updated,
@@ -82,6 +84,7 @@ func (s *Server) handleSubmitQC(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, status, code, msg)
 		return
 	}
+	s.publishOrder(id, s.currentUser(r).Username)
 	s.writeJSON(w, http.StatusCreated, map[string]order.QCCheck{"qcCheck": check})
 }
 

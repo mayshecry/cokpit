@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"time"
 
 	"cockpit/pkg/attention"
 	"cockpit/pkg/db"
@@ -76,11 +77,21 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
+	var holdSince *time.Time
+	if len(holds) > 0 {
+		oldest := holds[0]
+		for _, h := range holds {
+			if h.CreatedAt.Before(oldest.CreatedAt) {
+				oldest = h
+			}
+		}
+		holdSince = &oldest.CreatedAt
+	}
 	detail := order.OrderDetail{
 		Order:       o,
 		ActiveHolds: holds,
 		QCChecks:    checks,
-		SLA:         order.ComputeSLA(o.TargetCompletion, s.now().UTC()),
+		SLA:         order.ComputeSLAPaused(o.TargetCompletion, s.now().UTC(), o.PausedSeconds, holdSince),
 		OnHold:      len(holds) > 0,
 	}
 
@@ -180,6 +191,10 @@ func (s *Server) handleAddComment(w http.ResponseWriter, r *http.Request) {
 		status, code, msg := s.classifyError(err)
 		s.writeError(w, status, code, msg)
 		return
+	}
+	s.publishComment(o.ID, user.Username)
+	for _, mentioned := range resolved {
+		s.publishNotification(mentioned)
 	}
 	s.writeJSON(w, http.StatusCreated, map[string]order.Comment{"comment": comment})
 }

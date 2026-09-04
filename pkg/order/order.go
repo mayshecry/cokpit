@@ -9,6 +9,13 @@ type Order struct {
 	TargetCompletion time.Time `json:"targetCompletionAt"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
+
+	Assignee string `json:"assignee,omitempty"`
+
+	PausedSeconds int64      `json:"pausedSeconds,omitempty"`
+	HoldSince     *time.Time `json:"holdSince,omitempty"`
+
+	SLA *SLA `json:"sla,omitempty"`
 }
 
 type Hold struct {
@@ -123,11 +130,35 @@ type TransitionRequest struct {
 	Status Status `json:"status"`
 
 	PerformedBy string `json:"performedBy"`
+
+	ExpectedUpdatedAt *time.Time `json:"expectedUpdatedAt,omitempty"`
 }
 
 type HoldRequest struct {
 	Reason    string `json:"reason"`
 	CreatedBy string `json:"createdBy"`
+
+	ExpectedUpdatedAt *time.Time `json:"expectedUpdatedAt,omitempty"`
+}
+
+type AssignRequest struct {
+	Assignee string `json:"assignee"`
+}
+
+type BulkTransitionRequest struct {
+	IDs    []int64 `json:"ids"`
+	Status Status  `json:"status"`
+}
+
+type BulkResolveRequest struct {
+	OrderIDs []int64 `json:"orderIds"`
+}
+
+type BulkItemResult struct {
+	ID      int64  `json:"id"`
+	OK      bool   `json:"ok"`
+	Code    string `json:"code,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 type QCRequest struct {
@@ -147,6 +178,15 @@ type ChecklistItem struct {
 	CheckedBy    string     `json:"checkedBy,omitempty"`
 	CheckedAt    *time.Time `json:"checkedAt,omitempty"`
 	CreatedAt    time.Time  `json:"createdAt"`
+}
+
+type ChecklistOverview struct {
+	OrderID     int64           `json:"orderId"`
+	OrderNumber string          `json:"orderNumber"`
+	Status      string          `json:"status"`
+	Total       int             `json:"total"`
+	Done        int             `json:"done"`
+	Items       []ChecklistItem `json:"items"`
 }
 
 type ChecklistItemInput struct {

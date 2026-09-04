@@ -21,6 +21,8 @@ var ErrHoldResolved = errors.New("hold is already resolved")
 
 var ErrNoHold = errors.New("order has no active hold")
 
+var ErrStaleWrite = errors.New("order was modified since you loaded it; refresh and try again")
+
 type Store struct {
 	db *sql.DB
 }
@@ -29,10 +31,12 @@ func New(conn *sql.DB) *Store { return &Store{db: conn} }
 
 func (s *Store) DB() *sql.DB { return s.db }
 
+const orderCols = `id, order_number, status, target_completion_at, created_at, updated_at, assigned_to, paused_seconds`
+
 func scanOrder(row *sql.Row) (order.Order, error) {
 	var o order.Order
 	var tgt, created, updated int64
-	err := row.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated)
+	err := row.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated, &o.Assignee, &o.PausedSeconds)
 	if err != nil {
 		return order.Order{}, err
 	}
@@ -96,8 +100,7 @@ func (s *Store) CreateOrder(ctx context.Context, number string, target time.Time
 
 func (s *Store) GetOrder(ctx context.Context, id int64) (order.Order, error) {
 	row := s.db.QueryRowContext(ctx,
-		`SELECT id, order_number, status, target_completion_at, created_at, updated_at
-		 FROM orders WHERE id = ?`, id)
+		`SELECT `+orderCols+` FROM orders WHERE id = ?`, id)
 	o, err := scanOrder(row)
 	if errors.Is(err, sql.ErrNoRows) {
 		return order.Order{}, ErrNotFound
@@ -109,43 +112,8 @@ func (s *Store) GetOrder(ctx context.Context, id int64) (order.Order, error) {
 }
 
 func (s *Store) ListOrders(ctx context.Context, status *order.Status) ([]order.Order, error) {
-	query := `SELECT id, order_number, status, target_completion_at, created_at, updated_at
-	          FROM orders`
-	args := []any{}
-
-	if status != nil && *status != "" {
-		variants := order.ExpandHeld(*status)
-		placeholders := make([]string, len(variants))
-		for i, v := range variants {
-			placeholders[i] = "?"
-			args = append(args, string(v))
-		}
-		query += " WHERE status IN (" + strings.Join(placeholders, ",") + ")"
-	}
-	query += " ORDER BY created_at DESC, id DESC"
-
-	rows, err := s.db.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("list orders: %w", err)
-	}
-	defer rows.Close()
-
-	orders := []order.Order{}
-	for rows.Next() {
-		var o order.Order
-		var tgt, created, updated int64
-		if err := rows.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated); err != nil {
-			return nil, fmt.Errorf("scan order: %w", err)
-		}
-		o.TargetCompletion = fromMillis(tgt)
-		o.CreatedAt = fromMillis(created)
-		o.UpdatedAt = fromMillis(updated)
-		orders = append(orders, o)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate orders: %w", err)
-	}
-	return orders, nil
+	orders, _, err := s.ListOrdersFiltered(ctx, ListQuery{Status: status})
+	return orders, err
 }
 
 var ErrNoQCPass = errors.New("order has no passing QC check; cannot complete")
@@ -153,6 +121,10 @@ var ErrNoQCPass = errors.New("order has no passing QC check; cannot complete")
 func stringToStatus(s string) order.Status { return order.Status(s) }
 
 func (s *Store) TransitionOrder(ctx context.Context, id int64, target string, performedBy string, now time.Time) (order.Order, error) {
+	return s.TransitionOrderGuarded(ctx, id, target, performedBy, nil, now)
+}
+
+func (s *Store) TransitionOrderGuarded(ctx context.Context, id int64, target string, performedBy string, expectedUpdatedAt *time.Time, now time.Time) (order.Order, error) {
 	if performedBy == "" {
 		performedBy = "system"
 	}
@@ -164,8 +136,7 @@ func (s *Store) TransitionOrder(ctx context.Context, id int64, target string, pe
 	defer tx.Rollback()
 
 	current, err := scanOrder(tx.QueryRowContext(ctx,
-		`SELECT id, order_number, status, target_completion_at, created_at, updated_at
-		 FROM orders WHERE id = ?`, id))
+		`SELECT `+orderCols+` FROM orders WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return order.Order{}, ErrNotFound
 	}
@@ -175,6 +146,10 @@ func (s *Store) TransitionOrder(ctx context.Context, id int64, target string, pe
 
 	if current.Status == order.StatusCompleted {
 		return order.Order{}, order.ErrCompletedTransition
+	}
+
+	if expectedUpdatedAt != nil && !current.UpdatedAt.Equal(*expectedUpdatedAt) {
+		return order.Order{}, ErrStaleWrite
 	}
 
 	var active int
@@ -225,6 +200,10 @@ func (s *Store) TransitionOrder(ctx context.Context, id int64, target string, pe
 }
 
 func (s *Store) PlaceHold(ctx context.Context, id int64, reason, createdBy string, now time.Time) (order.Hold, order.Order, error) {
+	return s.PlaceHoldGuarded(ctx, id, reason, createdBy, nil, now)
+}
+
+func (s *Store) PlaceHoldGuarded(ctx context.Context, id int64, reason, createdBy string, expectedUpdatedAt *time.Time, now time.Time) (order.Hold, order.Order, error) {
 	if createdBy == "" {
 		createdBy = "system"
 	}
@@ -236,8 +215,7 @@ func (s *Store) PlaceHold(ctx context.Context, id int64, reason, createdBy strin
 	defer tx.Rollback()
 
 	current, err := scanOrder(tx.QueryRowContext(ctx,
-		`SELECT id, order_number, status, target_completion_at, created_at, updated_at
-		 FROM orders WHERE id = ?`, id))
+		`SELECT `+orderCols+` FROM orders WHERE id = ?`, id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return order.Hold{}, order.Order{}, ErrNotFound
 	}
@@ -248,6 +226,9 @@ func (s *Store) PlaceHold(ctx context.Context, id int64, reason, createdBy strin
 	base := order.NormalizeHeld(current.Status)
 	if current.Status != base {
 		return order.Hold{}, order.Order{}, ErrHoldActive
+	}
+	if expectedUpdatedAt != nil && !current.UpdatedAt.Equal(*expectedUpdatedAt) {
+		return order.Hold{}, order.Order{}, ErrStaleWrite
 	}
 	if base == order.StatusCompleted {
 		return order.Hold{}, order.Order{}, order.ErrCompletedTransition
@@ -326,11 +307,8 @@ func (s *Store) ResolveHold(ctx context.Context, holdID int64, resolvedBy string
 	}
 
 	var heldStatus order.Status
-	var orderNumber string
-	var target, created int64
 	err = tx.QueryRowContext(ctx,
-		`SELECT id, order_number, status, target_completion_at, created_at FROM orders WHERE id = ?`, orderID).
-		Scan(&orderID, &orderNumber, &heldStatus, &target, &created)
+		`SELECT status FROM orders WHERE id = ?`, orderID).Scan(&heldStatus)
 	if errors.Is(err, sql.ErrNoRows) {
 		return order.Hold{}, order.Order{}, ErrNotFound
 	}
@@ -340,8 +318,9 @@ func (s *Store) ResolveHold(ctx context.Context, holdID int64, resolvedBy string
 
 	base := order.NormalizeHeld(heldStatus)
 	if _, err := tx.ExecContext(ctx,
-		`UPDATE orders SET status = ?, updated_at = ? WHERE id = ?`,
-		string(base), millis(now), orderID); err != nil {
+		`UPDATE orders SET status = ?, updated_at = ?, paused_seconds = paused_seconds + ?
+		 WHERE id = ?`,
+		string(base), millis(now), (now.UnixMilli()-holdCreated)/1000, orderID); err != nil {
 		return order.Hold{}, order.Order{}, fmt.Errorf("update order: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx,
@@ -358,22 +337,20 @@ func (s *Store) ResolveHold(ctx context.Context, holdID int64, resolvedBy string
 		return order.Hold{}, order.Order{}, fmt.Errorf("commit: %w", err)
 	}
 
+	restored, err := s.GetOrder(context.Background(), orderID)
+	if err != nil {
+		return order.Hold{}, order.Order{}, fmt.Errorf("reload order: %w", err)
+	}
+
 	resolved := now.UTC()
 	return order.Hold{
-			ID:         holdID,
-			OrderID:    orderID,
-			Reason:     reason,
-			CreatedBy:  createdBy,
-			ResolvedAt: &resolved,
-			CreatedAt:  fromMillis(holdCreated),
-		}, order.Order{
-			ID:               orderID,
-			OrderNumber:      orderNumber,
-			Status:           base,
-			TargetCompletion: fromMillis(target),
-			CreatedAt:        fromMillis(created),
-			UpdatedAt:        now.UTC(),
-		}, nil
+		ID:         holdID,
+		OrderID:    orderID,
+		Reason:     reason,
+		CreatedBy:  createdBy,
+		ResolvedAt: &resolved,
+		CreatedAt:  fromMillis(holdCreated),
+	}, restored, nil
 }
 
 func (s *Store) SubmitQC(ctx context.Context, id int64, status order.QCStatus, inspector, notes, performedBy string, now time.Time) (order.QCCheck, error) {
@@ -519,4 +496,137 @@ func (s *Store) AuditLog(ctx context.Context, orderID int64) ([]order.AuditLog, 
 		logs = append(logs, l)
 	}
 	return logs, rows.Err()
+}
+
+type ListQuery struct {
+	Status         *order.Status
+	Assignee       string
+	OnlyUnassigned bool
+	Limit          int
+	Offset         int
+}
+
+func (s *Store) ListOrdersFiltered(ctx context.Context, q ListQuery) ([]order.Order, int64, error) {
+	where := []string{}
+	args := []any{}
+
+	if q.Status != nil && *q.Status != "" {
+		variants := order.ExpandHeld(*q.Status)
+		placeholders := make([]string, len(variants))
+		for i, v := range variants {
+			placeholders[i] = "?"
+			args = append(args, string(v))
+		}
+		where = append(where, "status IN ("+strings.Join(placeholders, ",")+")")
+	}
+	switch {
+	case q.OnlyUnassigned:
+		where = append(where, "assigned_to = ''")
+	case q.Assignee != "":
+		where = append(where, "assigned_to = ?")
+		args = append(args, q.Assignee)
+	}
+
+	whereSQL := ""
+	if len(where) > 0 {
+		whereSQL = " WHERE " + strings.Join(where, " AND ")
+	}
+
+	var total int64
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM orders`+whereSQL, args...).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count orders: %w", err)
+	}
+
+	query := `SELECT ` + orderCols + ` FROM orders` + whereSQL +
+		` ORDER BY created_at DESC, id DESC`
+	if q.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d OFFSET %d", q.Limit, q.Offset)
+	}
+
+	rows, err := s.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list orders: %w", err)
+	}
+	defer rows.Close()
+
+	orders := []order.Order{}
+	for rows.Next() {
+		var o order.Order
+		var tgt, created, updated int64
+		if err := rows.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated, &o.Assignee, &o.PausedSeconds); err != nil {
+			return nil, 0, fmt.Errorf("scan order: %w", err)
+		}
+		o.TargetCompletion = fromMillis(tgt)
+		o.CreatedAt = fromMillis(created)
+		o.UpdatedAt = fromMillis(updated)
+		orders = append(orders, o)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("iterate orders: %w", err)
+	}
+	return orders, total, nil
+}
+
+func (s *Store) SetAssignee(ctx context.Context, id int64, assignee, performedBy string, now time.Time) (order.Order, error) {
+	if performedBy == "" {
+		performedBy = "system"
+	}
+
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return order.Order{}, fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback()
+
+	current, err := scanOrder(tx.QueryRowContext(ctx,
+		`SELECT `+orderCols+` FROM orders WHERE id = ?`, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return order.Order{}, ErrNotFound
+	}
+	if err != nil {
+		return order.Order{}, fmt.Errorf("get order: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE orders SET assigned_to = ?, updated_at = ? WHERE id = ?`,
+		assignee, millis(now), id); err != nil {
+		return order.Order{}, fmt.Errorf("update order: %w", err)
+	}
+	action := "unassigned"
+	if assignee != "" {
+		action = "assigned to " + assignee
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO audit_logs (order_id, action, performed_by, timestamp) VALUES (?, ?, ?, ?)`,
+		id, action, performedBy, millis(now)); err != nil {
+		return order.Order{}, fmt.Errorf("insert audit: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return order.Order{}, fmt.Errorf("commit: %w", err)
+	}
+
+	current.Assignee = assignee
+	current.UpdatedAt = now.UTC()
+	return current, nil
+}
+
+func (s *Store) ActiveHoldStarts(ctx context.Context) (map[int64]time.Time, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT order_id, MIN(created_at) FROM holds WHERE resolved_at IS NULL GROUP BY order_id`)
+	if err != nil {
+		return nil, fmt.Errorf("active hold starts: %w", err)
+	}
+	defer rows.Close()
+
+	out := map[int64]time.Time{}
+	for rows.Next() {
+		var id, ms int64
+		if err := rows.Scan(&id, &ms); err != nil {
+			return nil, fmt.Errorf("scan hold start: %w", err)
+		}
+		out[id] = fromMillis(ms)
+	}
+	return out, rows.Err()
 }

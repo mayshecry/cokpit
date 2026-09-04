@@ -242,8 +242,7 @@ func (s *Store) ScanEvents(ctx context.Context, orderID int64) ([]order.ScanEven
 
 func (s *Store) OrderByNumber(ctx context.Context, number string) (order.Order, error) {
 	o, err := scanOrder(s.db.QueryRowContext(ctx,
-		`SELECT id, order_number, status, target_completion_at, created_at, updated_at
-		 FROM orders WHERE order_number = ?`, number))
+		`SELECT `+orderCols+` FROM orders WHERE order_number = ?`, number))
 	if errors.Is(err, sql.ErrNoRows) {
 		return order.Order{}, ErrNotFound
 	}

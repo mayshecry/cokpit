@@ -1,9 +1,9 @@
 package api
 
 import (
-"net/http"
+	"net/http"
 
-"cockpit/pkg/order"
+	"cockpit/pkg/order"
 )
 
 type checklistRequest struct {
@@ -46,6 +46,7 @@ func (s *Server) handleSetChecklist(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, status, code, msg)
 		return
 	}
+	s.publishChecklist(id, s.currentUser(r).Username)
 	s.writeJSON(w, http.StatusOK, map[string][]order.ChecklistItem{"items": items})
 }
 
@@ -75,5 +76,29 @@ func (s *Server) toggleChecklistItem(w http.ResponseWriter, r *http.Request, tic
 		s.writeError(w, status, code, msg)
 		return
 	}
+	s.publishChecklist(item.OrderID, s.currentUser(r).Username)
 	s.writeJSON(w, http.StatusOK, map[string]order.ChecklistItem{"item": item})
+}
+
+func (s *Server) handleListChecklists(w http.ResponseWriter, r *http.Request) {
+	overviews, err := s.store.ChecklistOverviews(r.Context())
+	if err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string][]order.ChecklistOverview{"checklists": overviews})
+}
+
+func (s *Server) handleSeedDemoChecklists(w http.ResponseWriter, r *http.Request) {
+	n, err := s.store.SeedDemoChecklists(r.Context(), s.now().UTC())
+	if err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	if n > 0 {
+		s.logger.Printf("seeded %d demo pick lists (loaded from the GUI)", n)
+	}
+	s.writeJSON(w, http.StatusOK, map[string]int{"created": n})
 }

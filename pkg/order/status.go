@@ -121,7 +121,19 @@ const (
 )
 
 func ComputeSLA(target, now time.Time) SLA {
-	remaining := target.Sub(now)
+	return ComputeSLAPaused(target, now, 0, nil)
+}
+
+func ComputeSLAPaused(target, now time.Time, pausedSeconds int64, holdSince *time.Time) SLA {
+	effective := now
+	if pausedSeconds > 0 {
+		effective = effective.Add(-time.Duration(pausedSeconds) * time.Second)
+	}
+	if holdSince != nil && holdSince.Before(now) {
+
+		effective = effective.Add(-now.Sub(*holdSince))
+	}
+	remaining := target.Sub(effective)
 	threshold := remaining
 	if threshold < 0 {
 		threshold = -threshold

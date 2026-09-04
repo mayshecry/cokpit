@@ -100,10 +100,11 @@ const (
 	PermAuditView       Permission = "audit:view"
 	PermUsersManage     Permission = "users:manage"
 	PermScanUse         Permission = "scan:use"
-	PermPickUse          Permission = "pick:use"
+	PermPickUse         Permission = "pick:use"
 	PermCommentRead     Permission = "comments:read"
 	PermCommentPost     Permission = "comments:post"
 	PermNotifyRead      Permission = "notifications:read"
+	PermManualManage    Permission = "manuals:manage"
 )
 
 var rolePermissions = map[Role][]Permission{
@@ -123,7 +124,7 @@ var rolePermissions = map[Role][]Permission{
 	RoleAdmin: {
 		PermOrderList, PermOrderView, PermAuditView,
 		PermOrderCreate, PermOrderTransition, PermHoldCreate, PermHoldResolve,
-		PermQCSubmit, PermUsersManage,
+		PermQCSubmit, PermUsersManage, PermManualManage,
 		PermCommentRead, PermCommentPost, PermNotifyRead, PermScanUse, PermPickUse,
 	},
 }

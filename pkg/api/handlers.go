@@ -1,8 +1,13 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/http"
+	"strconv"
+	"time"
 
+	"cockpit/pkg/db"
 	"cockpit/pkg/order"
 )
 
@@ -32,15 +37,35 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 
 	created, err := s.store.CreateOrder(r.Context(), number, target, now, s.currentUser(r).Username)
 	if err != nil {
+		if errors.Is(err, db.ErrDuplicateOrderNumber) {
+
+			if existing, lookupErr := s.store.OrderByNumber(r.Context(), number); lookupErr == nil {
+				s.writeJSON(w, http.StatusConflict, apiError{
+					Error: apiErrorBody{
+						Code:    "duplicate_order_number",
+						Message: "an order named " + number + " already exists",
+						Extra: map[string]any{
+							"existingOrder": map[string]any{
+								"id":          existing.ID,
+								"orderNumber": existing.OrderNumber,
+								"status":      string(existing.Status),
+							},
+						},
+					},
+				})
+				return
+			}
+		}
 		status, code, msg := s.classifyError(err)
 		s.writeError(w, status, code, msg)
 		return
 	}
+	s.publishOrder(created.ID, s.currentUser(r).Username)
 	s.writeJSON(w, http.StatusCreated, map[string]order.Order{"order": created})
 }
 
 func (s *Server) handleListOrders(w http.ResponseWriter, r *http.Request) {
-	var filter *order.Status
+	q := db.ListQuery{}
 	if raw := r.URL.Query().Get("status"); raw != "" {
 		st := order.Status(raw)
 		if !order.IsValidStatus(st) {
@@ -48,16 +73,57 @@ func (s *Server) handleListOrders(w http.ResponseWriter, r *http.Request) {
 				"invalid status filter; allowed: Received, Processing, QC_Review, Completed, On_Hold")
 			return
 		}
-		filter = &st
+		q.Status = &st
+	}
+	if raw := r.URL.Query().Get("assignee"); raw == "me" {
+		q.Assignee = s.currentUser(r).Username
+	} else if raw == "unassigned" {
+		q.OnlyUnassigned = true
+	} else if raw != "" {
+		q.Assignee = raw
+	}
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 && n <= 5000 {
+			q.Limit = n
+		}
+	}
+	if raw := r.URL.Query().Get("offset"); raw != "" {
+		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			q.Offset = n
+		}
 	}
 
-	orders, err := s.store.ListOrders(r.Context(), filter)
+	orders, total, err := s.store.ListOrdersFiltered(r.Context(), q)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
 		s.writeError(w, status, code, msg)
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string][]order.Order{"orders": orders})
+	s.annotateOrders(r.Context(), orders)
+	s.writeJSON(w, http.StatusOK, map[string]any{
+		"orders": orders,
+		"total":  total,
+	})
+}
+
+func (s *Server) annotateOrders(ctx context.Context, orders []order.Order) {
+	if len(orders) == 0 {
+		return
+	}
+	starts, err := s.store.ActiveHoldStarts(ctx)
+	if err != nil {
+		starts = map[int64]time.Time{}
+	}
+	now := s.now().UTC()
+	for i := range orders {
+		o := &orders[i]
+		if hs, ok := starts[o.ID]; ok {
+			t := hs
+			o.HoldSince = &t
+		}
+		sla := order.ComputeSLAPaused(o.TargetCompletion, now, o.PausedSeconds, o.HoldSince)
+		o.SLA = &sla
+	}
 }
 
 func (s *Server) handleGetOrder(w http.ResponseWriter, r *http.Request) {
@@ -84,12 +150,21 @@ func (s *Server) handleGetOrder(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
-
+	var holdSince *time.Time
+	if len(holds) > 0 {
+		oldest := holds[0]
+		for _, h := range holds {
+			if h.CreatedAt.Before(oldest.CreatedAt) {
+				oldest = h
+			}
+		}
+		holdSince = &oldest.CreatedAt
+	}
 	detail := order.OrderDetail{
 		Order:       o,
 		ActiveHolds: holds,
 		QCChecks:    checks,
-		SLA:         order.ComputeSLA(o.TargetCompletion, s.now().UTC()),
+		SLA:         order.ComputeSLAPaused(o.TargetCompletion, s.now().UTC(), o.PausedSeconds, holdSince),
 		OnHold:      len(holds) > 0,
 	}
 	s.writeJSON(w, http.StatusOK, map[string]order.OrderDetail{"order": detail})
@@ -113,11 +188,12 @@ func (s *Server) handleTransition(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := s.store.TransitionOrder(r.Context(), id, string(req.Status), s.currentUser(r).Username, s.now().UTC())
+	updated, err := s.store.TransitionOrderGuarded(r.Context(), id, string(req.Status), s.currentUser(r).Username, req.ExpectedUpdatedAt, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
 		s.writeError(w, status, code, msg)
 		return
 	}
+	s.publishOrder(id, s.currentUser(r).Username)
 	s.writeJSON(w, http.StatusOK, map[string]order.Order{"order": updated})
 }

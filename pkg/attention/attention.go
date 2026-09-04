@@ -46,6 +46,7 @@ type Card struct {
 	TargetAt     time.Time `json:"targetAt"`
 	UpdatedAt    time.Time `json:"updatedAt"`
 	HoldCount    int       `json:"holdCount"`
+	Assignee     string    `json:"assignee,omitempty"`
 }
 
 type Projection struct {
@@ -60,15 +61,20 @@ const freshWindow = 2 * time.Hour
 
 func Project(now time.Time, orders []order.Order, holds []order.Hold) Projection {
 	holdCount := make(map[int64]int)
+	holdStart := make(map[int64]time.Time)
 	for _, h := range holds {
-		if h.ResolvedAt == nil {
-			holdCount[h.OrderID]++
+		if h.ResolvedAt != nil {
+			continue
+		}
+		holdCount[h.OrderID]++
+		if cur, ok := holdStart[h.OrderID]; !ok || h.CreatedAt.Before(cur) {
+			holdStart[h.OrderID] = h.CreatedAt
 		}
 	}
 
 	p := Projection{Cards: []Card{}}
 	for _, o := range orders {
-		card, ok := evaluate(now, o, holdCount[o.ID])
+		card, ok := evaluate(now, o, holdCount[o.ID], holdStart[o.ID])
 		if !ok {
 			continue
 		}
@@ -94,8 +100,12 @@ func Project(now time.Time, orders []order.Order, holds []order.Hold) Projection
 	return p
 }
 
-func evaluate(now time.Time, o order.Order, holds int) (Card, bool) {
-	sla := order.ComputeSLA(o.TargetCompletion, now)
+func evaluate(now time.Time, o order.Order, holds int, holdStart time.Time) (Card, bool) {
+	var since *time.Time
+	if holds > 0 {
+		since = &holdStart
+	}
+	sla := order.ComputeSLAPaused(o.TargetCompletion, now, o.PausedSeconds, since)
 
 	if o.Status == order.StatusCompleted {
 		return Card{}, false
@@ -108,6 +118,7 @@ func evaluate(now time.Time, o order.Order, holds int) (Card, bool) {
 		TargetAt:    o.TargetCompletion,
 		UpdatedAt:   o.UpdatedAt,
 		HoldCount:   holds,
+		Assignee:    o.Assignee,
 	}
 
 	if holds > 0 {

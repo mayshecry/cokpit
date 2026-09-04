@@ -22,6 +22,7 @@ type Server struct {
 	slaHrs       time.Duration
 	sessionHours time.Duration
 	logger       *log.Logger
+	hub          *eventHub
 }
 
 type ServerConfig struct {
@@ -53,6 +54,7 @@ func New(store *db.Store, cfg ServerConfig) *Server {
 		slaHrs:       time.Duration(cfg.SLATargetDefaultHours) * time.Hour,
 		sessionHours: time.Duration(cfg.SessionHours) * time.Hour,
 		logger:       cfg.Logger,
+		hub:          newEventHub(),
 	}
 }
 
@@ -75,14 +77,35 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/orders", s.requireAuth(s.requirePerm(auth.PermOrderCreate, s.handleCreateOrder)))
 	mux.HandleFunc("GET /api/v1/orders/{id}", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleGetOrder)))
 	mux.HandleFunc("POST /api/v1/orders/{id}/transition", s.requireAuth(s.requirePerm(auth.PermOrderTransition, s.handleTransition)))
+	mux.HandleFunc("POST /api/v1/orders/{id}/assign", s.requireAuth(s.requirePerm(auth.PermOrderTransition, s.handleAssign)))
 	mux.HandleFunc("POST /api/v1/orders/{id}/holds", s.requireAuth(s.requirePerm(auth.PermHoldCreate, s.handlePlaceHold)))
 	mux.HandleFunc("POST /api/v1/holds/{id}/resolve", s.requireAuth(s.requirePerm(auth.PermHoldResolve, s.handleResolveHold)))
 	mux.HandleFunc("POST /api/v1/orders/{id}/qc", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleSubmitQC)))
 	mux.HandleFunc("GET /api/v1/orders/{id}/audit", s.requireAuth(s.requirePerm(auth.PermAuditView, s.handleAudit)))
+	mux.HandleFunc("POST /api/v1/orders/bulk-transition", s.requireAuth(s.requirePerm(auth.PermOrderTransition, s.handleBulkTransition)))
+	mux.HandleFunc("POST /api/v1/holds/bulk-resolve", s.requireAuth(s.requirePerm(auth.PermHoldResolve, s.handleBulkResolve)))
 	mux.HandleFunc("GET /api/v1/orders/{id}/checklist", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleGetChecklist)))
 	mux.HandleFunc("POST /api/v1/orders/{id}/checklist", s.requireAuth(s.requirePerm(auth.PermPickUse, s.handleSetChecklist)))
 	mux.HandleFunc("POST /api/v1/checklist/{id}/tick", s.requireAuth(s.requirePerm(auth.PermPickUse, s.handleTickChecklistItem)))
 	mux.HandleFunc("POST /api/v1/checklist/{id}/untick", s.requireAuth(s.requirePerm(auth.PermPickUse, s.handleUntickChecklistItem)))
+	mux.HandleFunc("GET /api/v1/checklists", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleListChecklists)))
+	mux.HandleFunc("POST /api/v1/checklists/demo", s.requireAuth(s.requirePerm(auth.PermOrderCreate, s.handleSeedDemoChecklists)))
+
+	mux.HandleFunc("GET /api/v1/products", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleListProducts)))
+	mux.HandleFunc("POST /api/v1/products", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleCreateProduct)))
+	mux.HandleFunc("GET /api/v1/products/{id}", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleGetProduct)))
+	mux.HandleFunc("POST /api/v1/products/{id}", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleUpdateProduct)))
+	mux.HandleFunc("DELETE /api/v1/products/{id}", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleDeleteProduct)))
+	mux.HandleFunc("POST /api/v1/products/{id}/blocks", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleAddManualBlock)))
+	mux.HandleFunc("POST /api/v1/products/{pid}/blocks/{bid}", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleUpdateManualBlock)))
+	mux.HandleFunc("POST /api/v1/products/{pid}/blocks/{bid}/move", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleMoveManualBlock)))
+	mux.HandleFunc("DELETE /api/v1/products/{pid}/blocks/{bid}", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleDeleteManualBlock)))
+	mux.HandleFunc("POST /api/v1/orders/{id}/manuals", s.requireAuth(s.requirePerm(auth.PermPickUse, s.handleInstantiateManual)))
+	mux.HandleFunc("GET /api/v1/orders/{id}/manuals", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleListOrderManuals)))
+	mux.HandleFunc("POST /api/v1/manuals/{mid}/blocks/{bid}/answer", s.requireAuth(s.requirePerm(auth.PermPickUse, s.handleAnswerManualBlock)))
+	mux.HandleFunc("POST /api/v1/manuals/{mid}/blocks/{bid}/flag", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleFlagManualBlock)))
+	mux.HandleFunc("DELETE /api/v1/manuals/{mid}", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleDeleteManual)))
+	mux.HandleFunc("GET /api/v1/manuals", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleListManuals)))
 
 	mux.HandleFunc("GET /api/v1/attention", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleAttention)))
 	mux.HandleFunc("POST /api/v1/scan", s.requireAuth(s.requirePerm(auth.PermScanUse, s.handleScan)))
@@ -91,6 +114,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/orders/{id}/comments", s.requireAuth(s.requirePerm(auth.PermCommentPost, s.handleAddComment)))
 	mux.HandleFunc("GET /api/v1/notifications", s.requireAuth(s.handleListNotifications))
 	mux.HandleFunc("POST /api/v1/notifications/read", s.requireAuth(s.handleMarkNotificationsRead))
+
+	mux.HandleFunc("GET /api/v1/users/brief", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleListUsersBrief)))
+	mux.HandleFunc("GET /api/v1/admin/backup", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleAdminBackup)))
+	mux.HandleFunc("GET /api/v1/events", s.requireAuthSSE(s.requirePerm(auth.PermOrderList, s.handleEvents)))
 
 	mux.HandleFunc("/api/", s.handleAPINotFound)
 	mux.Handle("/", http.FileServer(http.Dir("frontend")))
@@ -117,8 +144,9 @@ type apiError struct {
 }
 
 type apiErrorBody struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
+	Code    string         `json:"code"`
+	Message string         `json:"message"`
+	Extra   map[string]any `json:"extra,omitempty"`
 }
 
 func (s *Server) writeError(w http.ResponseWriter, status int, code, message string) {
@@ -149,6 +177,20 @@ func (s *Server) classifyError(err error) (int, string, string) {
 		return http.StatusConflict, "duplicate_order_number", err.Error()
 	case errors.Is(err, db.ErrDuplicateUsername):
 		return http.StatusConflict, "duplicate_username", err.Error()
+	case errors.Is(err, db.ErrDuplicateProductCode):
+		return http.StatusConflict, "duplicate_product_code", err.Error()
+	case errors.Is(err, db.ErrDuplicateManual):
+		return http.StatusConflict, "duplicate_manual", err.Error()
+	case errors.Is(err, db.ErrUnknownAssignee):
+		return http.StatusBadRequest, "unknown_assignee", err.Error()
+	case errors.Is(err, db.ErrBadAnswer):
+		return http.StatusBadRequest, "invalid_answer", err.Error()
+	case errors.Is(err, db.ErrBadFlagReason):
+		return http.StatusBadRequest, "flag_reason_required", err.Error()
+	case errors.Is(err, db.ErrFlagUnanswered):
+		return http.StatusConflict, "flag_unanswered", err.Error()
+	case errors.Is(err, db.ErrManualEdge):
+		return http.StatusConflict, "manual_edge", err.Error()
 	case errors.Is(err, db.ErrHoldActive):
 		return http.StatusConflict, "hold_active", err.Error()
 	case errors.Is(err, db.ErrHoldResolved):
@@ -161,6 +203,8 @@ func (s *Server) classifyError(err error) (int, string, string) {
 		return http.StatusConflict, "invalid_transition", err.Error()
 	case errors.Is(err, order.ErrActiveHold):
 		return http.StatusConflict, "active_hold", err.Error()
+	case errors.Is(err, db.ErrStaleWrite):
+		return http.StatusConflict, "stale_write", err.Error()
 	case errors.Is(err, order.ErrCompletedTransition):
 		return http.StatusConflict, "order_completed", err.Error()
 	default:

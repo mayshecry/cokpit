@@ -9,7 +9,7 @@ no dependencies, no framework), same `/api/v1` contract, same feature set.
 |---|---|
 | `index.html` | Rebuilt markup — sidebar shell, split-screen login, semantic sections |
 | `styles.css` | Full rewrite: light enterprise theme, design tokens |
-| `app.js` | Rewritten SPA. **Every `fetch` path, method and payload is unchanged.** |
+| `js/*.js` | Rewritten SPA split across modules (`core.js` first, `app.js` last) — same API contract. **Every `fetch` path, method and payload is unchanged.** |
 | `fonts/` | Self-hosted Archivo + Noto Sans, subsetted (96 KB total) |
 | `cockpit-standalone.html` | Optional. Everything inlined into one file — previews, single-file handoff |
 | `build.py` | Regenerates the standalone file from the sources |
@@ -132,10 +132,10 @@ Without a backend on the same origin you'll get the login screen and a
 
 ## Troubleshooting
 
-**Blank page.** Almost always means `app.js` didn't execute while `styles.css` did.
+**Blank page.** Almost always means the JS didn't execute while `styles.css` did.
 The app is client-rendered, so the CSS hides the shell and nothing reveals it.
 
-Check the browser console and network tab for `app.js` — a 404 (files not deployed
+Check the browser console and network tab for `js/*.js` — a 404 (files not deployed
 side by side, wrong base path) or a CSP blocking inline/external scripts.
 
 Since the redesign the login screen renders by default and JS only *hides* it when a

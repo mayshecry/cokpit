@@ -1,0 +1,1960 @@
+
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Esprit ICT · Orderpick Portaal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="icon" type="image/png" href="https://esprit-ict.nl/werken-bij/wp-content/uploads/sites/5/2024/06/cropped-favicon_v2-32x32.png">
+<meta name="theme-color" content="#171A62">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --brand-orange: #FF8200;
+    --brand-deep: #171A62;
+    --brand-blue: #A1D3F8;
+    --brand-green: #E2F8A1;
+    --brand-purple: #E7A1F8;
+    --shell: #0F1320;
+    --shell-2: #171A62;
+    --panel: #FFFFFF;
+    --panel-2: #F5F7FB;
+    --panel-3: #EEF2F9;
+    --line: #D6DCE8;
+    --ink: #111827;
+    --ink-soft: #25314A;
+    --ink-dim: #637086;
+    --accent: var(--brand-orange);
+    --accent-ink: #111827;
+    --green: #186217;
+    --green-bg: #E9F9C6;
+    --amber: #A15A00;
+    --amber-bg: #FFF2E2;
+    --red: #B42318;
+    --red-bg: #FEE4E2;
+    --radius: 18px;
+    --radius-sm: 12px;
+    --shadow: 0 18px 50px rgba(17, 24, 39, 0.12);
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: light; }
+  body {
+    margin: 0;
+    font-family: var(--sans);
+    background:
+      radial-gradient(circle at top right, rgba(161, 211, 248, 0.28), transparent 30%),
+      radial-gradient(circle at top left, rgba(231, 161, 248, 0.18), transparent 28%),
+      linear-gradient(180deg, #EDF2FA 0%, #F8FAFD 260px, #F4F6FB 100%);
+    color: var(--ink);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  button, input, select, textarea { font: inherit; }
+  img { max-width: 100%; display: block; }
+  .shell { display: flex; flex-direction: column; min-height: 100vh; }
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 16px clamp(16px, 3vw, 28px);
+    background: rgba(15, 19, 32, 0.92);
+    color: #fff;
+    border-bottom: 4px solid var(--brand-orange);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 12px 30px rgba(15, 19, 32, 0.18);
+  }
+  .brand-shell { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .brand-logo {
+    width: clamp(136px, 18vw, 182px);
+    height: auto;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+  .brand-copy { min-width: 0; }
+  .brand-copy b {
+    display: block;
+    font-size: clamp(1rem, 1.5vw, 1.12rem);
+    line-height: 1.1;
+    letter-spacing: 0.02em;
+  }
+  .brand-copy span {
+    display: block;
+    margin-top: 5px;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.72);
+    white-space: normal;
+  }
+  .header-meta {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 14px;
+    flex: 1;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 40px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+    font-size: 0.82rem;
+    line-height: 1.2;
+    white-space: normal;
+  }
+  .status-pill::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--brand-orange);
+    box-shadow: 0 0 0 6px rgba(255, 130, 0, 0.18);
+    flex-shrink: 0;
+  }
+  nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  nav button {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #D9E0EA;
+    padding: 10px 16px;
+    min-height: 42px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    border-radius: 999px;
+    transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  }
+  nav button.active {
+    background: var(--brand-orange);
+    border-color: var(--brand-orange);
+    color: var(--accent-ink);
+    box-shadow: 0 10px 24px rgba(255, 130, 0, 0.24);
+  }
+  nav button:not(.active):hover,
+  nav button:not(.active):focus-visible {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.26);
+  }
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: clamp(16px, 2vw, 28px);
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+  .card {
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(23, 26, 98, 0.08);
+    border-radius: var(--radius);
+    padding: clamp(16px, 2.1vw, 24px);
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 {
+    margin: 0 0 6px;
+    font-size: 0.83rem;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--brand-deep);
+  }
+  .card h3 {
+    margin: 0 0 14px;
+    font-size: clamp(1.15rem, 2vw, 1.55rem);
+    line-height: 1.2;
+    color: var(--ink);
+  }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+    gap: 12px;
+  }
+  .kpi {
+    background: linear-gradient(180deg, #FFFFFF 0%, #F5F7FB 100%);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  }
+  .kpi[data-gotosignaal] { cursor: pointer; }
+  .kpi:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(17, 24, 39, 0.08); }
+  .kpi .num { font-family: var(--mono); font-size: clamp(1.7rem, 3vw, 2.2rem); font-weight: 800; }
+  .kpi .lbl { font-size: 0.87rem; color: var(--ink-dim); margin-top: 8px; }
+  .kpi.warn .num { color: var(--amber); }
+  .kpi.good .num { color: var(--green); }
+  .signal-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .signal {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    background: linear-gradient(180deg, #FFF8EF 0%, #FFF2E2 100%);
+    color: #7A4300;
+    border: 1px solid #FFD5AE;
+    border-radius: 16px;
+    padding: 14px 16px;
+    font-size: 0.93rem;
+    min-height: 100%;
+  }
+  .signal b { font-family: var(--mono); font-size: 1.05rem; }
+  .upload-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .upload-row:last-child { border-bottom: none; }
+  .upload-row .meta { font-size: 0.84rem; color: var(--ink-dim); margin-top: 4px; line-height: 1.5; }
+  .btn {
+    appearance: none;
+    background: var(--brand-deep);
+    color: #fff;
+    border: none;
+    padding: 11px 16px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    min-height: 44px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+    box-shadow: 0 10px 20px rgba(23, 26, 98, 0.16);
+  }
+  .btn.primary {
+    background: var(--brand-orange);
+    color: var(--accent-ink);
+    box-shadow: 0 12px 24px rgba(255, 130, 0, 0.24);
+  }
+  .btn.ghost {
+    background: #fff;
+    color: var(--brand-deep);
+    border: 1px solid var(--line);
+    box-shadow: none;
+  }
+  .btn:hover:not(:disabled),
+  .btn:focus-visible:not(:disabled) { transform: translateY(-1px); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  input[type=file] { display: none; }
+  .dropzone {
+    display: grid;
+    gap: 10px;
+    place-items: center;
+    border: 2px dashed #B9C4D7;
+    border-radius: var(--radius);
+    padding: clamp(22px, 4vw, 34px);
+    text-align: center;
+    color: var(--ink-dim);
+    font-size: 0.96rem;
+    cursor: pointer;
+    background: linear-gradient(180deg, rgba(255,255,255,0.75), rgba(245,247,251,0.95));
+    transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+  }
+  .dropzone::before {
+    content: '⬆';
+    display: inline-grid;
+    place-items: center;
+    width: 54px;
+    height: 54px;
+    border-radius: 50%;
+    background: rgba(255, 130, 0, 0.1);
+    color: var(--brand-orange);
+    font-size: 1.3rem;
+    font-weight: 800;
+  }
+  .dropzone:hover,
+  .dropzone:focus-visible,
+  .dropzone.dragover {
+    border-color: var(--brand-orange);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 242, 226, 0.96));
+    transform: translateY(-1px);
+  }
+  .order-group { margin-bottom: 18px; }
+  .order-group-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-weight: 800;
+    color: var(--ink-soft);
+    flex-wrap: wrap;
+  }
+  .order-group-header .count { font-family: var(--mono); color: var(--ink-dim); font-weight: 500; }
+  .order-row {
+    display: grid;
+    grid-template-columns: auto minmax(110px, 124px) minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F5F7FB 100%);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+  }
+  .order-row:hover { border-color: #B9C4D7; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    font-size: 0.78rem;
+    font-weight: 800;
+    padding: 5px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+  .badge.volledig { background: var(--green-bg); color: var(--green); }
+  .badge.gedeeltelijk { background: var(--amber-bg); color: var(--amber); }
+  .badge.niet { background: var(--red-bg); color: var(--red); }
+  .order-row .ordernr {
+    font-family: var(--mono);
+    font-weight: 800;
+    color: var(--brand-deep);
+    overflow-wrap: anywhere;
+  }
+  .order-row .klant {
+    min-width: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .order-row .regels,
+  .order-row .datum-lbl {
+    font-size: 0.83rem;
+    color: var(--ink-dim);
+    white-space: nowrap;
+  }
+  .filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+  .filters button {
+    appearance: none;
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 9px 14px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--ink-soft);
+    transition: all 0.18s ease;
+  }
+  .filters button.active {
+    background: var(--brand-deep);
+    border-color: var(--brand-deep);
+    color: #fff;
+  }
+  .empty { text-align: center; padding: 64px 20px; color: var(--ink-dim); }
+  .empty .big { font-size: 2.5rem; margin-bottom: 10px; }
+  .pick-shell {
+    background:
+      radial-gradient(circle at top right, rgba(161, 211, 248, 0.22), transparent 32%),
+      linear-gradient(160deg, #0F1320 0%, #171A62 100%);
+    border-radius: 22px;
+    padding: clamp(22px, 4vw, 34px);
+    color: #fff;
+    text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .pick-progress { font-family: var(--mono); color: rgba(255,255,255,0.68); font-size: 0.84rem; margin-bottom: 18px; }
+  .pick-location {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 8vw, 3.8rem);
+    font-weight: 900;
+    color: var(--brand-orange);
+    letter-spacing: 0.04em;
+    line-height: 1.05;
+    overflow-wrap: anywhere;
+    margin-bottom: 8px;
+  }
+  .pick-article { font-family: var(--mono); font-size: clamp(1rem, 3.5vw, 1.25rem); color: rgba(255,255,255,0.82); margin-bottom: 6px; overflow-wrap: anywhere; }
+  .pick-desc { font-size: clamp(1rem, 3.4vw, 1.1rem); margin-bottom: 18px; color: #fff; overflow-wrap: anywhere; }
+  .pick-qty {
+    display: inline-block;
+    max-width: 100%;
+    background: rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 14px 24px;
+    font-size: clamp(1.25rem, 5vw, 1.85rem);
+    font-weight: 900;
+    margin-bottom: 22px;
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+  .pick-flag {
+    background: var(--amber-bg);
+    color: #7A4300;
+    border: 1px solid #FFD5AE;
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    margin-bottom: 18px;
+    text-align: left;
+  }
+  .pick-nav { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .pick-nav button {
+    flex: 1 1 180px;
+    max-width: 260px;
+    min-height: 52px;
+    padding: 16px 18px;
+    border-radius: 16px;
+    border: none;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .pick-nav .next { background: var(--brand-orange); color: var(--accent-ink); }
+  .pick-nav .prev { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.12); }
+  .pick-nav .done { background: #2AA65A; color: #fff; }
+  .dots { display: flex; gap: 8px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,0.24); }
+  .dot.on { background: var(--brand-orange); }
+  .dot.done { background: #2AA65A; }
+  .detail-table-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #fff;
+  }
+  .detail-table {
+    width: 100%;
+    min-width: 900px;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+  }
+  .detail-table thead tr { text-align: left; color: var(--ink-dim); background: var(--panel-2); }
+  .detail-table th,
+  .detail-table td { padding: 10px 12px; vertical-align: top; }
+  .detail-table tbody tr { border-top: 1px solid var(--line); }
+  .detail-table td:nth-child(1),
+  .detail-table td:nth-child(8) { font-family: var(--mono); }
+  .toast {
+    position: fixed;
+    left: 50%;
+    bottom: max(20px, env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    background: rgba(15, 19, 32, 0.94);
+    color: #fff;
+    padding: 12px 18px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    text-align: center;
+    box-shadow: 0 16px 34px rgba(15, 19, 32, 0.28);
+    z-index: 50;
+    max-width: min(calc(100vw - 24px), 640px);
+  }
+  code {
+    font-family: var(--mono);
+    background: var(--panel-3);
+    padding: 0.15em 0.45em;
+    border-radius: 999px;
+    color: var(--brand-deep);
+  }
+  @media (max-width: 1080px) {
+    .topbar { align-items: flex-start; }
+    .header-meta { width: 100%; justify-content: flex-start; }
+    nav { justify-content: flex-start; }
+    .order-row {
+      grid-template-columns: auto minmax(105px, 120px) minmax(0, 1fr) auto auto;
+      grid-template-areas:
+        "check order klant badge1 action"
+        "check order meta badge2 action";
+    }
+  }
+  @media (max-width: 820px) {
+    .topbar { flex-direction: column; align-items: stretch; }
+    .brand-shell { justify-content: space-between; }
+    .header-meta { justify-content: stretch; }
+    .status-pill { width: 100%; }
+    nav { width: 100%; }
+    nav button { flex: 1 1 calc(50% - 8px); justify-content: center; }
+    .upload-row { flex-direction: column; align-items: flex-start; }
+    .upload-row .btn { width: 100%; }
+    .order-row {
+      grid-template-columns: 1fr;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .order-row > * { width: 100%; }
+    .order-row input[type="checkbox"] { width: 20px; height: 20px; }
+    .order-row .regels,
+    .order-row .datum-lbl { white-space: normal; }
+    .pick-nav button { max-width: none; }
+  }
+  @media (max-width: 640px) {
+    main { padding: 14px; }
+    .brand-logo { width: 128px; }
+    .brand-copy b { font-size: 0.98rem; }
+    nav button { flex: 1 1 100%; }
+    .filters button,
+    .btn { width: 100%; }
+    .filters { display: grid; grid-template-columns: 1fr; }
+    .signal-row,
+    .kpi-grid { grid-template-columns: 1fr; }
+    .pick-shell { padding: 18px; }
+    .pick-nav { flex-direction: column; }
+    .pick-nav button { width: 100%; flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand-shell">
+      <img class="brand-logo" src="https://esprit-ict.nl/werken-bij/wp-content/uploads/sites/5/2024/07/EspritICT-Logo-Dark-Full-Colour.svg" alt="Esprit ICT logo" onerror="this.style.display='none'">
+      <div class="brand-copy">
+        <b>Orderpick Portaal</b>
+        <span>Esprit ICT · dagelijkse orderverwerking, picking en ordercontrole</span>
+      </div>
+    </div>
+    <div class="header-meta">
+      <div class="status-pill" id="lastImportLabel">Nog geen import</div>
+      <nav id="nav" aria-label="Hoofdnavigatie"></nav>
+    </div>
+  </header>
+  <main id="main"></main>
+</div>
+
+<script>
+// Kleurregels (uit NIET_BEWERKEN - Excel_regels) worden nu geupload i.p.v. hardcoded.
+// Zonder upload gebeurt er geen automatische uitzondering: alles wordt puur op
+// voorraad beoordeeld (veilige default, niets stilzwijgend goedgekeurd).
+const GROEP_VOLGORDE = { "Prio's": 0, "Prio": 0, "InControl": 1, "Overig": 2 };
+
+const SIGNAAL_LABELS = {
+  volledig: '🟢 Uit te geven',
+  gedeeltelijk: '🟡 Gedeeltelijk',
+  niet: '🔴 Niet leverbaar',
+  wacht_op_voorraad: '🟡 Wacht op voorraad',
+  klaar_uit_te_leveren: '📦 Klaar om uit te leveren (excl. retour)',
+  retour: '↩️ Terug te boeken',
+  zonder_locatie: '📍 Zonder locatie',
+  zonder_voorraadreg: '📦 Zonder voorraadregistratie',
+  snel_vrij: '✅ Snel vrij te geven',
+  gepickt: '✔ Gepickt',
+  nog_te_picken: '🕓 Nog te picken',
+};
+function signaalMatch(o, key, gepicktMap) {
+  switch (key) {
+    case 'volledig': return o.status === 'volledig';
+    case 'gedeeltelijk': return o.status === 'gedeeltelijk';
+    case 'niet': return o.status === 'niet';
+    case 'wacht_op_voorraad': return o.status === 'niet' || o.status === 'gedeeltelijk';
+    case 'klaar_uit_te_leveren': return o.status === 'volledig' && o.heeftPickRegels && !o.heeftRetour;
+    case 'retour': return o.heeftRetour;
+    case 'zonder_locatie': return o.zonderLocatie;
+    case 'zonder_voorraadreg': return o.zonderVoorraadregistratie;
+    case 'snel_vrij': return o.alleenNietVoorraad;
+    case 'gepickt': return !!gepicktMap[o.orderNr];
+    case 'nog_te_picken': return !gepicktMap[o.orderNr];
+    default: return true;
+  }
+}
+
+const storageFallback = {
+  async get(key) {
+    try {
+      const value = localStorage.getItem(key);
+      return value === null ? null : { value };
+    } catch (e) {
+      return null;
+    }
+  },
+  async set(key, value) {
+    try {
+      localStorage.setItem(key, value);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+};
+const externalPersist = (window.storage && typeof window.storage.get === 'function' && typeof window.storage.set === 'function')
+  ? window.storage
+  : null;
+const persist = externalPersist || storageFallback;
+
+const state = {
+  tab: 'dashboard',
+  config: { artikellocaties: {}, klanten: {}, uitgeslotenArtikelen: [], uitgeslotenKlanten: [], kleurregels: [], meta: {} },
+  orders: null,        // processed order objects
+  regels: null,        // processed line objects
+  gepickt: {},         // ordernr -> true
+  filterGroep: 'alle',
+  filterSignalen: new Set(),  // actieve signaal-filters (AND-combinatie)
+  zoekterm: '',
+  geselecteerd: new Set(),    // ordernrs geselecteerd voor export/mail
+  uitgeklapt: new Set(),      // ordernrs met opengeklapt detail
+  pickOrder: null,
+  pickIndex: 0,
+  pickSort: 'groep',   // 'groep' | 'datum' | 'alfabetisch'
+  configBron: null,  // 'orderpick-config.json (automatisch geladen)' | 'JSON-bestand (handmatig geladen)' | null
+};
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+
+// ---------- persistence ----------
+async function loadPersisted() {
+  try {
+    const cfg = await persist.get('config');
+    if (cfg) state.config = JSON.parse(cfg.value);
+  } catch (e) {}
+  try {
+    const g = await persist.get('gepickt');
+    if (g) state.gepickt = JSON.parse(g.value);
+  } catch (e) {}
+  try {
+    const imp = await persist.get('laatste-import');
+    if (imp) {
+      const data = JSON.parse(imp.value);
+      state.regels = data.regels;
+      state.orders = data.orders;
+      document.getElementById('lastImportLabel').textContent =
+        'laatste import: ' + new Date(data.timestamp).toLocaleString('nl-NL');
+    }
+  } catch (e) {}
+}
+async function saveConfig() {
+  try { await persist.set('config', JSON.stringify(state.config)); } catch (e) { console.error(e); }
+}
+async function saveGepickt() {
+  try { await persist.set('gepickt', JSON.stringify(state.gepickt)); } catch (e) {}
+}
+
+function downloadConfigJSON() {
+  const blob = new Blob([JSON.stringify(state.config, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'orderpick-config.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast('Gedownload als orderpick-config.json — vervang hiermee het bestand in de gedeelde map.');
+}
+
+// Genereert één zelfstandig HTML-bestand voor de picking-medewerkers: alleen
+// de orders die nu volledig gepickt kunnen worden, met dezelfde sorteer- en
+// stap-voor-stap pickflow als hierboven, maar zonder upload/dashboard/beheer.
+// Is een zelfstandig HTML-bestand met ingebakken data - simpel
+// te delen via mail/Teams en direct te openen op een iPad.
+function genereerMedewerkerBestand() {
+  const orders = state.orders || [];
+  if (!orders.length) { toast('Nog geen import. Ga eerst naar Dashboard.'); return; }
+
+  const pickbaar = orders
+    .filter(o => o.status === 'volledig' && o.heeftPickRegels)
+    .map(o => ({
+      orderNr: o.orderNr, naam: o.naam || '', groep: o.groep, datum: o.datum,
+      heeftRetour: o.heeftRetour,
+      pickRegels: o.pickRegels.map(r => ({
+        artikel: r.artikel, omschrijving: r.omschrijving || '', aantal: r.aantal,
+        locatie: r.locatie, ok: r.ok, label: r.label,
+      })),
+    }));
+
+  if (!pickbaar.length) { toast('Geen pickbare orders om te exporteren.'); return; }
+
+  const nu = new Date();
+  const gegenereerdOp = nu.toISOString();
+  const labelDatum = nu.toLocaleString('nl-NL');
+  const bestandsDatum = nu.toISOString().slice(0, 10);
+
+  const html = MEDEWERKER_TEMPLATE
+    .split('__GEGENEREERD_OP__').join(gegenereerdOp)
+    .split('__LABEL_DATUM__').join(labelDatum)
+    .split('__DATA__').join(JSON.stringify(pickbaar));
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `picklijst-medewerkers_${bestandsDatum}.html`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast(`Picklijst gegenereerd (${pickbaar.length} orders) — deel dit bestand met de medewerkers.`);
+}
+
+const MEDEWERKER_TEMPLATE = `<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Esprit ICT · Picklijst</title>
+<link rel="icon" type="image/png" href="https://esprit-ict.nl/werken-bij/wp-content/uploads/sites/5/2024/06/cropped-favicon_v2-32x32.png">
+<style>
+  :root {
+    --brand-orange: #FF8200;
+    --brand-deep: #171A62;
+    --brand-blue: #A1D3F8;
+    --panel: #FFFFFF;
+    --panel-2: #F5F7FB;
+    --line: #D6DCE8;
+    --ink: #111827;
+    --ink-dim: #637086;
+    --green: #186217;
+    --green-bg: #E9F9C6;
+    --amber: #A15A00;
+    --amber-bg: #FFF2E2;
+    --shell: #0F1320;
+    --shell-2: #171A62;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: var(--sans);
+    color: var(--ink);
+    background:
+      radial-gradient(circle at top right, rgba(161, 211, 248, 0.28), transparent 34%),
+      linear-gradient(180deg, #EDF2FA 0%, #F8FAFD 240px, #F4F6FB 100%);
+  }
+  img { display: block; max-width: 100%; }
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px clamp(14px, 3vw, 24px);
+    background: rgba(15, 19, 32, 0.94);
+    border-bottom: 4px solid var(--brand-orange);
+    color: #fff;
+    backdrop-filter: blur(10px);
+  }
+  .header-brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .header-brand img { width: clamp(130px, 22vw, 180px); height: auto; }
+  .header-brand-copy { min-width: 0; }
+  .header-brand-copy .title { font-weight: 800; font-size: 1rem; }
+  .header-brand-copy .sub { margin-top: 4px; font-size: 0.8rem; color: rgba(255,255,255,0.72); }
+  .header-meta { font-family: var(--mono); font-size: 0.8rem; color: rgba(255,255,255,0.76); }
+  main { max-width: 900px; margin: 0 auto; padding: 16px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+  .card {
+    background: rgba(255,255,255,0.94);
+    border: 1px solid rgba(23, 26, 98, 0.08);
+    border-radius: 22px;
+    padding: clamp(16px, 3vw, 24px);
+    margin-bottom: 16px;
+    box-shadow: 0 18px 40px rgba(17, 24, 39, 0.12);
+  }
+  h2 { margin: 0 0 6px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.16em; color: var(--brand-deep); }
+  h3 { margin: 0 0 12px; font-size: clamp(1.15rem, 2.2vw, 1.45rem); }
+  .meta-line { font-size: 0.92rem; color: var(--ink-dim); margin-bottom: 14px; }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filters button {
+    appearance: none;
+    background: #fff;
+    border: 1px solid var(--line);
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    color: var(--brand-deep);
+  }
+  .filters button.active { background: var(--brand-deep); border-color: var(--brand-deep); color: #fff; }
+  .order-group-header {
+    font-weight: 800;
+    font-size: 0.95rem;
+    margin: 18px 0 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink);
+  }
+  .order-group-header .count { font-family: var(--mono); color: var(--ink-dim); font-weight: 500; text-transform: none; }
+  .order-row {
+    display: grid;
+    grid-template-columns: minmax(86px, 102px) minmax(0, 1fr) auto auto auto;
+    align-items: center;
+    gap: 12px;
+    background: linear-gradient(180deg, #FFFFFF 0%, #F5F7FB 100%);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    cursor: pointer;
+  }
+  .order-row .ordernr { font-family: var(--mono); font-weight: 800; color: var(--brand-deep); overflow-wrap: anywhere; }
+  .order-row .klant { min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+  .order-row .regels,
+  .order-row .datum-lbl { font-size: 0.84rem; color: var(--ink-dim); }
+  .badge { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 5px 10px; border-radius: 999px; font-size: 0.78rem; font-weight: 800; white-space: nowrap; }
+  .badge.volledig { background: var(--green-bg); color: var(--green); }
+  .badge.gedeeltelijk { background: var(--amber-bg); color: var(--amber); }
+  .empty { text-align: center; padding: 56px 20px; color: var(--ink-dim); }
+  .empty .big { font-size: 2.5rem; margin-bottom: 10px; }
+  .pick-shell {
+    background:
+      radial-gradient(circle at top right, rgba(161, 211, 248, 0.22), transparent 32%),
+      linear-gradient(160deg, #0F1320 0%, #171A62 100%);
+    border-radius: 20px;
+    padding: clamp(20px, 4vw, 30px);
+    color: #fff;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .pick-progress { font-family: var(--mono); color: rgba(255,255,255,0.68); font-size: 0.84rem; margin-bottom: 18px; }
+  .pick-location { font-family: var(--mono); font-size: clamp(2rem, 8vw, 3.5rem); font-weight: 900; color: var(--brand-orange); margin-bottom: 8px; line-height: 1.05; overflow-wrap: anywhere; }
+  .pick-article { font-family: var(--mono); font-size: clamp(1rem, 3.4vw, 1.2rem); color: rgba(255,255,255,0.82); margin-bottom: 6px; overflow-wrap: anywhere; }
+  .pick-desc { font-size: clamp(1rem, 3vw, 1.08rem); margin-bottom: 18px; overflow-wrap: anywhere; }
+  .pick-qty {
+    font-size: clamp(1.2rem, 4.4vw, 1.8rem);
+    font-weight: 900;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    display: inline-block;
+    max-width: 100%;
+  }
+  .pick-flag { background: var(--amber-bg); color: #7A4300; border-radius: 14px; padding: 12px 14px; font-size: 0.92rem; margin-bottom: 20px; border: 1px solid #FFD5AE; text-align: left; }
+  .pick-nav { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .pick-nav button {
+    border: none;
+    border-radius: 16px;
+    padding: 15px 20px;
+    min-height: 52px;
+    font-size: 1rem;
+    font-weight: 800;
+    cursor: pointer;
+    flex: 1 1 180px;
+    max-width: 240px;
+  }
+  .pick-nav .next { background: var(--brand-orange); color: #111827; }
+  .pick-nav .prev { background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.14); }
+  .pick-nav .done { background: #2AA65A; color: #fff; }
+  .dots { display: flex; gap: 7px; justify-content: center; margin-top: 22px; flex-wrap: wrap; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: rgba(255,255,255,0.24); }
+  .dot.on { background: var(--brand-orange); }
+  .dot.done { background: #2AA65A; }
+  .btn.ghost {
+    appearance: none;
+    background: #fff;
+    color: var(--brand-deep);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 9px 14px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  @media (max-width: 760px) {
+    header { flex-direction: column; align-items: flex-start; }
+    .header-meta { width: 100%; }
+    .order-row { grid-template-columns: 1fr; align-items: flex-start; }
+    .order-row > * { width: 100%; }
+    .pick-nav button { max-width: none; }
+  }
+  @media (max-width: 560px) {
+    main { padding: 14px; }
+    .filters { display: grid; grid-template-columns: 1fr; }
+    .filters button { width: 100%; }
+    .pick-nav { flex-direction: column; }
+    .pick-nav button { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="header-brand">
+    <img src="https://esprit-ict.nl/werken-bij/wp-content/uploads/sites/5/2024/07/EspritICT-Logo-Dark-Full-Colour.svg" alt="Esprit ICT logo" onerror="this.style.display='none'">
+    <div class="header-brand-copy">
+      <div class="title">Picklijst medewerkers</div>
+      <div class="sub">Esprit ICT · __LABEL_DATUM__</div>
+    </div>
+  </div>
+  <div class="header-meta">batch: __LABEL_DATUM__</div>
+</header>
+<main id="app"></main>
+<script>
+const DATA = __DATA__;
+const GEGENEREERD_OP = '__GEGENEREERD_OP__';
+const BATCH_KEY = 'picklijst_gepickt_' + GEGENEREERD_OP;
+const GROEP_VOLGORDE = { "Prio's": 0, "Prio": 0, "InControl": 1, "Overig": 2 };
+
+let gepickt = {};
+try { gepickt = JSON.parse(localStorage.getItem(BATCH_KEY) || '{}'); } catch (e) {}
+function saveGepickt() { try { localStorage.setItem(BATCH_KEY, JSON.stringify(gepickt)); } catch (e) {} }
+function sortGroepenLijst(groepen) {
+  return groepen.slice().sort(function(a, b) {
+    const ga = GROEP_VOLGORDE[a] ?? 9;
+    const gb = GROEP_VOLGORDE[b] ?? 9;
+    if (ga !== gb) return ga - gb;
+    return String(a || '').localeCompare(String(b || ''), 'nl', { sensitivity: 'base' });
+  });
+}
+
+let sortMode = 'groep';
+let huidigeOrder = null;
+let huidigeIndex = 0;
+
+function render() {
+  const app = document.getElementById('app');
+  if (!huidigeOrder) {
+    const nogTePicken = DATA.filter(function(o) { return !gepickt[o.orderNr]; });
+    const algepickt = DATA.filter(function(o) { return gepickt[o.orderNr]; });
+
+    let html = '<div class="card">';
+    html += '<h2>Pickoverzicht</h2>';
+    html += '<h3>Kies een order om te starten</h3>';
+    html += '<div class="meta-line">' + nogTePicken.length + ' nog te picken' + (algepickt.length ? (', ' + algepickt.length + ' al gepickt') : '') + '</div>';
+
+    html += '<div class="filters">' + [['groep','Prioriteit'],['datum','Datum'],['alfabetisch','Alfabetisch']].map(function(p) {
+      return '<button data-sort="' + p[0] + '" class="' + (sortMode === p[0] ? 'active' : '') + '">' + p[1] + '</button>';
+    }).join('') + '</div>';
+
+    function rowHtml(ord, isPrioriteit, toonDatum, isDone) {
+      return '<div class="order-row" data-open="' + ord.orderNr + '" style="' + (isPrioriteit ? 'border-left:4px solid var(--brand-orange);' : '') + (isDone ? 'opacity:.68;' : '') + '">' +
+        '<span class="ordernr">' + ord.orderNr + '</span>' +
+        '<span class="klant">' + (ord.naam || '') + (isPrioriteit ? ' ⭐' : '') + '</span>' +
+        (toonDatum && ord.datum ? '<span class="datum-lbl">' + new Date(ord.datum).toLocaleDateString('nl-NL') + '</span>' : '') +
+        '<span class="regels">' + ord.pickRegels.length + ' regels</span>' +
+        (ord.heeftRetour ? '<span class="badge gedeeltelijk">↩️ Ook retour</span>' : '') +
+        '<span class="badge volledig">' + (isDone ? '✔ Gepickt' : '🟢 Uit te geven') + '</span>' +
+      '</div>';
+    }
+
+    if (!nogTePicken.length && !algepickt.length) {
+      html += '<div class="empty"><div class="big">📭</div>Geen orders in deze picklijst.</div>';
+    } else if (sortMode === 'groep') {
+      const groepen = sortGroepenLijst(Array.from(new Set(nogTePicken.map(function(o){ return o.groep; }))));
+      groepen.forEach(function(g) {
+        const inGroep = nogTePicken.filter(function(o){ return o.groep === g; });
+        const isPrioriteit = (GROEP_VOLGORDE[g] ?? 9) <= 1;
+        html += '<div class="order-group-header" style="' + (isPrioriteit ? 'color:var(--brand-deep);' : '') + '">' +
+          (isPrioriteit ? '⭐ ' : '') + g + ' <span class="count">(' + inGroep.length + ' orders)</span></div>';
+        inGroep.forEach(function(ord) { html += rowHtml(ord, isPrioriteit, false, false); });
+      });
+    } else {
+      const gesorteerd = nogTePicken.slice().sort(function(a, b) {
+        if (sortMode === 'datum') return new Date(a.datum || 0) - new Date(b.datum || 0);
+        return String(a.naam || '').localeCompare(String(b.naam || ''), 'nl', { sensitivity: 'base' });
+      });
+      gesorteerd.forEach(function(ord) {
+        const isPrioriteit = (GROEP_VOLGORDE[ord.groep] ?? 9) <= 1;
+        html += rowHtml(ord, isPrioriteit, sortMode === 'datum', false);
+      });
+    }
+
+    if (algepickt.length) {
+      html += '<div class="order-group-header" style="margin-top:18px;">Al gepickt <span class="count">(' + algepickt.length + ' orders)</span></div>';
+      algepickt.forEach(function(ord) {
+        const isPrioriteit = (GROEP_VOLGORDE[ord.groep] ?? 9) <= 1;
+        html += rowHtml(ord, isPrioriteit, sortMode === 'datum', true);
+      });
+    }
+    html += '</div>';
+    app.innerHTML = html;
+
+    app.querySelectorAll('[data-sort]').forEach(function(b) {
+      b.onclick = function() { sortMode = b.dataset.sort; render(); };
+    });
+    app.querySelectorAll('[data-open]').forEach(function(b) {
+      b.onclick = function() {
+        huidigeOrder = DATA.find(function(o) { return String(o.orderNr) === String(b.dataset.open); });
+        huidigeIndex = 0;
+        render();
+      };
+    });
+    return;
+  }
+
+  const o = huidigeOrder;
+  const idx = huidigeIndex;
+  const regel = o.pickRegels[idx];
+  const isLast = idx === o.pickRegels.length - 1;
+
+  let html = '<div class="card">' +
+    '<h2>Order ' + o.orderNr + ' · ' + (o.naam || '') + ' <button data-terug="1" class="btn ghost" style="margin-left:10px;">← Terug naar lijst</button></h2>' +
+    (o.heeftRetour ? '<div class="pick-flag" style="margin-bottom:14px;">↩️ Dit order heeft ook een retourregel. Die hoort niet bij het picken en moet apart worden teruggeboekt.</div>' : '') +
+    '<div class="pick-shell">' +
+      '<div class="pick-progress">ARTIKEL ' + (idx + 1) + ' VAN ' + o.pickRegels.length + '</div>' +
+      '<div class="pick-location">' + regel.locatie + '</div>' +
+      '<div class="pick-article">' + regel.artikel + '</div>' +
+      '<div class="pick-desc">' + (regel.omschrijving || '') + '</div>' +
+      '<div class="pick-qty">Pak ' + regel.aantal + ' stuks</div>' +
+      (!regel.ok ? '<div class="pick-flag">⚠ ' + regel.label + '</div>' : '') +
+      '<div class="pick-nav">' +
+        '<button class="prev" data-nav="prev"' + (idx === 0 ? ' disabled style="opacity:.4"' : '') + '>← Vorige</button>' +
+        (isLast ? '<button class="done" data-nav="gereed">Order gereed ✔</button>' : '<button class="next" data-nav="next">Volgende →</button>') +
+      '</div>' +
+      '<div class="dots">' + o.pickRegels.map(function(r, i) {
+        return '<div class="dot ' + (i === idx ? 'on' : (i < idx ? 'done' : '')) + '"></div>';
+      }).join('') + '</div>' +
+    '</div>' +
+  '</div>';
+
+  app.innerHTML = html;
+  app.querySelector('[data-terug]').onclick = function() { huidigeOrder = null; render(); };
+  app.querySelectorAll('[data-nav]').forEach(function(navBtn) {
+    navBtn.onclick = function() {
+      const action = navBtn.dataset.nav;
+      if (action === 'prev' && huidigeIndex > 0) huidigeIndex--;
+      else if (action === 'next' && huidigeIndex < huidigeOrder.pickRegels.length - 1) huidigeIndex++;
+      else if (action === 'gereed') {
+        gepickt[huidigeOrder.orderNr] = true;
+        saveGepickt();
+        huidigeOrder = null;
+      }
+      render();
+    };
+  });
+}
+
+render();
+<\/script>
+</body>
+</html>`;
+
+
+async function laadConfigVanuitJSON(file) {
+  try {
+    const parsed = JSON.parse(await file.text());
+    state.config = parsed;
+    state.configBron = 'JSON-bestand (handmatig geladen)';
+    await saveConfig();
+    toast('Configuratie geladen vanuit JSON-bestand');
+    render();
+  } catch (e) {
+    toast('Kon JSON-bestand niet lezen: ' + e.message);
+  }
+}
+
+// Bij het openen van de portal: probeer automatisch orderpick-config.json te
+// laden als die naast deze pagina staat (werkt zodra dit gehost wordt; bij
+// lokaal openen als bestand (file://) blokkeert de browser dit meestal - dan
+// blijft de laatst opgeslagen configuratie in deze browser gewoon gelden).
+async function probeerAutomatischeConfigJSON() {
+  try {
+    const res = await fetch('./orderpick-config.json', { cache: 'no-store' });
+    if (!res.ok) return;
+    const parsed = await res.json();
+    state.config = parsed;
+    state.configBron = 'orderpick-config.json (automatisch geladen)';
+    await saveConfig();
+  } catch (e) {
+    // stil negeren: verwacht bij file:// of als het bestand er nog niet is
+  }
+}
+async function saveImport() {
+  try {
+    await persist.set('laatste-import', JSON.stringify({
+      regels: state.regels, orders: state.orders, timestamp: Date.now()
+    }));
+  } catch (e) { console.error(e); }
+}
+
+// ---------- excel parsing helpers ----------
+function readWorkbook(file) {
+  if (!isXlsxBeschikbaar()) {
+    return Promise.reject(new Error('Excel-library kon niet worden geladen. Open het portaal in een normale browser of via de live preview.'));
+  }
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try { resolve(XLSX.read(new Uint8Array(e.target.result), { type: 'array', cellDates: true })); }
+      catch (err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+async function handleArtikelweergave(file) {
+  const wb = await readWorkbook(file);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+  const map = {};
+  let metLocatie = 0;
+  for (const r of rows) {
+    const code = String(r['Artikelcode'] ?? '').trim();
+    const loc = r['Locatie DBC'];
+    if (code && loc) { map[code] = String(loc).trim(); metLocatie++; }
+  }
+  state.config.artikellocaties = map;
+  state.config.meta.artikelweergave = { bestand: file.name, aantal: rows.length, metLocatie, tijd: Date.now() };
+  await saveConfig();
+  toast(`Artikelweergave verwerkt: ${rows.length} artikelen, ${metLocatie} met locatie`);
+  render();
+}
+
+async function handleKlantenlijst(file) {
+  const wb = await readWorkbook(file);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  // header staat op rij 2 (index 1)
+  const rows = XLSX.utils.sheet_to_json(ws, { range: 1, defval: null });
+  const map = {};
+  for (const r of rows) {
+    const nr = r['Klantnummer'];
+    if (nr == null) continue;
+    map[String(nr).trim()] = r['Groep'] || 'Overig';
+  }
+  state.config.klanten = map;
+  state.config.meta.klantenlijst = { bestand: file.name, aantal: Object.keys(map).length, tijd: Date.now() };
+  await saveConfig();
+  toast(`Klantenlijst verwerkt: ${Object.keys(map).length} klanten`);
+  render();
+}
+
+async function handlePQRegels(file) {
+  const wb = await readWorkbook(file);
+  const artikelenSet = new Set();
+  if (wb.SheetNames.includes('Filter artikelen')) {
+    const ws = wb.Sheets['Filter artikelen'];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: null });
+    for (const r of rows) {
+      for (const k of Object.keys(r)) {
+        if (r[k]) artikelenSet.add(String(r[k]).trim());
+      }
+    }
+  }
+  const klantenSet = new Set();
+  if (wb.SheetNames.includes('Filter klanten')) {
+    const ws = wb.Sheets['Filter klanten'];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+    for (const row of rows) {
+      for (let i = 1; i < row.length; i++) {
+        if (row[i] !== null && row[i] !== '') klantenSet.add(String(row[i]).trim());
+      }
+    }
+  }
+  state.config.uitgeslotenArtikelen = [...artikelenSet];
+  state.config.uitgeslotenKlanten = [...klantenSet];
+  state.config.meta.pqRegels = { bestand: file.name, artikelen: artikelenSet.size, klanten: klantenSet.size, tijd: Date.now() };
+  await saveConfig();
+  toast(`Uitsluitingsregels verwerkt: ${artikelenSet.size} artikelen, ${klantenSet.size} klanten`);
+  render();
+}
+
+// Parseert "NIET BEWERKEN - Excel_regels": rijen van de vorm
+// Kolom: <veld> | Celwaarde = <waarde> / Celwaarde bevat <waarde> | Kleur: <kleur>
+async function handleExcelRegels(file) {
+  const wb = await readWorkbook(file);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+  const regels = [];
+  for (const row of rows) {
+    const kolomCel = row[1], condCel = row[2], kleurCel = row[3];
+    if (typeof kolomCel !== 'string' || !kolomCel.startsWith('Kolom:')) continue; // titelrij overslaan
+    const kolom = kolomCel.replace('Kolom:', '').trim();
+    const kleur = String(kleurCel || '').replace('Kleur:', '').trim();
+    const condStr = String(condCel || '').replace('Celwaarde', '').trim();
+    let operator = null, waarde = null;
+    if (condStr.startsWith('bevat')) { operator = 'bevat'; waarde = condStr.replace('bevat', '').trim(); }
+    else if (condStr.startsWith('=')) { operator = '='; waarde = condStr.replace('=', '').trim(); }
+    if (kolom && operator && waarde) regels.push({ kolom, operator, waarde, kleur });
+  }
+  state.config.kleurregels = regels;
+  state.config.meta.excelRegels = { bestand: file.name, aantal: regels.length, tijd: Date.now() };
+  await saveConfig();
+  toast(`Kleurregels verwerkt: ${regels.length} regels`);
+  render();
+}
+
+function evalRegel(row, regel) {
+  const veldwaarde = row[regel.kolom];
+  if (regel.operator === 'bevat') {
+    return String(veldwaarde ?? '').toLowerCase().includes(regel.waarde.toLowerCase());
+  }
+  // operator '='
+  const num = Number(regel.waarde);
+  if (!Number.isNaN(num) && veldwaarde !== null && veldwaarde !== undefined && veldwaarde !== '') {
+    return Number(veldwaarde) === num;
+  }
+  return String(veldwaarde ?? '').trim().toLowerCase() === regel.waarde.trim().toLowerCase();
+}
+
+function regelStatus(row, kleurregels) {
+  const regels = kleurregels || [];
+  const aantal = row['Aantal te leveren'] ?? 0;
+
+  // Retourregel: negatief aantal betekent dat hardware teruggeboekt moet
+  // worden op voorraad. Dit is geen "onvoldoende voorraad"-geval en ook geen
+  // gewone pickregel - altijd apart zichtbaar maken, nooit laten meeliften
+  // in een generiek "ok"-label.
+  if (aantal < 0) {
+    return { ok: true, retour: true, label: `Retour: ${Math.abs(aantal)} stuks terugboeken op voorraad` };
+  }
+
+  const groenMatch = regels.find(r => r.kleur.toLowerCase() === 'groen' && evalRegel(row, r));
+  if (groenMatch) {
+    return { ok: true, retour: false, label: `Uitzondering (${groenMatch.kolom} ${groenMatch.operator === 'bevat' ? 'bevat' : '='} "${groenMatch.waarde}")` };
+  }
+
+  const vrdRuw = row['Vrd.'];
+  const vrd = (vrdRuw === null || vrdRuw === undefined) ? 0 : vrdRuw;
+  const ok = vrd >= aantal;
+
+  const labels = [];
+  const geelMatch = regels.find(r => r.kleur.toLowerCase() === 'geel' && evalRegel(row, r));
+  if (geelMatch) labels.push('Let op: artikel op aandachtslijst');
+  if (!ok) {
+    if (vrdRuw === null || vrdRuw === undefined) labels.push('Geen voorraadregistratie (mogelijk niet-voorraadhoudend artikel)');
+    else labels.push('Onvoldoende voorraad');
+  }
+  return { ok, retour: false, label: labels.join('; ') };
+}
+
+async function handleVerkoopregels(file) {
+  if (!state.config.meta.artikelweergave || !state.config.meta.klantenlijst) {
+    toast('Upload eerst Artikelweergave en Klantenlijst bij Beheer.');
+    return;
+  }
+  const wb = await readWorkbook(file);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rawRows = XLSX.utils.sheet_to_json(ws, { defval: null });
+
+  const uitArt = new Set(state.config.uitgeslotenArtikelen || []);
+  const uitKlant = new Set(state.config.uitgeslotenKlanten || []);
+  const voor = rawRows.length;
+
+  const regels = rawRows
+    .filter(r => !uitArt.has(String(r['Artikel'] ?? '')))
+    .filter(r => !uitKlant.has(String(r['Vrk.rel.'] ?? '')))
+    .map(r => {
+      const klantnr = String(r['Vrk.rel.'] ?? '');
+      const groep = state.config.klanten[klantnr] || 'Overig';
+      const locatie = state.config.artikellocaties[String(r['Artikel'] ?? '')] || 'Geen locatie gekoppeld';
+      const status = regelStatus(r, state.config.kleurregels);
+      // Vrd. ontbreekt (null/undefined) bij niet-voorraadhoudende regels zoals
+      // handling/service-regels; die hebben nooit een fysieke magazijnlocatie
+      // nodig, dus tellen niet mee voor het "zonder locatie"-signaal.
+      const isHardware = r['Vrd.'] !== null && r['Vrd.'] !== undefined;
+      return {
+        orderNr: r['OrderNr.'], artikel: r['Artikel'], naam: r['Naam'],
+        omschrijving: r['Omschrijving'], aantal: r['Aantal te leveren'] ?? 0,
+        vrd: r['Vrd.'], inBestel: r['In bestel.'], groep, locatie, isHardware,
+        ok: status.ok, label: status.label, retour: status.retour,
+        datum: r['Datum'], geleverd: r['Geleverd'], totGereserveerd: r['Tot. gereserv.'],
+        opdrachtnrReferentie: r['Opdrachtnr./referentie'], magazijn: r['Magazijn'],
+        toegevoegdDoor: r['Toegevoegd door'], accountmanager: r['Accountmanager'],
+        emailTrackTrace: r['E-mail Track&Trace'],
+      };
+    });
+
+  // groepeer per order
+  const orderMap = {};
+  for (const r of regels) {
+    if (!orderMap[r.orderNr]) orderMap[r.orderNr] = {
+      orderNr: r.orderNr, naam: r.naam, groep: r.groep, regels: [],
+      datum: r.datum, accountmanager: r.accountmanager, emailTrackTrace: r.emailTrackTrace,
+      opdrachtnrReferentie: r.opdrachtnrReferentie, toegevoegdDoor: r.toegevoegdDoor,
+    };
+    orderMap[r.orderNr].regels.push(r);
+  }
+  const orders = Object.values(orderMap).map(o => {
+    const totaal = o.regels.length;
+    const okCount = o.regels.filter(r => r.ok).length;
+    let status = 'niet';
+    if (okCount === totaal) status = 'volledig';
+    else if (okCount > 0) status = 'gedeeltelijk';
+    o.regels.sort((a, b) => String(a.locatie).localeCompare(String(b.locatie), 'nl', { numeric: true, sensitivity: 'base' }));
+    o.status = status;
+    o.okCount = okCount; o.totaal = totaal;
+
+    // vooraf berekende signalen, herbruikt door dashboard-KPI's en filters
+    const falend = o.regels.filter(r => !r.ok);
+    o.heeftRetour = o.regels.some(r => r.retour);
+    o.zonderLocatie = o.regels.some(r => r.isHardware && r.locatie === 'Geen locatie gekoppeld');
+    o.zonderVoorraadregistratie = o.regels.some(r => r.label.includes('Geen voorraadregistratie'));
+    o.alleenNietVoorraad = falend.length > 0 && falend.every(r => r.label.includes('Geen voorraadregistratie'));
+    // Regels om daadwerkelijk te picken: retourregels (aantal <= 0) horen hier
+    // niet bij, dat is "terugboeken op voorraad", geen pickactie.
+    o.pickRegels = o.regels.filter(r => r.aantal > 0);
+    o.heeftPickRegels = o.pickRegels.length > 0;
+    return o;
+  }).sort((a, b) => {
+    const ga = GROEP_VOLGORDE[a.groep] ?? 9, gb = GROEP_VOLGORDE[b.groep] ?? 9;
+    if (ga !== gb) return ga - gb;
+    return String(a.orderNr).localeCompare(String(b.orderNr), 'nl', { numeric: true, sensitivity: 'base' });
+  });
+
+  state.regels = regels;
+  state.orders = orders;
+  document.getElementById('lastImportLabel').textContent = 'laatste import: ' + new Date().toLocaleString('nl-NL');
+  await saveImport();
+  toast(`Import verwerkt: ${voor} → ${regels.length} regels, ${orders.length} orders`);
+  render();
+}
+
+function fileInput(accept, onFile) {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = accept;
+  inp.onchange = async (e) => {
+    if (!e.target.files[0]) return;
+    try {
+      await onFile(e.target.files[0]);
+    } catch (err) {
+      console.error(err);
+      toast(err && err.message ? err.message : 'Bestand kon niet worden verwerkt.');
+    }
+  };
+  return inp;
+}
+
+// ---------- views ----------
+
+function isXlsxBeschikbaar() {
+  return typeof window.XLSX !== 'undefined';
+}
+
+function compatibiliteitsWaarschuwing() {
+  if (isXlsxBeschikbaar()) return '';
+  return `<div class="card" style="border-color:#FFD5AE;background:linear-gradient(180deg,#FFF8EF 0%,#FFF2E2 100%);">
+    <h2>Compatibiliteit</h2>
+    <h3>Externe library geblokkeerd</h3>
+    <p style="margin:0;color:#7A4300;line-height:1.6;font-size:14px;">
+      Dit portaal gebruikt een externe Excel-library. In sommige ingebouwde previews of streng beveiligde omgevingen worden externe scripts geblokkeerd.
+      De opmaak blijft zichtbaar, maar Excel-upload werkt dan niet. Open dit bestand in een normale browser met internetverbinding of gebruik de live preview/server-versie.
+    </p>
+  </div>`;
+}
+
+function sortGroepenLijst(groepen) {
+  return groepen.slice().sort((a, b) => {
+    const ga = GROEP_VOLGORDE[a] ?? 9;
+    const gb = GROEP_VOLGORDE[b] ?? 9;
+    if (ga !== gb) return ga - gb;
+    return String(a || '').localeCompare(String(b || ''), 'nl', { sensitivity: 'base' });
+  });
+}
+
+function bindDropzone(el, handler) {
+  if (!el) return;
+  const openPicker = () => fileInput('.xlsx', handler).click();
+  el.onclick = openPicker;
+  el.tabIndex = 0;
+  el.setAttribute('role', 'button');
+  el.setAttribute('aria-label', 'Upload een Excel-bestand');
+  el.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openPicker();
+    }
+  };
+  ['dragenter', 'dragover'].forEach(evt => el.addEventListener(evt, (e) => {
+    e.preventDefault();
+    el.classList.add('dragover');
+  }));
+  ['dragleave', 'dragend'].forEach(evt => el.addEventListener(evt, () => {
+    el.classList.remove('dragover');
+  }));
+  el.addEventListener('drop', (e) => {
+    e.preventDefault();
+    el.classList.remove('dragover');
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) {
+      Promise.resolve(handler(file)).catch((err) => {
+        console.error(err);
+        toast(err && err.message ? err.message : 'Bestand kon niet worden verwerkt.');
+      });
+    }
+  });
+}
+
+function kpis() {
+  const orders = state.orders || [];
+  const regels = state.regels || [];
+  const wachtOpVoorraad = orders.filter(o => o.status === 'niet' || o.status === 'gedeeltelijk').length;
+  const zonderLocatie = regels.filter(r => r.isHardware && r.locatie === 'Geen locatie gekoppeld').length;
+  const geenVoorraadReg = regels.filter(r => r.label.includes('Geen voorraadregistratie')).length;
+  const retourRegels = regels.filter(r => r.retour).length;
+  const ordersMetRetour = orders.filter(o => o.heeftRetour).length;
+  const alleenNietVoorraad = orders.filter(o => o.alleenNietVoorraad).length;
+  const compleetKlaar = orders.filter(o => o.status === 'volledig' && o.heeftPickRegels && !o.heeftRetour).length;
+  const inControlKlaar = orders.filter(o => o.groep === 'InControl' && o.status === 'volledig' && o.heeftPickRegels && !o.heeftRetour).length;
+
+  return `
+  <div class="card">
+    <h2>Dashboard</h2>
+    <div style="margin-bottom:18px;">
+      <input id="dashboardZoekInput" type="text" placeholder="Zoek op ordernummer of klant..."
+        style="width:100%;padding:12px 14px;border-radius:8px;border:1.5px solid #C9C7BE;font-size:15px;font-family:var(--sans);">
+    </div>
+    <h3>Vandaag</h3>
+    <div class="kpi-grid">
+      <div class="kpi" data-gotosignaal="" style="cursor:pointer"><div class="num">${orders.length}</div><div class="lbl">Orders totaal</div></div>
+      <div class="kpi good" data-gotosignaal="klaar_uit_te_leveren" style="cursor:pointer"><div class="num">${compleetKlaar}</div><div class="lbl">Leverbaar (klaar om te picken)</div></div>
+      <div class="kpi good" data-gotosignaal="klaar_uit_te_leveren" data-gotogroep="InControl" style="cursor:pointer"><div class="num">${inControlKlaar}</div><div class="lbl">⭐ Waarvan InControl</div></div>
+      <div class="kpi warn" data-gotosignaal="wacht_op_voorraad" style="cursor:pointer"><div class="num">${wachtOpVoorraad}</div><div class="lbl">Wacht op voorraad</div></div>
+      <div class="kpi" data-gotosignaal="retour" style="cursor:pointer"><div class="num">${ordersMetRetour}</div><div class="lbl">↩️ Terug te boeken (retour)</div></div>
+      <div class="kpi"><div class="num">${regels.length}</div><div class="lbl">Orderregels totaal</div></div>
+    </div>
+    <div class="signal-row">
+      <div class="signal" data-gotosignaal="zonder_locatie" style="cursor:pointer">📍 <span><b>${zonderLocatie}</b> hardware-regels zonder gekoppelde locatie</span></div>
+      <div class="signal" data-gotosignaal="zonder_voorraadreg" style="cursor:pointer">📦 <span><b>${geenVoorraadReg}</b> regels zonder voorraadregistratie</span></div>
+      <div class="signal" data-gotosignaal="snel_vrij" style="cursor:pointer">✅ <span><b>${alleenNietVoorraad}</b> orders alleen geblokkeerd door niet-voorraadhoudende artikelen — mogelijk snel vrij te geven na controle</span></div>
+      <div class="signal" data-gotosignaal="retour" style="cursor:pointer">↩️ <span><b>${retourRegels}</b> retourregels (${ordersMetRetour} orders) — hardware terugboeken op voorraad</span></div>
+    </div>
+    ${state.configBron ? `<p style="font-size:12px;color:var(--ink-dim);margin:14px 0 0;">Configuratie: ${state.configBron}</p>` : ''}
+  </div>`;
+}
+
+function beheerView() {
+  const m = state.config.meta;
+  function row(label, desc, meta, onUpload) {
+    const metaTxt = meta ? `${meta.bestand} • ${new Date(meta.tijd).toLocaleDateString('nl-NL')}` : 'nog niet geüpload';
+    return `<div class="upload-row" data-key="${label}">
+      <div><b>${label}</b><div class="meta">${desc}<br>${metaTxt}</div></div>
+      <button class="btn ${meta ? 'ghost' : 'primary'}" data-action="${label}">${meta ? 'Vervangen' : 'Uploaden'}</button>
+    </div>`;
+  }
+  const alleVier = m.artikelweergave && m.klantenlijst && m.pqRegels && m.excelRegels;
+  return `
+  <div class="card">
+    <h2>Beheer — eenmalige bestanden</h2>
+    <h3>Configuratie</h3>
+    ${row('Artikelweergave', 'Artikelnummer → magazijnlocatie', m.artikelweergave)}
+    ${row('Klantenlijst', "Klantnummer → groep (Prio's / InControl / Overig)", m.klantenlijst)}
+    ${row('Uitsluitingsregels', 'Artikelen en klanten die altijd worden uitgesloten (uit PQ_regels)', m.pqRegels)}
+    ${row('Kleurregels', 'Uitzonderingen/aandachtspunten per artikel of omschrijving (uit Excel_regels)', m.excelRegels)}
+  </div>
+
+  <div class="card">
+    <h2>Eén configuratiebestand voor alle apparaten</h2>
+    <h3>Configuratie bundelen</h3>
+    <p style="font-size:13.5px;color:var(--ink-dim);margin-top:0;">
+      Bundel de 4 bestanden hierboven tot één <code>orderpick-config.json</code>.
+      Zet dat bestand in dezelfde map als deze portal-pagina — bij het openen probeert
+      de portal dat bestand automatisch te laden, zodat een medewerker alleen nog dagelijks
+      "1a. Lopende verkoopregels" hoeft te uploaden. Is er iets gewijzigd (bv. een nieuwe
+      locatie)? Upload de bijgewerkte bestanden hierboven opnieuw, klik dan hieronder op
+      "Downloaden" en vervang het bestand in de gedeelde map.
+    </p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+      <button class="btn primary" data-downloadjson="1" ${alleVier ? '' : 'disabled style="opacity:.5;"'}>⬇ Downloaden als orderpick-config.json</button>
+      <button class="btn ghost" data-uploadjson="1">⬆ Configuratie laden vanuit JSON</button>
+    </div>
+    ${!alleVier ? '<p style="font-size:12.5px;color:var(--ink-dim);">Upload eerst alle 4 bestanden hierboven voordat je kunt bundelen.</p>' : ''}
+    ${state.configBron ? `<p style="font-size:12.5px;color:var(--ink-dim);">Actieve configuratie geladen via: ${state.configBron}</p>` : ''}
+  </div>`;
+}
+
+function orderMatchtZoekterm(o, termRuw) {
+  const term = termRuw.trim().toLowerCase();
+  if (!term) return true;
+  if (String(o.orderNr).toLowerCase().includes(term)) return true;
+  if ((o.naam || '').toLowerCase().includes(term)) return true;
+  if ((o.accountmanager || '').toLowerCase().includes(term)) return true;
+  if ((o.opdrachtnrReferentie || '').toLowerCase().includes(term)) return true;
+  return o.regels.some(r =>
+    String(r.artikel ?? '').toLowerCase().includes(term) ||
+    String(r.omschrijving ?? '').toLowerCase().includes(term)
+  );
+}
+
+function formatDatum(d) {
+  if (!d) return '';
+  if (d instanceof Date) return d.toLocaleDateString('nl-NL');
+  const parsed = new Date(d);
+  return isNaN(parsed) ? String(d) : parsed.toLocaleDateString('nl-NL');
+}
+
+function gefilterdeOrders() {
+  const orders = state.orders || [];
+  let filtered = state.filterGroep === 'alle' ? orders : orders.filter(o => o.groep === state.filterGroep);
+  for (const key of state.filterSignalen) {
+    filtered = filtered.filter(o => signaalMatch(o, key, state.gepickt));
+  }
+  if (state.zoekterm.trim()) filtered = filtered.filter(o => orderMatchtZoekterm(o, state.zoekterm));
+  return filtered;
+}
+
+function selectieVoorActie() {
+  const orders = state.orders || [];
+  const geselecteerd = orders.filter(o => state.geselecteerd.has(String(o.orderNr)));
+  return geselecteerd.length ? geselecteerd : gefilterdeOrders();
+}
+
+function exporteerSelectie() {
+  const selectie = selectieVoorActie();
+  if (!selectie.length) { toast('Niets om te exporteren.'); return; }
+
+  const rows = [];
+  for (const o of selectie) {
+    for (const r of o.regels) {
+      rows.push({
+        OrderNr: o.orderNr, Datum: formatDatum(o.datum), Klant: o.naam,
+        Artikel: r.artikel, Locatie: r.locatie, Omschrijving: r.omschrijving,
+        Aantal: r.aantal, 'Vrd.': r.vrd, 'In bestel': r.inBestel, 'Tot. gereserv.': r.totGereserveerd,
+        'Opdrachtnr./referentie': o.opdrachtnrReferentie, Magazijn: r.magazijn, Accountmanager: o.accountmanager,
+      });
+    }
+  }
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Orderoverzicht');
+  XLSX.writeFile(wb, `orderoverzicht_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  toast(`${selectie.length} orders geëxporteerd (${rows.length} regels)`);
+}
+
+function mailSelectie() {
+  const selectie = selectieVoorActie();
+  if (!selectie.length) { toast('Niets om te mailen.'); return; }
+  const badgeTekst = { volledig: 'Uit te geven', gedeeltelijk: 'Gedeeltelijk', niet: 'Niet leverbaar' };
+  const subject = `Orderoverzicht - ${selectie.length} orders`;
+  const regelsTekst = selectie.slice(0, 40).map(o =>
+    `${o.orderNr}  -  ${o.naam || ''}  -  ${badgeTekst[o.status]}${o.heeftRetour ? '  -  RETOUR' : ''}`
+  );
+  let body = `Orderoverzicht (${selectie.length} orders)\n\n${regelsTekst.join('\n')}`;
+  if (selectie.length > 40) body += `\n\n... en ${selectie.length - 40} meer. Zie de export voor de volledige lijst.`;
+  body += `\n\n(Gebruik "Exporteren" voor het volledige overzicht met alle regels als bijlage.)`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
+function orderOverzichtView() {
+  const orders = state.orders || [];
+  if (!orders.length) {
+    return `<div class="card"><div class="empty"><div class="big">📭</div>Nog geen import. Ga naar Dashboard om "1a. Lopende verkoopregels" te importeren.</div></div>`;
+  }
+  let filtered = gefilterdeOrders();
+
+  const groepen = sortGroepenLijst([...new Set(filtered.map(o => o.groep))]);
+  const groepFilters = ['alle', ...sortGroepenLijst([...new Set((orders || []).map(o => o.groep))])];
+  const badgeLabel = { volledig: '🟢 Volledig', gedeeltelijk: '🟡 Gedeeltelijk', niet: '🔴 Niet leverbaar' };
+
+  // samenvatting van precies de huidige (gezochte/gefilterde) resultaten -
+  // dit is het "in één oogopslag zien wat er voor deze klant/zoekopdracht
+  // speelt" stuk
+  const samSum = {
+    totaal: filtered.length,
+    volledig: filtered.filter(o => o.status === 'volledig').length,
+    gedeeltelijk: filtered.filter(o => o.status === 'gedeeltelijk').length,
+    niet: filtered.filter(o => o.status === 'niet').length,
+    retour: filtered.filter(o => o.heeftRetour).length,
+  };
+
+  const aantalGeselecteerd = [...state.geselecteerd].filter(nr => filtered.some(o => String(o.orderNr) === nr)).length;
+
+  let html = `<div class="card"><h2>Orderoverzicht</h2>
+  <input id="zoekInput" type="text" placeholder="Zoek op klant, ordernummer, artikel, omschrijving of accountmanager..."
+    value="${state.zoekterm.replace(/"/g, '&quot;')}"
+    style="width:100%;padding:12px 14px;border-radius:8px;border:1.5px solid #C9C7BE;font-size:15px;margin-bottom:14px;font-family:var(--sans);">
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap;background:var(--panel-2);border-radius:8px;padding:12px 16px;margin-bottom:14px;font-size:13.5px;">
+    <span><b>${samSum.totaal}</b> orders${state.zoekterm.trim() ? ` voor "${state.zoekterm}"` : ''}</span>
+    <span>🟢 <b>${samSum.volledig}</b> uit te geven</span>
+    <span>🟡 <b>${samSum.gedeeltelijk}</b> gedeeltelijk</span>
+    <span>🔴 <b>${samSum.niet}</b> niet leverbaar</span>
+    <span>↩️ <b>${samSum.retour}</b> terug te boeken</span>
+  </div>
+
+  <div class="filters">
+    ${groepFilters.map(g =>
+      `<button data-groepfilter="${g}" class="${state.filterGroep === g ? 'active' : ''}">${g === 'alle' ? 'Alle groepen' : g}</button>`).join('')}
+  </div>
+  <div class="filters">
+    ${['volledig', 'klaar_uit_te_leveren', 'wacht_op_voorraad', 'retour', 'zonder_locatie'].map(key =>
+      `<button data-signaalfilter="${key}" class="${state.filterSignalen.has(key) ? 'active' : ''}">${SIGNAAL_LABELS[key]}</button>`).join('')}
+    ${state.filterSignalen.size ? `<button data-clearsignalen="1">✕ Wis signalen</button>` : ''}
+  </div>
+
+  <div style="display:flex;align-items:center;gap:10px;margin:14px 0;flex-wrap:wrap;">
+    <button class="btn ghost" data-selectalles="1">Selecteer alle ${filtered.length} getoonde</button>
+    <button class="btn ghost" data-deselectalles="1">Deselecteer alles</button>
+    <span style="font-size:13px;color:var(--ink-dim);">${aantalGeselecteerd} geselecteerd</span>
+    <span style="flex:1"></span>
+    <button class="btn primary" data-exporteren="1">⬇ Exporteren (.xlsx)</button>
+    <button class="btn" data-mailen="1">✉ Mailen</button>
+  </div>`;
+
+  for (const g of groepen) {
+    const inGroep = filtered.filter(o => o.groep === g);
+    html += `<div class="order-group">
+      <div class="order-group-header">${g} <span class="count">(${inGroep.length} orders)</span></div>`;
+    for (const o of inGroep) {
+      const gepickt = state.gepickt[o.orderNr];
+      const isUitgeklapt = state.uitgeklapt.has(String(o.orderNr));
+      const isGeselecteerd = state.geselecteerd.has(String(o.orderNr));
+      html += `<div class="order-row" style="cursor:default;">
+        <input type="checkbox" data-selecteer="${o.orderNr}" ${isGeselecteerd ? 'checked' : ''} style="width:18px;height:18px;">
+        <span class="ordernr" data-openorder="${o.orderNr}" style="cursor:pointer;">${o.orderNr}</span>
+        <span class="klant" data-openorder="${o.orderNr}" style="cursor:pointer;">${o.naam || ''}</span>
+        <span class="regels">${o.okCount}/${o.totaal} regels</span>
+        ${o.heeftRetour ? '<span class="badge gedeeltelijk">↩️ Retour</span>' : ''}
+        <span class="badge ${o.status}">${badgeLabel[o.status]}</span>
+        ${gepickt ? '<span class="badge volledig">✔ Gepickt</span>' : ''}
+        <button data-toggledetail="${o.orderNr}" class="btn ghost" style="padding:6px 10px;">${isUitgeklapt ? '▾' : '▸'}</button>
+      </div>`;
+      if (isUitgeklapt) {
+        html += `<div style="background:var(--panel-2);border-radius:8px;padding:14px 16px;margin:-2px 0 8px;font-size:13px;">
+          <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:10px;color:var(--ink-dim);">
+            <span>📅 ${formatDatum(o.datum)}</span>
+            <span>👤 ${o.accountmanager || '-'}</span>
+            <span>🔖 ${o.opdrachtnrReferentie || '-'}</span>
+            <span>✍️ ${o.toegevoegdDoor || '-'}</span>
+            ${o.emailTrackTrace ? `<span>✉️ ${o.emailTrackTrace}</span>` : ''}
+          </div>
+          <div class="detail-table-wrap"><table class="detail-table">
+            <thead><tr>
+              <th style="padding:4px 8px;">Artikel</th><th style="padding:4px 8px;">Omschrijving</th>
+              <th style="padding:4px 8px;">Aantal</th><th style="padding:4px 8px;">Vrd.</th>
+              <th style="padding:4px 8px;">In bestel</th><th style="padding:4px 8px;">Tot. gereserv.</th>
+              <th style="padding:4px 8px;">Magazijn</th><th style="padding:4px 8px;">Locatie</th>
+              <th style="padding:4px 8px;">Aandachtspunt</th>
+            </tr></thead>
+            <tbody>
+              ${o.regels.map(r => `<tr style="border-top:1px solid #DEDCD3;">
+                <td style="padding:4px 8px;font-family:var(--mono);">${r.artikel ?? ''}</td>
+                <td style="padding:4px 8px;">${r.omschrijving ?? ''}</td>
+                <td style="padding:4px 8px;">${r.aantal}</td>
+                <td style="padding:4px 8px;">${r.vrd ?? '-'}</td>
+                <td style="padding:4px 8px;">${r.inBestel ?? '-'}</td>
+                <td style="padding:4px 8px;">${r.totGereserveerd ?? '-'}</td>
+                <td style="padding:4px 8px;">${r.magazijn ?? '-'}</td>
+                <td style="padding:4px 8px;font-family:var(--mono);">${r.locatie}</td>
+                <td style="padding:4px 8px;">${r.label || ''}</td>
+              </tr>`).join('')}
+            </tbody>
+          </table></div>
+        </div>`;
+      }
+    }
+    html += `</div>`;
+  }
+  if (!filtered.length) html += `<div class="empty">Geen orders voor deze combinatie van zoekterm/filters.</div>`;
+  html += `</div>`;
+  return html;
+}
+
+function pickView() {
+  const o = state.pickOrder;
+  if (!o) {
+    const orders = state.orders || [];
+    if (!orders.length) {
+      return `<div class="card"><div class="empty"><div class="big">🧭</div>Nog geen import. Ga naar Dashboard om "1a. Lopende verkoopregels" te importeren.</div></div>`;
+    }
+    const pickbaar = orders
+      .filter(o2 => o2.status === 'volledig' && o2.heeftPickRegels)
+      .sort((a, b) => {
+        const ga = GROEP_VOLGORDE[a.groep] ?? 9, gb = GROEP_VOLGORDE[b.groep] ?? 9;
+        if (ga !== gb) return ga - gb;
+        return String(a.orderNr).localeCompare(String(b.orderNr), 'nl', { numeric: true, sensitivity: 'base' });
+      });
+    const nogTePicken = pickbaar.filter(o2 => !state.gepickt[o2.orderNr]);
+    const algepickt = pickbaar.filter(o2 => state.gepickt[o2.orderNr]);
+
+    if (!pickbaar.length) {
+      return `<div class="card"><div class="empty"><div class="big">📭</div>Geen orders die nu volledig gepickt kunnen worden.</div></div>`;
+    }
+
+    let html = `<div class="card"><h2>Picken</h2><h3>Kies een order om te starten</h3>`;
+    html += `<div style="font-size:13px;color:var(--ink-dim);margin-bottom:12px;">${nogTePicken.length} nog te picken${algepickt.length ? `, ${algepickt.length} al gepickt` : ''}</div>`;
+
+    html += `<div style="margin-bottom:14px;">
+      <button data-genereermedewerkerbestand="1" class="btn">⬇ Picklijst genereren voor medewerkers (.html)</button>
+      <div style="font-size:12.5px;color:var(--ink-dim);margin-top:6px;">Deel het gedownloade bestand via mail of Teams — medewerkers openen het direct op hun iPad, geen upload of login nodig.</div>
+    </div>`;
+
+    html += `<div class="filters" style="margin-bottom:14px;">
+      <span style="font-size:13px;color:var(--ink-dim);align-self:center;margin-right:4px;">Sorteren:</span>
+      ${[
+        ['groep', 'Prioriteit'],
+        ['datum', 'Datum'],
+        ['alfabetisch', 'Alfabetisch'],
+      ].map(([key, label]) =>
+        `<button data-picksort="${key}" class="${state.pickSort === key ? 'active' : ''}">${label}</button>`).join('')}
+    </div>`;
+
+    if (state.pickSort === 'groep') {
+      const groepenInLijst = [...new Set(nogTePicken.map(ord => ord.groep))]
+        .sort((a, b) => (GROEP_VOLGORDE[a] ?? 9) - (GROEP_VOLGORDE[b] ?? 9));
+      for (const g of groepenInLijst) {
+        const inGroep = nogTePicken.filter(ord => ord.groep === g);
+        const isPrioriteit = (GROEP_VOLGORDE[g] ?? 9) <= 1; // Prio's/InControl gaan voor Overig
+        html += `<div class="order-group">
+          <div class="order-group-header" style="${isPrioriteit ? 'color:var(--amber);' : ''}">
+            ${isPrioriteit ? '⭐ ' : ''}${g} <span class="count">(${inGroep.length} orders)</span>
+          </div>`;
+        for (const ord of inGroep) {
+          html += `<div class="order-row" data-startpick="${ord.orderNr}" style="${isPrioriteit ? 'border-left:4px solid var(--amber);' : ''}">
+            <span class="ordernr">${ord.orderNr}</span>
+            <span class="klant">${ord.naam || ''}</span>
+            <span class="regels">${ord.pickRegels.length} regels</span>
+            ${ord.heeftRetour ? '<span class="badge gedeeltelijk">↩️ Ook retour</span>' : ''}
+            <span class="badge volledig">🟢 Uit te geven</span>
+          </div>`;
+        }
+        html += `</div>`;
+      }
+    } else {
+      const gesorteerd = [...nogTePicken].sort((a, b) => {
+        if (state.pickSort === 'datum') {
+          return new Date(a.datum || 0) - new Date(b.datum || 0);
+        }
+        return String(a.naam || '').localeCompare(String(b.naam || ''), 'nl', { sensitivity: 'base' });
+      });
+      html += `<div class="order-group">`;
+      for (const ord of gesorteerd) {
+        const isPrioriteit = (GROEP_VOLGORDE[ord.groep] ?? 9) <= 1;
+        html += `<div class="order-row" data-startpick="${ord.orderNr}" style="${isPrioriteit ? 'border-left:4px solid var(--amber);' : ''}">
+          <span class="ordernr">${ord.orderNr}</span>
+          <span class="klant">${ord.naam || ''}${isPrioriteit ? ' ⭐' : ''}</span>
+          ${state.pickSort === 'datum' ? `<span class="datum-lbl">${ord.datum ? new Date(ord.datum).toLocaleDateString('nl-NL') : ''}</span>` : ''}
+          <span class="regels">${ord.pickRegels.length} regels</span>
+          ${ord.heeftRetour ? '<span class="badge gedeeltelijk">↩️ Ook retour</span>' : ''}
+          <span class="badge volledig">🟢 Uit te geven</span>
+        </div>`;
+      }
+      html += `</div>`;
+    }
+
+    if (algepickt.length) {
+      html += `<div class="order-group-header" style="margin-top:16px;">Al gepickt</div>`;
+      for (const ord of algepickt) {
+        html += `<div class="order-row" data-startpick="${ord.orderNr}" style="opacity:0.6;">
+          <span class="ordernr">${ord.orderNr}</span>
+          <span class="klant">${ord.naam || ''}</span>
+          <span class="regels">${ord.pickRegels.length} regels</span>
+          <span class="badge volledig">✔ Gepickt</span>
+        </div>`;
+      }
+    }
+    html += `</div>`;
+    return html;
+  }
+  const idx = state.pickIndex;
+  const regel = o.pickRegels[idx];
+  const isLast = idx === o.pickRegels.length - 1;
+
+  return `
+  <div class="card">
+    <h2>Picken — order ${o.orderNr} · ${o.naam || ''} <button data-terugnaarlijst="1" class="btn ghost" style="font-size:12px;padding:5px 10px;margin-left:10px;">← Terug naar lijst</button></h2>
+    ${o.heeftRetour ? `<div class="pick-flag" style="margin-bottom:14px;">↩️ Dit order heeft ook een retourregel (terugboeken op voorraad) — zie Orderoverzicht, dit hoort niet bij het picken.</div>` : ''}
+    <div class="pick-shell">
+      <div class="pick-progress">ARTIKEL ${idx + 1} VAN ${o.pickRegels.length}</div>
+      <div class="pick-location">${regel.locatie}</div>
+      <div class="pick-article">${regel.artikel}</div>
+      <div class="pick-desc">${regel.omschrijving || ''}</div>
+      <div class="pick-qty">Pak ${regel.aantal} stuks</div>
+      ${!regel.ok ? `<div class="pick-flag">⚠ ${regel.label}</div>` : ''}
+      <div class="pick-nav">
+        <button class="prev" ${idx === 0 ? 'disabled style="opacity:.4"' : ''} data-pick="prev">← Vorige</button>
+        ${isLast
+          ? `<button class="done" data-pick="gereed">Order gereed ✔</button>`
+          : `<button class="next" data-pick="next">Volgende →</button>`}
+      </div>
+      <div class="dots">
+        ${o.pickRegels.map((r, i) => `<div class="dot ${i === idx ? 'on' : (i < idx ? 'done' : '')}"></div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ---------- render + events ----------
+function render() {
+  document.getElementById('nav').innerHTML = ['dashboard', 'orders', 'picken', 'beheer'].map(t =>
+    `<button class="${state.tab === t ? 'active' : ''}" data-tab="${t}">${
+      { dashboard: 'Dashboard', orders: 'Orders', picken: 'Picken', beheer: 'Beheer' }[t]
+    }</button>`).join('');
+
+  let html = '';
+  if (state.tab === 'dashboard') {
+    html = compatibiliteitsWaarschuwing() + kpis() + `
+    <div class="card">
+      <h2>Dagelijkse import</h2>
+      <h3>1a. Lopende verkoopregels</h3>
+      <div class="dropzone" id="dagelijksDropzone">📤 Klik of sleep hier het dagelijkse Excel-bestand naartoe</div>
+    </div>`;
+  } else if (state.tab === 'orders') {
+    html = compatibiliteitsWaarschuwing() + orderOverzichtView();
+  } else if (state.tab === 'picken') {
+    html = compatibiliteitsWaarschuwing() + pickView();
+  } else if (state.tab === 'beheer') {
+    html = compatibiliteitsWaarschuwing() + beheerView();
+  }
+  document.getElementById('main').innerHTML = html;
+
+  // events
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; render(); });
+  const dz = document.getElementById('dagelijksDropzone');
+  if (dz) bindDropzone(dz, handleVerkoopregels);
+
+  document.querySelectorAll('[data-action]').forEach(b => {
+    b.onclick = () => {
+      const map = {
+        'Artikelweergave': handleArtikelweergave,
+        'Klantenlijst': handleKlantenlijst,
+        'Uitsluitingsregels': handlePQRegels,
+        'Kleurregels': handleExcelRegels,
+      };
+      fileInput('.xlsx', map[b.dataset.action]).click();
+    };
+  });
+
+  const downloadJsonBtn = document.querySelector('[data-downloadjson]');
+  if (downloadJsonBtn) downloadJsonBtn.onclick = downloadConfigJSON;
+  const uploadJsonBtn = document.querySelector('[data-uploadjson]');
+  if (uploadJsonBtn) uploadJsonBtn.onclick = () => fileInput('.json', laadConfigVanuitJSON).click();
+
+  document.querySelectorAll('[data-groepfilter]').forEach(b => {
+    b.onclick = () => { state.filterGroep = b.dataset.groepfilter; render(); };
+  });
+
+  document.querySelectorAll('[data-signaalfilter]').forEach(b => {
+    b.onclick = () => {
+      const key = b.dataset.signaalfilter;
+      if (state.filterSignalen.has(key)) state.filterSignalen.delete(key);
+      else state.filterSignalen.add(key);
+      render();
+    };
+  });
+  const clearBtn = document.querySelector('[data-clearsignalen]');
+  if (clearBtn) clearBtn.onclick = () => { state.filterSignalen.clear(); render(); };
+
+  document.querySelectorAll('[data-picksort]').forEach(b => {
+    b.onclick = () => { state.pickSort = b.dataset.picksort; render(); };
+  });
+
+  const genBtn = document.querySelector('[data-genereermedewerkerbestand]');
+  if (genBtn) genBtn.onclick = () => genereerMedewerkerBestand();
+
+  const dashboardZoekInput = document.getElementById('dashboardZoekInput');
+  if (dashboardZoekInput) {
+    const gaNaarOrders = () => {
+      state.zoekterm = dashboardZoekInput.value;
+      state.filterGroep = 'alle';
+      state.filterSignalen.clear();
+      state.tab = 'orders';
+      render();
+    };
+    dashboardZoekInput.onkeydown = (e) => { if (e.key === 'Enter') gaNaarOrders(); };
+  }
+
+  document.querySelectorAll('[data-gotosignaal]').forEach(el => {
+    el.onclick = () => {
+      const key = el.dataset.gotosignaal;
+      state.filterSignalen.clear();
+      state.filterGroep = el.dataset.gotogroep || 'alle';
+      if (key) state.filterSignalen.add(key);
+      state.tab = 'orders';
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-openorder]').forEach(row => {
+    row.onclick = () => {
+      const nr = row.dataset.openorder;
+      state.pickOrder = state.orders.find(o => String(o.orderNr) === String(nr));
+      state.pickIndex = 0;
+      state.tab = 'picken';
+      render();
+    };
+  });
+
+  document.querySelectorAll('[data-startpick]').forEach(row => {
+    row.onclick = () => {
+      const nr = row.dataset.startpick;
+      state.pickOrder = state.orders.find(o => String(o.orderNr) === String(nr));
+      state.pickIndex = 0;
+      render();
+    };
+  });
+  const terugBtn = document.querySelector('[data-terugnaarlijst]');
+  if (terugBtn) terugBtn.onclick = () => { state.pickOrder = null; render(); };
+
+  const zoekInput = document.getElementById('zoekInput');
+  if (zoekInput) {
+    zoekInput.oninput = (e) => {
+      state.zoekterm = e.target.value;
+      const cursorPos = e.target.selectionStart;
+      render();
+      const opnieuw = document.getElementById('zoekInput');
+      if (opnieuw) { opnieuw.focus(); opnieuw.setSelectionRange(cursorPos, cursorPos); }
+    };
+  }
+
+  document.querySelectorAll('[data-selecteer]').forEach(cb => {
+    cb.onclick = (e) => e.stopPropagation();
+    cb.onchange = () => {
+      const nr = String(cb.dataset.selecteer);
+      if (cb.checked) state.geselecteerd.add(nr); else state.geselecteerd.delete(nr);
+      render();
+    };
+  });
+  const selectAllBtn = document.querySelector('[data-selectalles]');
+  if (selectAllBtn) selectAllBtn.onclick = () => {
+    gefilterdeOrders().forEach(o => state.geselecteerd.add(String(o.orderNr)));
+    render();
+  };
+  const deselectAllBtn = document.querySelector('[data-deselectalles]');
+  if (deselectAllBtn) deselectAllBtn.onclick = () => { state.geselecteerd.clear(); render(); };
+
+  document.querySelectorAll('[data-toggledetail]').forEach(b => {
+    b.onclick = (e) => {
+      e.stopPropagation();
+      const nr = String(b.dataset.toggledetail);
+      if (state.uitgeklapt.has(nr)) state.uitgeklapt.delete(nr); else state.uitgeklapt.add(nr);
+      render();
+    };
+  });
+
+  const exportBtn = document.querySelector('[data-exporteren]');
+  if (exportBtn) exportBtn.onclick = exporteerSelectie;
+  const mailBtn = document.querySelector('[data-mailen]');
+  if (mailBtn) mailBtn.onclick = mailSelectie;
+
+  document.querySelectorAll('[data-pick]').forEach(b => {
+    b.onclick = async () => {
+      const action = b.dataset.pick;
+      if (action === 'next') state.pickIndex++;
+      else if (action === 'prev') state.pickIndex--;
+      else if (action === 'gereed') {
+        state.gepickt[state.pickOrder.orderNr] = true;
+        await saveGepickt();
+        toast(`Order ${state.pickOrder.orderNr} gemarkeerd als gepickt`);
+        state.pickOrder = null;
+        state.tab = 'picken';
+      }
+      render();
+    };
+  });
+}
+
+(async function init() {
+  await loadPersisted();
+  if (state.config.meta && Object.keys(state.config.meta).length) state.configBron = 'deze browser (opgeslagen)';
+  await probeerAutomatischeConfigJSON();
+  render();
+})();
+</script>
+</body>
+</html>
