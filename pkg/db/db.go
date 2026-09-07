@@ -18,11 +18,21 @@ CREATE TABLE IF NOT EXISTS orders (
     created_at          BIGINT  NOT NULL,
     updated_at          BIGINT  NOT NULL,
     assigned_to         TEXT    NOT NULL DEFAULT '',
-    paused_seconds      INTEGER NOT NULL DEFAULT 0
+    paused_seconds      INTEGER NOT NULL DEFAULT 0,
+    debit_number        TEXT    NOT NULL DEFAULT '',
+    customer_name       TEXT    NOT NULL DEFAULT '',
+    omnitracker_ticket  TEXT    NOT NULL DEFAULT '',
+    device              TEXT    NOT NULL DEFAULT '',
+    asset_number        TEXT    NOT NULL DEFAULT '',
+    configuration       TEXT    NOT NULL DEFAULT '',
+    si_id               INTEGER REFERENCES system_integrations(id),
+    barcode             TEXT    NOT NULL DEFAULT ''
 );
 
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
+CREATE INDEX IF NOT EXISTS idx_orders_barcode ON orders(barcode);
+CREATE INDEX IF NOT EXISTS idx_orders_omnitracker ON orders(omnitracker_ticket);
 
 CREATE TABLE IF NOT EXISTS holds (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -205,6 +215,71 @@ CREATE TABLE IF NOT EXISTS manual_tick_log (
 
 CREATE INDEX IF NOT EXISTS idx_manual_tick_log_block ON manual_tick_log(block_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_manual_tick_log_manual ON manual_tick_log(manual_id, created_at);
+CREATE TABLE IF NOT EXISTS customers (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    number     TEXT    NOT NULL UNIQUE,
+    name       TEXT    NOT NULL,
+    created_at BIGINT  NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS projects (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+    code        TEXT    NOT NULL,
+    name        TEXT    NOT NULL,
+    description TEXT    NOT NULL DEFAULT '',
+    created_at  BIGINT  NOT NULL,
+    updated_at  BIGINT  NOT NULL,
+    UNIQUE (customer_id, code)
+);
+
+CREATE TABLE IF NOT EXISTS system_integrations (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    code                TEXT    NOT NULL UNIQUE,
+    name                TEXT    NOT NULL,
+    description         TEXT    NOT NULL DEFAULT '',
+    status              TEXT    NOT NULL,
+    version             INTEGER NOT NULL DEFAULT 0,
+    environment         TEXT    NOT NULL DEFAULT 'PRODUCTIE',
+    primary_project_id  INTEGER NOT NULL REFERENCES projects(id),
+    created_by          TEXT    NOT NULL DEFAULT '',
+    created_at          BIGINT  NOT NULL,
+    updated_at          BIGINT  NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS si_project_links (
+    si_id      INTEGER NOT NULL REFERENCES system_integrations(id) ON DELETE CASCADE,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    is_primary INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (si_id, project_id)
+);
+
+CREATE TABLE IF NOT EXISTS si_events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    si_id        INTEGER NOT NULL REFERENCES system_integrations(id) ON DELETE CASCADE,
+    action       TEXT    NOT NULL,
+    from_status  TEXT,
+    to_status    TEXT,
+    version      INTEGER NOT NULL DEFAULT 0,
+    note         TEXT    NOT NULL DEFAULT '',
+    performed_by  TEXT    NOT NULL DEFAULT 'system',
+    timestamp    BIGINT  NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_si_events_si ON si_events(si_id, timestamp);
+
+CREATE TABLE IF NOT EXISTS project_checklist_items (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id  INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    seq         INTEGER NOT NULL DEFAULT 0,
+    label       TEXT    NOT NULL,
+    description TEXT    NOT NULL DEFAULT '',
+    checked_by  TEXT,
+    checked_at  BIGINT,
+    created_at  BIGINT  NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_checklist_project ON project_checklist_items(project_id, seq);
 `
 
 func Open(ctx context.Context, path string) (*sql.DB, error) {
@@ -278,6 +353,48 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 			return fmt.Errorf("add column note: %w", err)
 		}
 	}
+
+	// Migrate orders table for AFAS/Omnitracker integration
+	orderCols, err := tableColumns(ctx, conn, "orders")
+	if err != nil {
+		return err
+	}
+	orderMigrations := map[string]string{
+		"debit_number":       `ALTER TABLE orders ADD COLUMN debit_number TEXT NOT NULL DEFAULT ''`,
+		"customer_name":      `ALTER TABLE orders ADD COLUMN customer_name TEXT NOT NULL DEFAULT ''`,
+		"omnitracker_ticket": `ALTER TABLE orders ADD COLUMN omnitracker_ticket TEXT NOT NULL DEFAULT ''`,
+		"device":             `ALTER TABLE orders ADD COLUMN device TEXT NOT NULL DEFAULT ''`,
+		"asset_number":       `ALTER TABLE orders ADD COLUMN asset_number TEXT NOT NULL DEFAULT ''`,
+		"configuration":      `ALTER TABLE orders ADD COLUMN configuration TEXT NOT NULL DEFAULT ''`,
+		"si_id":              `ALTER TABLE orders ADD COLUMN si_id INTEGER`,
+		"barcode":            `ALTER TABLE orders ADD COLUMN barcode TEXT NOT NULL DEFAULT ''`,
+	}
+	for name, ddl := range orderMigrations {
+		if orderCols[name] {
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("add column %s: %w", name, err)
+		}
+	}
+
+	// Create barcode scan events table
+	if _, err := conn.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS barcode_scans (
+			id           INTEGER PRIMARY KEY AUTOINCREMENT,
+			order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+			barcode      TEXT    NOT NULL,
+			scanned_by   TEXT    NOT NULL DEFAULT '',
+			scan_type    TEXT    NOT NULL DEFAULT 'view',
+			device_info  TEXT    NOT NULL DEFAULT '',
+			created_at   BIGINT  NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_barcode_scans_order ON barcode_scans(order_id);
+		CREATE INDEX IF NOT EXISTS idx_barcode_scans_barcode ON barcode_scans(barcode);
+	`); err != nil {
+		return fmt.Errorf("create barcode_scans table: %w", err)
+	}
+
 	return nil
 }
 

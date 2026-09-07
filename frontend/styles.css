@@ -1621,3 +1621,388 @@ tr.selected-row { background: var(--accent-soft); }
   background: var(--surface); color: var(--text);
   font-size: 13px;
 }
+
+
+/* ===== SI Management ===== */
+
+.si-layout {
+  display: grid;
+  grid-template-columns: 220px 1fr 360px;
+  gap: 16px;
+  align-items: start;
+}
+
+.si-sidebar {
+  padding: 0;
+  overflow: hidden;
+}
+
+.si-sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.si-sidebar-head h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.si-customer-list {
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+}
+
+.si-customer-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: background 0.15s;
+}
+
+.si-customer-item:hover {
+  background: var(--surface-hover);
+}
+
+.si-customer-item.active {
+  background: var(--accent-soft, rgba(255, 130, 0, 0.1));
+  border-left: 3px solid var(--accent, #ff8200);
+}
+
+.si-customer-item strong {
+  font-size: 13px;
+}
+
+.si-customer-item .muted {
+  font-size: 11px;
+}
+
+.si-empty {
+  padding: 16px 14px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.si-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.si-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.si-filter-group label {
+  font-size: 12px;
+}
+
+.si-filter-group select {
+  padding: 5px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.si-main .table-card {
+  margin-top: 0;
+}
+
+#si-table .status-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+#si-table .env-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+/* SI Status badges */
+.status-si-requested { background: #e3f2fd; color: #1565c0; }
+.status-si-design { background: #f3e5f5; color: #7b1fa2; }
+.status-si-development { background: #fff3e0; color: #e65100; }
+.status-si-testing { background: #fff8e1; color: #f57f17; }
+.status-si-live { background: #e8f5e9; color: #2e7d32; }
+.status-si-change { background: #fce4ec; color: #c62828; }
+.status-si-retired { background: #eceff1; color: #546e7a; }
+.status-si-archived { background: #efebe9; color: #6d4c41; }
+.status-si-cancelled { background: #ffebee; color: #b71c1c; }
+
+/* SI Environment badges */
+.env-test { background: #e3f2fd; color: #1565c0; }
+.env-acceptatie { background: #fff3e0; color: #e65100; }
+.env-productie { background: #e8f5e9; color: #2e7d32; }
+
+/* SI Detail panel */
+.si-detail-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.si-detail-head h3 {
+  font-size: 16px;
+  margin: 0;
+}
+
+.si-detail-name {
+  margin: 4px 0 0;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.si-detail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.si-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.si-meta-label {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.si-meta-value {
+  font-weight: 600;
+}
+
+.si-detail-desc {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.si-detail-desc h4 {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+
+.si-detail-desc p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.si-transitions {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.si-transitions h4 {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+
+.si-transition-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.si-detail-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.si-close-detail {
+  padding: 4px;
+}
+
+/* Checkbox label in modal */
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Responsive SI layout */
+@media (max-width: 1200px) {
+  .si-layout {
+    grid-template-columns: 1fr;
+  }
+  .si-sidebar {
+    max-height: 200px;
+  }
+  #si-detail {
+    order: 3;
+  }
+}
+
+/* ===== Project Checklist ===== */
+
+.checklist-modal-content {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.checklist-modal-content h3 {
+  margin: 0 0 16px;
+  font-size: 15px;
+}
+
+.checklist-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.checklist-item.checked {
+  background: var(--good-soft);
+  border-color: var(--good);
+}
+
+.checklist-item-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.checklist-item-label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.checklist-item-desc {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.checklist-item-meta {
+  font-size: 11px;
+  color: var(--good);
+  margin-top: 4px;
+}
+
+.checklist-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.checklist-add-form {
+  display: flex;
+  gap: 8px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.checklist-add-form input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* QR Code Modal */
+
+.qr-modal-content {
+  text-align: center;
+  padding: 16px;
+}
+
+.qr-modal-content h3 {
+  margin: 0 0 16px;
+}
+
+.qr-code-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.qr-code-container img,
+.qr-code-container canvas {
+  max-width: 256px;
+  height: auto;
+}
+
+.qr-url {
+  font-size: 11px;
+  word-break: break-all;
+  margin-bottom: 16px;
+}
+
+/* Checklist button in SI detail */
+.si-checklist-btn {
+  margin-top: 8px;
+}
+
+/* ===== Barcode ===== */
+.barcode-display {
+  text-align: center;
+  padding: 16px;
+  background: var(--surface-hover);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+.barcode-display .code {
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+.barcode-qr {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
+}
+.barcode-qr img,
+.barcode-qr canvas {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.barcode-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}

@@ -197,3 +197,128 @@ func (s *Server) handleTransition(w http.ResponseWriter, r *http.Request) {
 	s.publishOrder(id, s.currentUser(r).Username)
 	s.writeJSON(w, http.StatusOK, map[string]order.Order{"order": updated})
 }
+
+// Omnitracker / Barcode handlers
+
+// handleUpdateOmnitrackerInfo updates AFAS/Omnitracker fields on an order.
+func (s *Server) handleUpdateOmnitrackerInfo(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "order id must be an integer")
+		return
+	}
+
+	var req order.OmnitrackerInfoRequest
+	if err := s.decodeJSON(w, r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
+		return
+	}
+
+	updated, err := s.store.UpdateOmnitrackerInfo(r.Context(), id, req, s.now().UTC())
+	if err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	s.publishOrder(id, s.currentUser(r).Username)
+	s.writeJSON(w, http.StatusOK, map[string]order.Order{"order": updated})
+}
+
+// handleGenerateBarcode generates a unique barcode for an order.
+func (s *Server) handleGenerateBarcode(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "order id must be an integer")
+		return
+	}
+
+	var req order.GenerateBarcodeRequest
+	if err := s.decodeJSON(w, r, &req); err != nil {
+		// Body is optional, ignore decode errors
+	}
+
+	barcode, err := s.store.GenerateBarcode(r.Context(), id, s.now().UTC())
+	if err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]string{"barcode": barcode})
+}
+
+// handleGetBarcode returns the barcode for an order.
+func (s *Server) handleGetBarcode(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "order id must be an integer")
+		return
+	}
+
+	o, err := s.store.GetOrder(r.Context(), id)
+	if err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]string{"barcode": o.Barcode})
+}
+
+// handleScanBarcode looks up an order by barcode and records the scan.
+func (s *Server) handleScanBarcode(w http.ResponseWriter, r *http.Request) {
+	barcode := r.URL.Query().Get("code")
+	if barcode == "" {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "barcode is required")
+		return
+	}
+
+	o, err := s.store.OrderByBarcode(r.Context(), barcode)
+	if err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+
+	// Record the scan event
+	deviceInfo := r.UserAgent()
+	scanType := r.URL.Query().Get("type")
+	if scanType == "" {
+		scanType = "view"
+	}
+	_, _ = s.store.RecordBarcodeScan(r.Context(), o.ID, barcode, s.currentUser(r).Username, scanType, deviceInfo, s.now().UTC())
+
+	s.writeJSON(w, http.StatusOK, map[string]any{
+		"order":    o,
+		"scanUrl":  "/scan?code=" + barcode,
+		"omniUrl":  s.omnitrackerURL(o),
+	})
+}
+
+// handleBarcodeScanHistory returns scan events for an order.
+func (s *Server) handleBarcodeScanHistory(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "order id must be an integer")
+		return
+	}
+
+	events, err := s.store.BarcodeScanHistory(r.Context(), id)
+	if err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"events": events})
+}
+
+// omnitrackerURL builds the Omnitracker deep link for an order.
+func (s *Server) omnitrackerURL(o order.Order) string {
+	if o.OmnitrackerTicket == "" {
+		return ""
+	}
+	// Configure your Omnitracker base URL here
+	base := s.config.OmnitrackerBaseURL
+	if base == "" {
+		return ""
+	}
+	return base + "/ticket/" + o.OmnitrackerTicket
+}

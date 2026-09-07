@@ -16,6 +16,16 @@ type Order struct {
 	HoldSince     *time.Time `json:"holdSince,omitempty"`
 
 	SLA *SLA `json:"sla,omitempty"`
+
+	// AFAS / Omnitracker integration fields
+	DebitNumber      string `json:"debitNumber,omitempty"`
+	CustomerName     string `json:"customerName,omitempty"`
+	OmnitrackerTicket string `json:"omnitrackerTicket,omitempty"`
+	Device           string `json:"device,omitempty"`
+	AssetNumber      string `json:"assetNumber,omitempty"`
+	Configuration    string `json:"configuration,omitempty"`
+	SIID             *int64 `json:"siId,omitempty"`
+	Barcode          string `json:"barcode,omitempty"`
 }
 
 type Hold struct {
@@ -165,6 +175,34 @@ type QCRequest struct {
 	Status      QCStatus `json:"status"`
 	InspectorID string   `json:"inspectorId"`
 	Notes       string   `json:"notes"`
+}
+
+// OmnitrackerInfoRequest updates the AFAS/Omnitracker fields on an order.
+type OmnitrackerInfoRequest struct {
+	DebitNumber      string `json:"debitNumber,omitempty"`
+	CustomerName     string `json:"customerName,omitempty"`
+	OmnitrackerTicket string `json:"omnitrackerTicket,omitempty"`
+	Device           string `json:"device,omitempty"`
+	AssetNumber      string `json:"assetNumber,omitempty"`
+	Configuration    string `json:"configuration,omitempty"`
+	SIID             *int64 `json:"siId,omitempty"`
+}
+
+// GenerateBarcodeRequest triggers barcode generation for an order.
+type GenerateBarcodeRequest struct {
+	// Regenerate forces a new barcode even if one exists.
+	Regenerate bool `json:"regenerate,omitempty"`
+}
+
+// BarcodeScanEvent records when a barcode is scanned.
+type BarcodeScanEvent struct {
+	ID         int64     `json:"id"`
+	OrderID    int64     `json:"orderId"`
+	Barcode    string    `json:"barcode"`
+	ScannedBy  string    `json:"scannedBy"`
+	ScanType   string    `json:"scanType"`
+	DeviceInfo string    `json:"deviceInfo"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 type ChecklistItem struct {

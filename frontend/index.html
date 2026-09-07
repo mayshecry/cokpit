@@ -161,6 +161,15 @@
         </svg>
         <span>Config</span>
       </a>
+      <a href="#/si" class="nav-link hidden" data-nav="si" id="nav-si">
+        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path>
+          <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>
+          <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path>
+          <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
+        </svg>
+        <span>SI Management</span>
+      </a>
     </nav>
 
     <div class="sidebar-foot">
@@ -452,7 +461,70 @@
       </div>
     </main>
 
-    
+    <!-- SI MANAGEMENT VIEW -->
+    <main id="view-si" class="pane hidden">
+      <header class="page-head">
+        <div>
+          <h1>System Integrations</h1>
+          <p class="muted">Manage SI lifecycle across customers and projects.</p>
+        </div>
+        <div class="page-head-actions">
+          <button type="button" class="btn btn-ghost" id="si-refresh-btn"><span aria-hidden="true">⟳</span> Refresh</button>
+          <button type="button" class="btn btn-secondary" id="si-new-customer-btn"><span aria-hidden="true">+</span> New Customer</button>
+          <button type="button" class="btn btn-secondary" id="si-new-project-btn"><span aria-hidden="true">+</span> New Project</button>
+          <button type="button" class="btn btn-secondary" id="si-seed-btn" title="Seed demo data">Seed Demo</button>
+          <button type="button" class="btn btn-primary" id="si-new-btn"><span aria-hidden="true">+</span> New SI</button>
+        </div>
+      </header>
+
+      <div class="si-layout">
+        <div class="card si-sidebar">
+          <div class="si-sidebar-head">
+            <h3>Customers</h3>
+          </div>
+          <div id="si-customer-list" class="si-customer-list"></div>
+        </div>
+
+        <div class="si-main">
+          <div class="si-toolbar">
+            <div class="si-filter-group">
+              <label for="si-status-filter">Status:</label>
+              <select id="si-status-filter"></select>
+            </div>
+            <div class="si-filter-group">
+              <label for="si-project-filter">Project:</label>
+              <select id="si-project-filter"></select>
+            </div>
+            <span id="si-count" class="muted"></span>
+          </div>
+          <div class="card table-card">
+            <div class="table-scroll">
+              <table id="si-table">
+                <thead>
+                  <tr>
+                    <th class="num" style="width:60px">ID</th>
+                    <th>Code</th>
+                    <th>Name</th>
+                    <th>Status</th>
+                    <th>Env</th>
+                    <th>Project</th>
+                    <th class="num">Ver</th>
+                    <th>Updated</th>
+                    <th class="right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <aside id="si-detail" class="card detail-card hidden" aria-label="SI Detail">
+          <div id="si-detail-body"></div>
+        </aside>
+      </div>
+    </main>
+
     <main id="view-users" class="pane hidden">
       <header class="page-head">
         <div>
@@ -487,7 +559,6 @@
       </div>
     </main>
 
-    
     <main id="view-config" class="pane hidden">
       <header class="page-head">
         <div>
@@ -515,6 +586,7 @@
 </section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="js/core.js"></script>
   <script src="js/notifications.js"></script>
   <script src="js/auth.js"></script>
@@ -522,6 +594,7 @@
   <script src="js/detail.js"></script>
   <script src="js/checklists.js"></script>
   <script src="js/manuals.js"></script>
+  <script src="js/si.js"></script>
   <script src="js/users.js"></script>
   <script src="js/config.js"></script>
   <script src="js/app.js"></script>

@@ -52,16 +52,60 @@
       meta: {},
     },
     configBron: null,
+
+    // SI management state
+    si: {
+      customers: [],
+      selectedCustomer: null,
+      projects: [],
+      selectedProject: null,
+      sis: [],
+      selectedSI: null,
+      filter: 'All',
+      loading: false,
+    },
   };
 
   const rolePerms = {
-    viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read'],
-    operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'scan:use', 'pick:use'],
-    qc:       ['orders:list', 'orders:view', 'qc:submit', 'audit:view', 'comments:read'],
-    admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'manuals:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'config:manage'],
+    viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'si:list', 'si:view'],
+    operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'si:list', 'si:view'],
+    qc:       ['orders:list', 'orders:view', 'qc:submit', 'audit:view', 'comments:read', 'si:list', 'si:view'],
+    npi:      ['si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects'],
+    admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'manuals:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'config:manage', 'si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'si:manage'],
   };
 
-  const ROLES = ['viewer', 'operator', 'qc', 'admin'];
+  const ROLES = ['viewer', 'operator', 'qc', 'npi', 'admin'];
+
+  const SI_STATUSES = [
+    { value: 'All', label: 'All' },
+    { value: 'Requested', label: 'Requested' },
+    { value: 'Design', label: 'Design' },
+    { value: 'Development', label: 'Development' },
+    { value: 'Testing', label: 'Testing' },
+    { value: 'Live', label: 'Live' },
+    { value: 'Change', label: 'Change' },
+    { value: 'Retired', label: 'Retired' },
+    { value: 'Archived', label: 'Archived' },
+    { value: 'Cancelled', label: 'Cancelled' },
+  ];
+
+  const SI_ENVIRONMENTS = [
+    { value: 'Test', label: 'Test' },
+    { value: 'Acceptatie', label: 'Acceptatie' },
+    { value: 'Productie', label: 'Productie' },
+  ];
+
+  const SI_TRANSITIONS = {
+    'Requested': ['Design', 'Cancelled'],
+    'Design': ['Development', 'Cancelled'],
+    'Development': ['Testing', 'Cancelled'],
+    'Testing': ['Live', 'Development', 'Cancelled'],
+    'Live': ['Change', 'Retired'],
+    'Change': ['Development', 'Live', 'Retired'],
+    'Retired': ['Archived'],
+    'Archived': [],
+    'Cancelled': [],
+  };
 
   const STATUS_FILTERS = [
     { value: 'All',        label: 'All' },
@@ -71,6 +115,8 @@
     { value: 'Completed',  label: 'Completed' },
     { value: 'On_Hold',    label: 'On hold' },
   ];
+
+  
 
   const can = (perm) => !!state.user && (rolePerms[state.user.role] || []).includes(perm);
 
@@ -370,6 +416,8 @@
               return `<option value="${esc(val)}"${val === f.value ? ' selected' : ''}>${esc(lbl)}</option>`;
             }).join('')
           }</select>`;
+        } else if (f.type === 'checkbox') {
+          control = `<label class="checkbox-label"><input id="${id}" name="${f.name}" type="checkbox"${f.checked ? ' checked' : ''}> ${esc(f.label)}</label>`;
         } else if (f.type === 'textarea') {
           control = `<textarea id="${id}" name="${f.name}" rows="3" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`;
         } else {

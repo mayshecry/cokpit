@@ -182,3 +182,90 @@
     }
   }
 
+  // Barcode section
+
+  function barcodeSectionHtml() {
+    var order = state.detail;
+    if (!order) return '';
+    var barcode = order.barcode || '';
+    var barcodeHtml = barcode
+      ? '<div class="barcode-display"><span class="code">' + esc(barcode) + '</span>' +
+        '<div class="barcode-qr" id="detail-barcode-qr"></div></div>'
+      : '<p class="muted">No barcode generated yet.</p>';
+    var actions = can('orders:transition')
+      ? '<div class="barcode-actions">' +
+        (barcode
+          ? '<a class="btn btn-sm btn-secondary" href="/scan.html?code=' + esc(barcode) + '" target="_blank">View Scan Page</a>' +
+            '<button class="btn btn-sm btn-ghost" id="regen-barcode-btn">Regenerate</button>'
+          : '<button class="btn btn-sm btn-primary" id="gen-barcode-btn">Generate Barcode</button>') +
+        '</div>'
+      : '';
+    return '<section class="detail-section" id="barcode-section"><h3>Barcode</h3>' + barcodeHtml + actions + '</section>';
+  }
+
+  async function loadBarcodeSection() {
+    var order = state.detail;
+    if (!order) return;
+    try {
+      var d = await api('GET', '/api/v1/orders/' + order.id + '/barcode');
+      order.barcode = d.barcode || '';
+      var sec = $('#barcode-section');
+      if (sec) sec.outerHTML = barcodeSectionHtml();
+      else renderDetail();
+      if (order.barcode) {
+        renderDetailBarcodeQR(order.barcode);
+      }
+      bindBarcodeEvents();
+    } catch (err) {
+      toast(err.message, true);
+    }
+  }
+
+  function renderDetailBarcodeQR(barcode) {
+    var container = $('#detail-barcode-qr');
+    if (!container) return;
+    container.innerHTML = '';
+    if (typeof QRCode !== 'undefined') {
+      new QRCode(container, {
+        text: location.origin + '/scan.html?code=' + barcode,
+        width: 128,
+        height: 128,
+        colorDark: '#000000',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.M
+      });
+    }
+  }
+
+  function bindBarcodeEvents() {
+    var genBtn = $('#gen-barcode-btn');
+    if (genBtn) {
+      genBtn.addEventListener('click', async function() {
+        try {
+          var orderId = state.detail.id;
+          var d = await api('POST', '/api/v1/orders/' + orderId + '/barcode', {});
+          state.detail.barcode = d.barcode;
+          loadBarcodeSection();
+          toast('Barcode generated', false);
+        } catch (err) {
+          toast(err.message, true);
+        }
+      });
+    }
+    var regenBtn = $('#regen-barcode-btn');
+    if (regenBtn) {
+      regenBtn.addEventListener('click', async function() {
+        if (!confirm('Regenerate barcode? The old one will stop working.')) return;
+        try {
+          var orderId = state.detail.id;
+          var d = await api('POST', '/api/v1/orders/' + orderId + '/barcode', { regenerate: true });
+          state.detail.barcode = d.barcode;
+          loadBarcodeSection();
+          toast('Barcode regenerated', false);
+        } catch (err) {
+          toast(err.message, true);
+        }
+      });
+    }
+  }
+

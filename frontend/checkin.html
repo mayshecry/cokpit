@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Check In — Cockpit</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+  .checkin-card { max-width: 400px; width: 100%; text-align: center; padding: 32px; }
+  .checkin-card h1 { margin: 0 0 8px; font-size: 24px; }
+  .checkin-card .subtitle { color: var(--muted); margin-bottom: 24px; }
+  .checkin-item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; }
+  .checkin-item .label { font-size: 18px; font-weight: 600; margin-bottom: 8px; }
+  .checkin-item .desc { color: var(--muted); font-size: 14px; }
+  .checkin-btn { width: 100%; padding: 16px; font-size: 18px; font-weight: 600; }
+  .checkin-success { color: var(--good); font-weight: 600; margin-top: 16px; }
+  .checkin-checked { background: var(--good-soft); border-color: var(--good); }
+  .checkin-checked .checkin-btn { background: var(--good); }
+</style>
+</head>
+<body>
+  <div class="card checkin-card" id="checkin-app">
+    <h1>Check In</h1>
+    <p class="subtitle" id="project-info">Loading...</p>
+    <div class="checkin-item" id="checkin-item">
+      <div class="label" id="item-label"></div>
+      <div class="desc" id="item-desc"></div>
+    </div>
+    <button class="btn btn-primary checkin-btn" id="checkin-btn" style="display:none;">✓ Check In</button>
+    <button class="btn btn-secondary checkin-btn" id="uncheck-btn" style="display:none;">Undo Check-In</button>
+    <p class="checkin-success" id="checkin-success" style="display:none;">✓ Checked in successfully!</p>
+    <p class="checkin-error" id="checkin-error" style="display:none; color: var(--bad); margin-top: 16px;"></p>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const projectId = params.get('p');
+    const itemId = params.get('i');
+    const token = params.get('t') || localStorage.getItem('cockpit_token');
+
+    const $ = (id) => document.getElementById(id);
+
+    async function loadItem() {
+      if (!projectId || !itemId) {
+        $('project-info').textContent = 'Invalid check-in link.';
+        return;
+      }
+      try {
+        const res = await fetch(`/api/v1/si/projects/${projectId}/checklist`, {
+          headers: token ? { Authorization: 'Bearer ' + token } : {}
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || 'Failed to load');
+        const item = (data.items || []).find((it) => String(it.id) === String(itemId));
+        if (!item) throw new Error('Checklist item not found.');
+        $('project-info').textContent = item.projectCode + ' — ' + item.projectName;
+        $('item-label').textContent = item.label;
+        $('item-desc').textContent = item.description || '';
+        if (item.checkedBy) {
+          $('checkin-item').classList.add('checkin-checked');
+          $('checkin-btn').style.display = 'none';
+          $('uncheck-btn').style.display = 'block';
+          $('checkin-success').style.display = 'block';
+          $('checkin-success').textContent = '✓ Checked in by ' + item.checkedBy + ' on ' + new Date(item.checkedAt).toLocaleString();
+        } else {
+          $('checkin-btn').style.display = 'block';
+        }
+      } catch (err) {
+        $('project-info').textContent = err.message;
+      }
+    }
+
+    $('checkin-btn').addEventListener('click', async () => {
+      $('checkin-error').style.display = 'none';
+      try {
+        const res = await fetch(`/api/v1/si/projects/checklist/${itemId}/tick`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || 'Failed');
+        $('checkin-item').classList.add('checkin-checked');
+        $('checkin-btn').style.display = 'none';
+        $('uncheck-btn').style.display = 'block';
+        $('checkin-success').style.display = 'block';
+        $('checkin-success').textContent = '✓ Checked in at ' + new Date().toLocaleString();
+      } catch (err) {
+        $('checkin-error').textContent = err.message;
+        $('checkin-error').style.display = 'block';
+      }
+    });
+
+    $('uncheck-btn').addEventListener('click', async () => {
+      $('checkin-error').style.display = 'none';
+      try {
+        const res = await fetch(`/api/v1/si/projects/checklist/${itemId}/untick`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || 'Failed');
+        $('checkin-item').classList.remove('checkin-checked');
+        $('checkin-btn').style.display = 'block';
+        $('uncheck-btn').style.display = 'none';
+        $('checkin-success').style.display = 'none';
+      } catch (err) {
+        $('checkin-error').textContent = err.message;
+        $('checkin-error').style.display = 'block';
+      }
+    });
+
+    loadItem();
+  </script>
+</body>
+</html>

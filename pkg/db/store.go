@@ -31,18 +31,24 @@ func New(conn *sql.DB) *Store { return &Store{db: conn} }
 
 func (s *Store) DB() *sql.DB { return s.db }
 
-const orderCols = `id, order_number, status, target_completion_at, created_at, updated_at, assigned_to, paused_seconds`
+const orderCols = `id, order_number, status, target_completion_at, created_at, updated_at, assigned_to, paused_seconds,
+		debit_number, customer_name, omnitracker_ticket, device, asset_number, configuration, si_id, barcode`
 
 func scanOrder(row *sql.Row) (order.Order, error) {
 	var o order.Order
 	var tgt, created, updated int64
-	err := row.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated, &o.Assignee, &o.PausedSeconds)
+	var siID sql.NullInt64
+	err := row.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated, &o.Assignee, &o.PausedSeconds,
+		&o.DebitNumber, &o.CustomerName, &o.OmnitrackerTicket, &o.Device, &o.AssetNumber, &o.Configuration, &siID, &o.Barcode)
 	if err != nil {
 		return order.Order{}, err
 	}
 	o.TargetCompletion = fromMillis(tgt)
 	o.CreatedAt = fromMillis(created)
 	o.UpdatedAt = fromMillis(updated)
+	if siID.Valid {
+		o.SIID = &siID.Int64
+	}
 	return o, nil
 }
 
@@ -554,12 +560,17 @@ func (s *Store) ListOrdersFiltered(ctx context.Context, q ListQuery) ([]order.Or
 	for rows.Next() {
 		var o order.Order
 		var tgt, created, updated int64
-		if err := rows.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated, &o.Assignee, &o.PausedSeconds); err != nil {
+		var siID sql.NullInt64
+		if err := rows.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated, &o.Assignee, &o.PausedSeconds,
+			&o.DebitNumber, &o.CustomerName, &o.OmnitrackerTicket, &o.Device, &o.AssetNumber, &o.Configuration, &siID, &o.Barcode); err != nil {
 			return nil, 0, fmt.Errorf("scan order: %w", err)
 		}
 		o.TargetCompletion = fromMillis(tgt)
 		o.CreatedAt = fromMillis(created)
 		o.UpdatedAt = fromMillis(updated)
+		if siID.Valid {
+			o.SIID = &siID.Int64
+		}
 		orders = append(orders, o)
 	}
 	if err := rows.Err(); err != nil {
@@ -629,4 +640,124 @@ func (s *Store) ActiveHoldStarts(ctx context.Context) (map[int64]time.Time, erro
 		out[id] = fromMillis(ms)
 	}
 	return out, rows.Err()
+}
+
+// Barcode functions
+
+// UpdateOmnitrackerInfo updates the AFAS/Omnitracker fields on an order.
+func (s *Store) UpdateOmnitrackerInfo(ctx context.Context, id int64, req order.OmnitrackerInfoRequest, now time.Time) (order.Order, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return order.Order{}, fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback()
+
+	var siID sql.NullInt64
+	if req.SIID != nil {
+		siID = sql.NullInt64{Int64: *req.SIID, Valid: true}
+	}
+
+	_, err = tx.ExecContext(ctx,
+		`UPDATE orders SET debit_number = ?, customer_name = ?, omnitracker_ticket = ?, device = ?, asset_number = ?, configuration = ?, si_id = ?, updated_at = ? WHERE id = ?`,
+		req.DebitNumber, req.CustomerName, req.OmnitrackerTicket, req.Device, req.AssetNumber, req.Configuration, siID, millis(now), id)
+	if err != nil {
+		return order.Order{}, fmt.Errorf("update omnitracker info: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return order.Order{}, fmt.Errorf("commit: %w", err)
+	}
+
+	return s.GetOrder(ctx, id)
+}
+
+// GenerateBarcode creates a unique barcode for an order.
+func (s *Store) GenerateBarcode(ctx context.Context, id int64, now time.Time) (string, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("begin: %w", err)
+	}
+	defer tx.Rollback()
+
+	// Check if barcode already exists
+	var existing string
+	err = tx.QueryRowContext(ctx, `SELECT barcode FROM orders WHERE id = ?`, id).Scan(&existing)
+	if err != nil {
+		return "", fmt.Errorf("check barcode: %w", err)
+	}
+	if existing != "" {
+		return existing, nil
+	}
+
+	// Generate unique barcode: COCKPIT-ORDERID-RANDOM
+	barcode := fmt.Sprintf("CPT-%d-%d", id, now.UnixNano()%1000000)
+
+	_, err = tx.ExecContext(ctx,
+		`UPDATE orders SET barcode = ?, updated_at = ? WHERE id = ?`,
+		barcode, millis(now), id)
+	if err != nil {
+		return "", fmt.Errorf("set barcode: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return "", fmt.Errorf("commit: %w", err)
+	}
+
+	return barcode, nil
+}
+
+// OrderByBarcode finds an order by its barcode.
+func (s *Store) OrderByBarcode(ctx context.Context, barcode string) (order.Order, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT `+orderCols+` FROM orders WHERE barcode = ?`, barcode)
+	o, err := scanOrder(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return order.Order{}, ErrNotFound
+	}
+	if err != nil {
+		return order.Order{}, fmt.Errorf("get order by barcode: %w", err)
+	}
+	return o, nil
+}
+
+// RecordBarcodeScan logs a barcode scan event.
+func (s *Store) RecordBarcodeScan(ctx context.Context, orderID int64, barcode, scannedBy, scanType, deviceInfo string, now time.Time) (order.BarcodeScanEvent, error) {
+	res, err := s.db.ExecContext(ctx,
+		`INSERT INTO barcode_scans (order_id, barcode, scanned_by, scan_type, device_info, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		orderID, barcode, scannedBy, scanType, deviceInfo, millis(now))
+	if err != nil {
+		return order.BarcodeScanEvent{}, fmt.Errorf("insert scan: %w", err)
+	}
+	id, _ := res.LastInsertId()
+	return order.BarcodeScanEvent{
+		ID:         id,
+		OrderID:    orderID,
+		Barcode:    barcode,
+		ScannedBy:  scannedBy,
+		ScanType:   scanType,
+		DeviceInfo: deviceInfo,
+		CreatedAt:  now.UTC(),
+	}, nil
+}
+
+// BarcodeScanHistory returns scan events for an order.
+func (s *Store) BarcodeScanHistory(ctx context.Context, orderID int64) ([]order.BarcodeScanEvent, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, order_id, barcode, scanned_by, scan_type, device_info, created_at FROM barcode_scans WHERE order_id = ? ORDER BY created_at DESC`, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("query scans: %w", err)
+	}
+	defer rows.Close()
+
+	var events []order.BarcodeScanEvent
+	for rows.Next() {
+		var e order.BarcodeScanEvent
+		var created int64
+		if err := rows.Scan(&e.ID, &e.OrderID, &e.Barcode, &e.ScannedBy, &e.ScanType, &e.DeviceInfo, &created); err != nil {
+			return nil, fmt.Errorf("scan event: %w", err)
+		}
+		e.CreatedAt = fromMillis(created)
+		events = append(events, e)
+	}
+	return events, rows.Err()
 }

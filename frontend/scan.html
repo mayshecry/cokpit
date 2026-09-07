@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scan Order — Cockpit</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  body { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; background: var(--bg); }
+  .scan-card { max-width: 480px; width: 100%; padding: 28px; }
+  .scan-card h1 { margin: 0 0 4px; font-size: 22px; }
+  .scan-card .subtitle { color: var(--muted); margin-bottom: 20px; font-size: 13px; }
+  .scan-status { text-align: center; padding: 40px 20px; }
+  .scan-status .spinner { width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+  .scan-status .error { color: var(--bad); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .order-info { margin-top: 16px; }
+  .info-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: var(--muted); font-size: 13px; }
+  .info-value { font-weight: 600; font-size: 13px; text-align: right; word-break: break-word; max-width: 60%; }
+  .actions { margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .actions .btn { flex: 1; min-width: 120px; }
+  .barcode-display { text-align: center; padding: 16px; background: var(--surface-hover); border-radius: 8px; margin-bottom: 16px; }
+  .barcode-display .code { font-family: monospace; font-size: 18px; font-weight: 700; letter-spacing: 2px; }
+  .omni-link { display: block; text-align: center; padding: 12px; background: #e3f2fd; border-radius: 8px; color: #1565c0; font-weight: 600; text-decoration: none; margin-top: 12px; }
+  .omni-link:hover { background: #1565c0; color: #fff; }
+</style>
+</head>
+<body>
+  <div class="card scan-card" id="scan-app">
+    <div id="scan-content">
+      <div class="scan-status" id="scan-loading">
+        <div class="spinner"></div>
+        <p>Loading order...</p>
+      </div>
+    </div>
+  </div>
+  <script src="js/scan.js"></script>
+</body>
+</html>

@@ -10,6 +10,7 @@
     $('#view-checklists').classList.toggle('hidden', name !== 'checklists');
     $('#view-products').classList.toggle('hidden', name !== 'products');
     $('#view-manuals').classList.toggle('hidden', name !== 'manuals');
+    $('#view-si').classList.toggle('hidden', name !== 'si');
     $$('.nav-link').forEach((a) => {
       const active = a.dataset.nav === name;
       a.classList.toggle('active', active);
@@ -53,7 +54,7 @@
   function syncURL() {
     if (applyingFromURL || !state.token) return;
     const cur = parseHash();
-    const page = cur.page === 'orders' || cur.page === 'users' || cur.page === 'config' || cur.page === 'checklists' || cur.page === 'products' || cur.page === 'manuals' ? cur.page : 'home';
+    const page = cur.page === 'orders' || cur.page === 'users' || cur.page === 'config' || cur.page === 'checklists' || cur.page === 'products' || cur.page === 'manuals' || cur.page === 'si' ? cur.page : 'home';
     const target = page === 'orders'
       ? hashFor('orders', cur.orderId, stateParams())
       : hashFor(page, null, null);
@@ -111,6 +112,11 @@
       showPane('manuals');
       loadManualsView();
       startManualsPolling();
+      return;
+    }
+    if (can('si:list') && page === 'si') {
+      showPane('si');
+      loadSIView();
       return;
     }
     if (page === 'orders') {
@@ -814,6 +820,7 @@
       if (e.key === 'u' && can('users:manage')) { location.hash = '#/users'; return; }
       if (e.key === 'c' && can('config:manage')) { location.hash = '#/config'; return; }
       if (e.key === 'p') { location.hash = '#/checklists'; return; }
+      if (e.key === 's' && can('si:list')) { location.hash = '#/si'; return; }
     }
 
     switch (e.key) {
@@ -862,8 +869,6 @@
   $('#palette-root').addEventListener('click', (e) => {
     if (e.target.id === 'palette-root') closePalette();
   });
-
-  
 
   applyPrefs();
   $('#orders-split').classList.add('no-detail');

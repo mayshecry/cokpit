@@ -20,6 +20,7 @@
     $('#nav-checklists').classList.toggle('hidden', !can('orders:view'));
     $('#nav-products').classList.toggle('hidden', !can('orders:view'));
     $('#nav-manuals').classList.toggle('hidden', !can('orders:view'));
+    updateSINavVisibility();
     $$('[data-perm]').forEach((el) => el.classList.toggle('hidden', !can(el.dataset.perm)));
     applyPrefs();
     loadConfig();
