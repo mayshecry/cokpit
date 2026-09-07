@@ -671,8 +671,10 @@ func (s *Store) UpdateOmnitrackerInfo(ctx context.Context, id int64, req order.O
 	return s.GetOrder(ctx, id)
 }
 
-// GenerateBarcode creates a unique barcode for an order.
-func (s *Store) GenerateBarcode(ctx context.Context, id int64, now time.Time) (string, error) {
+// GenerateBarcode creates a unique barcode for an order. When regenerate is
+// true (or no barcode exists yet), a new barcode is generated even if the
+// order already has one, so the previous barcode stops working.
+func (s *Store) GenerateBarcode(ctx context.Context, id int64, regenerate bool, now time.Time) (string, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return "", fmt.Errorf("begin: %w", err)
@@ -685,7 +687,7 @@ func (s *Store) GenerateBarcode(ctx context.Context, id int64, now time.Time) (s
 	if err != nil {
 		return "", fmt.Errorf("check barcode: %w", err)
 	}
-	if existing != "" {
+	if existing != "" && !regenerate {
 		return existing, nil
 	}
 

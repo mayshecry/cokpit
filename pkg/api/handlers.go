@@ -237,7 +237,7 @@ func (s *Server) handleGenerateBarcode(w http.ResponseWriter, r *http.Request) {
 		// Body is optional, ignore decode errors
 	}
 
-	barcode, err := s.store.GenerateBarcode(r.Context(), id, s.now().UTC())
+	barcode, err := s.store.GenerateBarcode(r.Context(), id, req.Regenerate, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
 		s.writeError(w, status, code, msg)

@@ -357,7 +357,7 @@
     const body = { orderNumber: res.orderNumber.trim() };
     if (res.target) {
       const dt = new Date(res.target);
-      if (Number.isNaN(dt.getTime())) body.targetCompletionAt = dt.toISOString();
+      if (!Number.isNaN(dt.getTime())) body.targetCompletionAt = dt.toISOString();
     }
     try {
       await api('POST', '/api/v1/orders', body);

@@ -20,7 +20,6 @@ var (
 	ErrCrossCustomerLink         = errors.New("all linked projects must belong to the same customer as the primary project")
 )
 
-// CreateCustomer creates a new customer (klant) with a unique number.
 
 
 
@@ -93,7 +92,6 @@ func (s *Store) ListCustomers(ctx context.Context) ([]si.Customer, error) {
 	}
 	return customers, rows.Err()
 }
-// CreateProject creates a project underneath a customer; code is unique within that customer.
 
 
 
@@ -141,7 +139,6 @@ func (s *Store) ProjectByID(ctx context.Context, id int64) (si.Project, error) {
 	return p, nil
 }
 
-// ListProjects returns projects; when customerID > 0 only those of that customer.
 
 func (s *Store) ListProjects(ctx context.Context, customerID int64) ([]si.Project, error) {
 	query := `SELECT p.id, p.customer_id, c.number, p.code, p.name, p.description, p.created_at, p.updated_at
@@ -173,7 +170,6 @@ func (s *Store) ListProjects(ctx context.Context, customerID int64) ([]si.Projec
 }
 const siCols = `id, code, name, description, status, version, environment, primary_project_id, created_by, created_at, updated_at`
 
-// CreateSI creates a new SI in Requested state, linked to one primary project.
 
 
 
@@ -275,7 +271,6 @@ func (s *Store) loadSILinks(ctx context.Context, v *si.SI) error {
 	return rows.Err()
 }
 
-// ListSIs returns SIs, optionally filtered by customer number, project id or status.
 
 func (s *Store) ListSIs(ctx context.Context, customerNumber string, projectID int64, status *si.Status) ([]si.SI, error) {
 	query := `SELECT ` + siCols + ` FROM system_integrations si`
@@ -315,18 +310,19 @@ func (s *Store) ListSIs(ctx context.Context, customerNumber string, projectID in
 		v.Environment = si.Environment(env)
 		v.CreatedAt = fromMillis(created)
 		v.UpdatedAt = fromMillis(updated)
-		if err := s.loadSILinks(ctx, &v); err != nil {
-			return nil, fmt.Errorf("load SI links: %w", err)
-		}
 		out = append(out, v)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("iterate SIs: %w", err)
 	}
+	for i := range out {
+		if err := s.loadSILinks(ctx, &out[i]); err != nil {
+			return nil, fmt.Errorf("load SI links: %w", err)
+		}
+	}
 	return out, nil
 }
 
-// UpdateSI changes metadata (name/description/environment) and records an audit event.
 
 func (s *Store) UpdateSI(ctx context.Context, id int64, req si.UpdateSIRequest, performedBy string, now time.Time) (si.SI, error) {
 	current, err := s.GetSI(ctx, id)
@@ -374,8 +370,6 @@ func (s *Store) UpdateSI(ctx context.Context, id int64, req si.UpdateSIRequest, 
 	}
 	return s.GetSI(ctx, id)
 }
-// TransitionSI moves an SI along an allowed lifecycle transition and bumps
-// the version when the SI goes live.
 
 func (s *Store) TransitionSI(ctx context.Context, id int64, to si.Status, note, performedBy string, now time.Time) (si.SI, error) {
 	current, err := s.GetSI(ctx, id)
@@ -407,8 +401,6 @@ func (s *Store) TransitionSI(ctx context.Context, id int64, to si.Status, note, 
 	return s.GetSI(ctx, id)
 }
 
-// SetSIProjects replaces the set of linked projects (the primary project must
-// stay linked; all projects must belong to the same customer)..
 
 
 func (s *Store) SetSIProjects(ctx context.Context, id int64, projectIDs []int64, performedBy string, now time.Time) (si.SI, error) {
@@ -490,7 +482,6 @@ func (s *Store) SetSIProjects(ctx context.Context, id int64, projectIDs []int64,
 	}
 	return s.GetSI(ctx, id)
 }
-// SIEvents returns the immutable audit trail for an SI.
 
 func (s *Store) SIEvents(ctx context.Context, siID int64) ([]si.SIEvent, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT id, si_id, action, from_status, to_status, version, note, performed_by, timestamp FROM si_events WHERE si_id = ? ORDER BY timestamp ASC, id ASC`, siID)
@@ -557,7 +548,6 @@ func joinIDs(ids []int64) string {
 	return strings.Join(parts, ", ")
 }
 
-// Project checklist functions
 
 func (s *Store) ProjectChecklist(ctx context.Context, projectID int64) ([]si.ProjectChecklistItem, error) {
 	rows, err := s.db.QueryContext(ctx,

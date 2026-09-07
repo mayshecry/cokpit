@@ -354,7 +354,6 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		}
 	}
 
-	// Migrate orders table for AFAS/Omnitracker integration
 	orderCols, err := tableColumns(ctx, conn, "orders")
 	if err != nil {
 		return err
@@ -378,7 +377,6 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		}
 	}
 
-	// Create barcode scan events table
 	if _, err := conn.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS barcode_scans (
 			id           INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -15,6 +15,8 @@
     $('#user-name').textContent = u.displayName || u.username || '';
     $('#user-role').textContent = u.role || '';
     $('#user-avatar').textContent = initials(u);
+    $('#nav-home').classList.toggle('hidden', !can('orders:list'));
+    $('#nav-orders').classList.toggle('hidden', !can('orders:list'));
     $('#nav-users').classList.toggle('hidden', !can('users:manage'));
     $('#nav-config').classList.toggle('hidden', !can('config:manage'));
     $('#nav-checklists').classList.toggle('hidden', !can('orders:view'));
@@ -25,12 +27,14 @@
     applyPrefs();
     loadConfig();
     await probeerAutomatischeConfigJSON();
-    loadUserBriefs();
+    if (can('orders:list')) loadUserBriefs();
     initSettingsPop();
     renderStatusChips();
     route();
-    loadOrders();
-    connectEvents();
+    if (can('orders:list')) {
+      loadOrders();
+      connectEvents();
+    }
     updateBadges();
 
     clearInterval(window.__refresh);
@@ -40,8 +44,9 @@
       else if (location.hash.startsWith('#/checklists')) loadChecklistsView(true);
       else if (location.hash.startsWith('#/products')) loadProducts(true);
       else if (location.hash.startsWith('#/manuals')) loadManualsView(true);
-      else if (location.hash.startsWith('#/home')) { loadAttention(true); loadNotifications(true); }
-      else loadOrders(true);
+      else if (location.hash.startsWith('#/si')) { /* SI view refreshes on demand */ }
+      else if (location.hash.startsWith('#/home')) { if (can('orders:list')) loadAttention(true); loadNotifications(true); }
+      else if (can('orders:list')) loadOrders(true);
     }, 20000);
 
     clearInterval(window.__bell);

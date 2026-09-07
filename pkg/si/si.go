@@ -1,31 +1,27 @@
-// Package si implements the System Integration (SI) domain: statuses,
-// the SI lifecycle transition graph, environments and the data types used
-// by the API. It mirrors the structure of cockpit/pkg/order.
 
 package si
 
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
-// Status represents a lifecycle state of a System Integration.
 type Status string
 
 const (
-	StatusRequested   Status = "Requested"   // Aangevraagd
-	StatusDesign      Status = "Design"      // In ontwerp
-	StatusDevelopment Status = "Development" // In ontwikkeling
-	StatusTesting     Status = "Testing"     // In test
-	StatusLive        Status = "Live"        // Live / actief
-	StatusChange      Status = "Change"      // Gewijzigd (wijzigingscyclus)
-	StatusRetired     Status = "Retired"     // Uitgefaseerd
-	StatusArchived    Status = "Archived"    // Gearchiveerd
-	StatusCancelled   Status = "Cancelled"   // Geannuleerd
+	StatusRequested   Status = "Requested"
+	StatusDesign      Status = "Design"
+	StatusDevelopment Status = "Development"
+	StatusTesting     Status = "Testing"
+	StatusLive        Status = "Live"
+	StatusChange      Status = "Change"
+	StatusRetired     Status = "Retired"
+	StatusArchived    Status = "Archived"
+	StatusCancelled   Status = "Cancelled"
 )
 
-// AllStatuses lists every valid lifecycle status.
 
 var AllStatuses = []Status{
 	StatusRequested,
@@ -39,7 +35,6 @@ var AllStatuses = []Status{
 	StatusCancelled,
 }
 
-// IsValidStatus reports whether s is a known lifecycle status.
 
 func IsValidStatus(s Status) bool {
 	for _, v := range AllStatuses {
@@ -50,7 +45,6 @@ func IsValidStatus(s Status) bool {
 	return false
 }
 
-// StatusLabel returns the Dutch display label for a status.
 
 
 func StatusLabel(s Status) string {
@@ -71,7 +65,6 @@ func StatusLabel(s Status) string {
 	return string(s)
 }
 
-// Environment is a property of an SI (not a lifecycle state). TEST‖Acceptance‖Production.
 
 
 type Environment string
@@ -87,7 +80,6 @@ var AllEnvironments = []Environment{
 	EnvironmentProductie,
 }
 
-// IsValidEnvironment reports whether e is a known environment.
 
 
 
@@ -105,7 +97,6 @@ var (
 	ErrValidation        = errors.New("validation error")
 )
 
-// transitionTable defines the allowed lifecycle transitions per status.
 
 var transitionTable = map[Status]map[Status]bool{
 	StatusRequested: {
@@ -139,7 +130,6 @@ var transitionTable = map[Status]map[Status]bool{
 	StatusCancelled: {},
 }
 
-// CanTransition reports whether moving from src to dst is allowed.
 
 
 
@@ -150,7 +140,6 @@ func CanTransition(src, dst Status) bool {
 	return transitionTable[src][dst]
 }
 
-// NextStatuses returns the list of allowed targets for a given status (used by the UI)).
 
 
 
@@ -167,7 +156,6 @@ func NextStatuses(src Status) []Status {
 	return out
 }
 
-// DetermineTransition validates and returns the target status for a transition.
 
 func DetermineTransition(src, dst Status) (Status, error) {
 	if !IsValidStatus(src) {
@@ -181,7 +169,6 @@ func DetermineTransition(src, dst Status) (Status, error) {
 	}
 	return dst, nil
 }
-// Customer represents and organisation (by number, e.g. 94828; that owns projects and SIs.
 
 type Customer struct {
 	ID        int64     `json:"id"`
@@ -190,7 +177,26 @@ type Customer struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// Project represents a project underneath a customer.
+type SIConfig struct {
+	DebitNumber    string `json:"debitNumber"`
+	DeviceType     string `json:"deviceType"`
+	ConfigID       string `json:"configId"`
+	WindowsProfile string `json:"windowsProfile,omitempty"`
+	Software       string `json:"software,omitempty"`
+	AssetSticker   bool   `json:"assetSticker"`
+	Sleeve         bool   `json:"sleeve"`
+	ScreenProtector bool  `json:"screenProtector"`
+	OtherDemands   string `json:"otherDemands,omitempty"`
+}
+
+func ParseSICode(code string) (string, string, string, error) {
+	parts := strings.Split(code, "-")
+	if len(parts) != 4 || parts[0] != "SI" {
+		return "", "", "", fmt.Errorf("invalid SI code format: %s, expected SI-{debit}-{device}-{config}", code)
+	}
+	return parts[1], parts[2], parts[3], nil
+}
+
 
 type Project struct {
 	ID             int64     `json:"id"`
@@ -203,26 +209,24 @@ type Project struct {
 	UpdatedAt     time.Time `json:"updatedAt"`
 }
 
-// SI represents a System Integration; the primary_project_id marks the
-// owning project; ProjectIDs lists every linked project (primary included).
 
 type SI struct {
 	ID               int64       `json:"id"`
 	Code             string      `json:"code"`
 	Name             string      `json:"name"`
 	Description      string      `json:"description,omitempty"`
+	Config           *SIConfig   `json:"config,omitempty"`
 	Status           Status      `json:"status"`
-	StatusLabel     string      `json:"statusLabel"`
+	StatusLabel      string      `json:"statusLabel"`
 	Version          int         `json:"version"`
 	Environment      Environment  `json:"environment"`
 	PrimaryProjectID int64       `json:"primaryProjectId"`
 	ProjectIDs       []int64     `json:"projectIds"`
 	CreatedBy        string      `json:"createdBy,omitempty"`
-	CreatedAt       time.Time   `json:"createdAt"`
-	UpdatedAt       time.Time   `json:"updatedAt"`
+	CreatedAt        time.Time   `json:"createdAt"`
+	UpdatedAt        time.Time   `json:"updatedAt"`
 }
 
-// SIEvent is an immutable audit record for an SI action.
 
 type SIEvent struct {
 	ID          int64     `json:"id"`
@@ -236,39 +240,35 @@ type SIEvent struct {
 	Timestamp   time.Time `json:"timestamp"`
 }
 
-// CreateSIRequest is the payload for creating a new SI.
 
 type CreateSIRequest struct {
 	Code              string      `json:"code"`
 	Name              string      `json:"name"`
 	Description       string      `json:"description"`
-	PrimaryProjectID  int64      `json:"primaryProjectId"`
+	Config            *SIConfig   `json:"config,omitempty"`
+	PrimaryProjectID  int64       `json:"primaryProjectId"`
 	Environment       Environment `json:"environment"`
 }
 
-// UpdateSIRequest is the payload for editing SI metadata (only non-nil fields change).
 
 type UpdateSIRequest struct {
 	Name        *string      `json:"name,omitempty"`
 	Description *string      `json:"description,omitempty"`
+	Config      *SIConfig    `json:"config,omitempty"`
 	Environment *Environment `json:"environment,omitempty"`
 }
 
-// TransitionRequest is the payload for a lifecycle transition.
 
 type TransitionRequest struct {
 	Status Status `json:"status"`
 	Note   string `json:"note"`
 }
 
-// SetProjectsRequest is the payload for linking/unlinking projects (all from the same customer).
 
 type SetProjectsRequest struct {
 	ProjectIDs []int64 `json:"projectIds"`
 }
 
-// ProjectChecklistItem represents a single checklist item for a project.
-// Scanning its QR code opens a check-in page where it can be marked done.
 
 type ProjectChecklistItem struct {
 	ID          int64      `json:"id"`
@@ -281,7 +281,6 @@ type ProjectChecklistItem struct {
 	CreatedAt   time.Time  `json:"createdAt"`
 }
 
-// AddChecklistItemRequest is the payload for adding a checklist item.
 
 type AddChecklistItemRequest struct {
 	Label       string `json:"label"`

@@ -54,7 +54,7 @@
         if (!res.ok) throw new Error(data.error?.message || 'Failed to load');
         const item = (data.items || []).find((it) => String(it.id) === String(itemId));
         if (!item) throw new Error('Checklist item not found.');
-        $('project-info').textContent = item.projectCode + ' — ' + item.projectName;
+        $('project-info').textContent = 'Project #' + projectId;
         $('item-label').textContent = item.label;
         $('item-desc').textContent = item.description || '';
         if (item.checkedBy) {

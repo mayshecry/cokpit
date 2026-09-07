@@ -91,4 +91,31 @@ func TestTransitionValidation(t *testing.T) {
 	if _, err := s2.TransitionOrder(ctx, o2.ID, string(order.StatusProcessing), "alice", now); err == nil {
 		t.Error("transition out of Completed must fail")
 	}
+	if _, err := s2.TransitionOrder(ctx, o2.ID, string(order.StatusProcessing), "alice", now); err == nil {
+		t.Error("transition out of Completed must fail")
+	}
+}
+
+func TestSeedDemoSI(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	now := fixedNow()
+
+	// Seed demo data
+	count, err := s.SeedDemoSI(ctx, now)
+	if err != nil {
+		t.Fatalf("SeedDemoSI failed: %v", err)
+	}
+	if count != 5 { // 1 customer + 4 SIs
+		t.Errorf("SeedDemoSI created %d items, want 5", count)
+	}
+
+	// Verify idempotency - seeding again should be no-op
+	count2, err := s.SeedDemoSI(ctx, now)
+	if err != nil {
+		t.Fatalf("SeedDemoSI second call failed: %v", err)
+	}
+	if count2 != 0 {
+		t.Errorf("SeedDemoSI second call created %d items, want 0 (idempotent)", count2)
+	}
 }

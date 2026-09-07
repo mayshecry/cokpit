@@ -291,17 +291,14 @@ function bindSIEvents() {
   if (newBtn) newBtn.addEventListener('click', function() { openSICreateModal(); });
   var newCustomerBtn = $('#si-new-customer-btn');
   if (newCustomerBtn) newCustomerBtn.addEventListener('click', function() { openSICreateCustomerModal(); });
-  var newCustomerBtn = $('#si-new-customer-btn');
-  if (newCustomerBtn) newCustomerBtn.addEventListener('click', function() { openSICreateCustomerModal(); });
   var newProjectBtn = $('#si-new-project-btn');
   if (newProjectBtn) newProjectBtn.addEventListener('click', function() { openSICreateProjectModal(); });
-  var seedBtn = $('#si-seed-btn');
   var seedBtn = $('#si-seed-btn');
   if (seedBtn) {
     seedBtn.addEventListener('click', async function() {
       try {
         var data = await api('POST', '/api/v1/si/seed', {});
-        toast('Seeded ' + data.seeded + ' demo SIs', 'success');
+        toast('Seeded ' + data.seeded + ' demo items (customer + SIs)', 'success');
         await loadSIView();
       } catch (err) {
         toast('Seed failed: ' + err.message, 'error');
@@ -371,7 +368,7 @@ async function openSIEditModal(si) {
     fields: [
       { name: 'name', label: 'Name', required: true, value: si.name },
       { name: 'description', label: 'Description', value: si.description || '' },
-      { name: 'environment', label: 'Environment', type: 'select', options: envOptions }
+      { name: 'environment', label: 'Environment', type: 'select', options: envOptions, value: si.environment }
     ],
     confirmLabel: 'Save'
   });

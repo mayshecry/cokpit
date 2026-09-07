@@ -83,9 +83,26 @@
     }
   }
 
+  function fallbackHash() {
+    if (can('orders:list')) return '#/orders';
+    if (can('si:list')) return '#/si';
+    return '#/home';
+  }
+
   function route() {
     if (!state.token) return showLogin();
-    const { page, orderId, params } = parseHash();
+    let { page, orderId, params } = parseHash();
+
+    // Never land on pages the role has no backend permission for: redirect
+    // instead of firing requests that can only answer 403.
+    if (!can('orders:list') && (page === 'orders' || page === 'home' ||
+        location.hash === '' || location.hash === '#' || location.hash === '#/')) {
+      const fb = fallbackHash();
+      if (fb !== '#/home') { location.replace(fb); return; }
+    }
+    if (page === 'checklists' && !can('orders:view')) { location.replace(fallbackHash()); return; }
+    if (page === 'products' && !can('orders:list')) { location.replace(fallbackHash()); return; }
+    if (page === 'manuals' && !can('orders:view')) { location.replace(fallbackHash()); return; }
 
     if (can('users:manage') && page === 'users') {
       showPane('users');
@@ -134,14 +151,14 @@
       history.replaceState(null, '', '#/home');
     }
     showPane('home');
-    loadAttention(true);
+    if (can('orders:list')) loadAttention(true);
     loadNotifications(true);
   }
 
   
 
   function connectEvents() {
-    if (!state.token || typeof EventSource === 'undefined') return;
+    if (!state.token || !can('orders:list') || typeof EventSource === 'undefined') return;
     disconnectEvents();
     try {
       const es = new EventSource('/api/v1/events?token=' + encodeURIComponent(state.token));
@@ -206,7 +223,9 @@
      .filter((p) => p.hash !== '#/config' || can('config:manage'))
      .filter((p) => p.hash !== '#/checklists' || can('orders:view'))
      .filter((p) => p.hash !== '#/products' || can('orders:view'))
-     .filter((p) => p.hash !== '#/manuals' || can('orders:view'));
+     .filter((p) => p.hash !== '#/manuals' || can('orders:view'))
+     .filter((p) => p.hash !== '#/orders' || can('orders:list'))
+     .filter((p) => p.hash !== '#/home' || can('orders:list'));
     const actions = [
       { title: t('act.newOrder'), fn: () => openCreateOrder(), kind: t('palette.actions'), show: can('orders:create') },
       { title: t('act.export'), fn: () => exportCSV(), kind: t('palette.actions'), show: true },
@@ -846,7 +865,8 @@
         else if (location.hash.startsWith('#/checklists')) loadChecklistsView();
         else if (location.hash.startsWith('#/products')) loadProducts();
         else if (location.hash.startsWith('#/manuals')) loadManualsView();
-        else loadOrders();
+        else if (location.hash.startsWith('#/si')) loadSIView();
+        else if (can('orders:list')) loadOrders();
         break;
       case 'g':
         gPending = true;
@@ -872,5 +892,16 @@
 
   applyPrefs();
   $('#orders-split').classList.add('no-detail');
-  if (state.token && state.user) enterApp();
-  else showLogin();
+  if (state.token && state.user) {
+    enterApp();
+    // Revalidate the cached profile: a role changed server-side (e.g. user was
+    // demoted) must not keep showing actions that now answer 403.
+    api('GET', '/api/v1/auth/me').then((d) => {
+      const u = d && d.user;
+      if (u && u.role !== state.user.role) {
+        state.user = u;
+        localStorage.setItem('cockpit_user', JSON.stringify(u));
+        enterApp();
+      }
+    }).catch(() => { });
+  } else showLogin();

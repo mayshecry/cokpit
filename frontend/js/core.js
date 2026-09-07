@@ -67,9 +67,9 @@
   };
 
   const rolePerms = {
-    viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'si:list', 'si:view'],
-    operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'si:list', 'si:view'],
-    qc:       ['orders:list', 'orders:view', 'qc:submit', 'audit:view', 'comments:read', 'si:list', 'si:view'],
+    viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'notifications:read', 'si:list', 'si:view'],
+    operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'scan:use', 'pick:use', 'si:list', 'si:view'],
+    qc:       ['orders:list', 'orders:view', 'qc:submit', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'si:list', 'si:view'],
     npi:      ['si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects'],
     admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'manuals:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'config:manage', 'si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'si:manage'],
   };
@@ -90,18 +90,18 @@
   ];
 
   const SI_ENVIRONMENTS = [
-    { value: 'Test', label: 'Test' },
-    { value: 'Acceptatie', label: 'Acceptatie' },
-    { value: 'Productie', label: 'Productie' },
+    { value: 'TEST', label: 'Test' },
+    { value: 'ACCEPTATIE', label: 'Acceptatie' },
+    { value: 'PRODUCTIE', label: 'Productie' },
   ];
 
   const SI_TRANSITIONS = {
     'Requested': ['Design', 'Cancelled'],
     'Design': ['Development', 'Cancelled'],
-    'Development': ['Testing', 'Cancelled'],
-    'Testing': ['Live', 'Development', 'Cancelled'],
+    'Development': ['Testing', 'Design'],
+    'Testing': ['Live', 'Development'],
     'Live': ['Change', 'Retired'],
-    'Change': ['Development', 'Live', 'Retired'],
+    'Change': ['Development', 'Retired'],
     'Retired': ['Archived'],
     'Archived': [],
     'Cancelled': [],
@@ -471,7 +471,9 @@
         const data = {};
         for (const f of fields) {
           const el = form.elements[f.name];
-          data[f.name] = el ? el.value : '';
+          data[f.name] = el
+            ? (el.type === 'checkbox' ? (el.checked ? 'on' : '') : el.value)
+            : '';
           if (f.required && !String(data[f.name]).trim()) {
             const err = $('#modal-error', root);
             err.textContent = f.label + ' is required.';

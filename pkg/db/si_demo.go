@@ -10,7 +10,9 @@ import (
 
 // SeedDemoSI idempotently seeds customer 94828 with four projects and four
 // SIs showing the four lifecycle stages Requested/Development/Testing/Live. It
-// mirrors thee demo pattern of SeedDemoChecklists (no-op when data exists).
+// returns the number of seeded top-level entities (the customer plus the SIs;
+// projects are supporting fixtures) and mirrors the demo pattern of
+// SeedDemoChecklists (no-op when data exists).
 
 func (s *Store) SeedDemoSI(ctx context.Context, now time.Time) (int, error) {
 	var existing int
@@ -50,11 +52,13 @@ func (s *Store) SeedDemoSI(ctx context.Context, now time.Time) (int, error) {
 		env                        si.Environment
 		transitions                []si.Status
 	}{
-		{"SI-0001", "EDI inkooporders", "Elektronische inkooporder-koppeling", "P-001", []string{"P-001", "P-003"}, si.EnvironmentProductie, []si.Status{si.StatusLive}},
-		{"SI-0002", "Factuuruitgifte", "Uitgifte van facturen naar het klantportaal", "P-002", []string{"P-002"}, si.EnvironmentAcceptatie, []si.Status{si.StatusTesting, si.StatusLive}},
+		{"SI-0001", "EDI inkooporders", "Elektronische inkooporder-koppeling", "P-001", []string{"P-001", "P-003"}, si.EnvironmentProductie, []si.Status{si.StatusDesign, si.StatusDevelopment, si.StatusTesting, si.StatusLive}},
+		{"SI-0002", "Factuuruitgifte", "Uitgifte van facturen naar het klantportaal", "P-002", []string{"P-002"}, si.EnvironmentAcceptatie, []si.Status{si.StatusDesign, si.StatusDevelopment, si.StatusTesting}},
 		{"SI-0003", "WMS-koppeling", "Voorraad en picking-koppeling met het WMS", "P-003", []string{"P-003"}, si.EnvironmentTest, []si.Status{si.StatusDesign, si.StatusDevelopment}},
 		{"SI-0004", "BI-extract", "Rapportage-extract naar het BI-platform", "P-004", []string{"P-004"}, si.EnvironmentProductie, []si.Status{}},
 	}
+	// The demo customer counts as a seeded entity too: a full seed returns
+	// 1 customer + 4 SIs = 5.
 	created := 1
 	for _, d := range demoSIs {
 		reqID := byCode[d.primary]

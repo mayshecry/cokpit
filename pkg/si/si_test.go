@@ -89,3 +89,87 @@ func TestEnvironments(t *testing.T) {
 		t.Error("STAGING must not be valid")
 	}
 }
+
+func TestParseSICode(t *testing.T) {
+	tests := []struct {
+		code      string
+		wantDebit string
+		wantDev   string
+		wantConf  string
+		wantErr   bool
+	}{
+		{
+			code:      "SI-92931-LAP-CFG0003",
+			wantDebit: "92931",
+			wantDev:   "LAP",
+			wantConf:  "CFG0003",
+			wantErr:   false,
+		},
+		{
+			code:      "SI-12345-DESK-ABC123",
+			wantDebit: "12345",
+			wantDev:   "DESK",
+			wantConf:  "ABC123",
+			wantErr:   false,
+		},
+		{
+			code:    "invalid-code",
+			wantErr: true,
+		},
+		{
+			code:    "SI-92931-LAP",
+			wantErr: true,
+		},
+		{
+			code:    "",
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		debit, dev, conf, err := ParseSICode(tc.code)
+		if tc.wantErr {
+			if err == nil {
+				t.Errorf("ParseSICode(%q) expected error, got nil", tc.code)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("ParseSICode(%q) returned unexpected error: %v", tc.code, err)
+			continue
+		}
+		if debit != tc.wantDebit || dev != tc.wantDev || conf != tc.wantConf {
+			t.Errorf("ParseSICode(%q) = (%q, %q, %q), want (%q, %q, %q)", tc.code, debit, dev, conf, tc.wantDebit, tc.wantDev, tc.wantConf)
+		}
+	}
+}
+
+func TestSIConfigValidation(t *testing.T) {
+	validConfig := &SIConfig{
+		DebitNumber:    "92931",
+		DeviceType:     "LAP",
+		ConfigID:       "CFG0003",
+		WindowsProfile: "Standard User",
+		Software:       "Office 365, VPN Client",
+		AssetSticker:   true,
+		Sleeve:         true,
+		ScreenProtector: false,
+		OtherDemands:   "Deliver to floor 3",
+	}
+
+	if validConfig.DebitNumber != "92931" {
+		t.Errorf("DebitNumber = %q, want 92931", validConfig.DebitNumber)
+	}
+	if validConfig.DeviceType != "LAP" {
+		t.Errorf("DeviceType = %q, want LAP", validConfig.DeviceType)
+	}
+	if validConfig.ConfigID != "CFG0003" {
+		t.Errorf("ConfigID = %q, want CFG0003", validConfig.ConfigID)
+	}
+	if !validConfig.AssetSticker {
+		t.Error("AssetSticker should be true")
+	}
+	if validConfig.ScreenProtector {
+		t.Error("ScreenProtector should be false")
+	}
+}

@@ -10,7 +10,7 @@ def main() -> None:
     css = (HERE / "styles.css").read_text(encoding="utf-8")
     js_parts = []
     for name in ("core", "notifications", "auth", "orders", "detail",
-                  "checklists", "manuals", "users", "config", "app"):
+                  "checklists", "manuals", "si", "users", "config", "app", "order-pages"):
         js_parts.append((HERE / "js" / (name + ".js")).read_text(encoding="utf-8"))
     js = "\n\n".join(js_parts)
 
@@ -30,9 +30,11 @@ def main() -> None:
         '  <script src="js/detail.js"></script>\n'
         '  <script src="js/checklists.js"></script>\n'
         '  <script src="js/manuals.js"></script>\n'
+        '  <script src="js/si.js"></script>\n'
         '  <script src="js/users.js"></script>\n'
         '  <script src="js/config.js"></script>\n'
-        '  <script src="js/app.js"></script>',
+        '  <script src="js/app.js"></script>\n'
+        '  <script src="js/order-pages.js"></script>',
         "<script>\n" + js + "\n</script>",
     )
 
