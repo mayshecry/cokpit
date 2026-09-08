@@ -17,7 +17,7 @@
     $('#user-avatar').textContent = initials(u);
     $('#nav-home').classList.toggle('hidden', !can('orders:list'));
     $('#nav-orders').classList.toggle('hidden', !can('orders:list'));
-    $('#nav-users').classList.toggle('hidden', !can('users:manage'));
+    $('#nav-users').classList.toggle('hidden', !can('users:list'));
     $('#nav-config').classList.toggle('hidden', !can('config:manage'));
     $('#nav-checklists').classList.toggle('hidden', !can('orders:view'));
     $('#nav-products').classList.toggle('hidden', !can('orders:view'));

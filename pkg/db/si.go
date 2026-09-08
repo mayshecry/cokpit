@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -168,7 +169,7 @@ func (s *Store) ListProjects(ctx context.Context, customerID int64) ([]si.Projec
 	}
 	return projects, rows.Err()
 }
-const siCols = `id, code, name, description, status, version, environment, primary_project_id, created_by, created_at, updated_at`
+const siCols = `id, code, name, description, config, status, version, environment, primary_project_id, created_by, created_at, updated_at`
 
 
 
@@ -199,18 +200,20 @@ func (s *Store) CreateSI(ctx context.Context, req si.CreateSIRequest, performedB
 	}
 	defer tx.Rollback()
 
-	var exists int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM system_integrations WHERE code = ?`, code).Scan(&exists); err != nil {
-		return si.SI{}, fmt.Errorf("check duplicate SI: %w", err)
+	configJSON := "{}"
+	if req.Config != nil {
+		b, err := json.Marshal(req.Config)
+		if err != nil {
+			return si.SI{}, fmt.Errorf("marshal config: %w", err)
+		}
+		configJSON = string(b)
 	}
-	if exists > 0 {
-		return si.SI{}, ErrDuplicateSICode
-	}
-	res, err := tx.ExecContext(ctx,
-		`INSERT INTO system_integrations (code, name, description, status, version, environment, primary_project_id, created_by, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 
-		code, name, req.Description, string(si.StatusRequested), 0, string(env), req.PrimaryProjectID, performedBy, millis(now), millis(now))
+	res, err := tx.ExecContext(ctx,
+		`INSERT INTO system_integrations (code, name, description, config, status, version, environment, primary_project_id, created_by, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+
+		code, name, req.Description, configJSON, string(si.StatusConcept), 0, string(env), req.PrimaryProjectID, performedBy, millis(now), millis(now))
 	if err != nil {
 		return si.SI{}, fmt.Errorf("insert SI: %w", err)
 	}
@@ -221,8 +224,8 @@ func (s *Store) CreateSI(ctx context.Context, req si.CreateSIRequest, performedB
 	if _, err := tx.ExecContext(ctx, `INSERT INTO si_project_links (si_id, project_id, is_primary) VALUES (?, ?, ?)`, id, req.PrimaryProjectID, 1); err != nil {
 		return si.SI{}, fmt.Errorf("insert primary link: %w", err)
 	}
-	to := si.StatusRequested
-	if err := s.siEventTx(ctx, tx, id, "created", "", string(to), 0, "requested by "+performedBy, performedBy, now); err != nil {
+	to := si.StatusConcept
+	if err := s.siEventTx(ctx, tx, id, "created", "", string(to), 0, "created by "+performedBy, performedBy, now); err != nil {
 		return si.SI{}, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -234,9 +237,9 @@ func (s *Store) CreateSI(ctx context.Context, req si.CreateSIRequest, performedB
 func (s *Store) GetSI(ctx context.Context, id int64) (si.SI, error) {
 	row := s.db.QueryRowContext(ctx, `SELECT `+siCols+` FROM system_integrations WHERE id = ?`, id)
 	var v si.SI
-	var status, env string
+	var status, env, configStr string
 	var created, updated int64
-	err := row.Scan(&v.ID, &v.Code, &v.Name, &v.Description, &status, &v.Version, &env, &v.PrimaryProjectID, &v.CreatedBy, &created, &updated)
+	err := row.Scan(&v.ID, &v.Code, &v.Name, &v.Description, &configStr, &status, &v.Version, &env, &v.PrimaryProjectID, &v.CreatedBy, &created, &updated)
 	if errors.Is(err, sql.ErrNoRows) {
 		return si.SI{}, ErrNotFound
 	}
@@ -245,7 +248,14 @@ func (s *Store) GetSI(ctx context.Context, id int64) (si.SI, error) {
 	}
 	v.Status = si.Status(status)
 	v.StatusLabel = si.StatusLabel(v.Status)
+	v.VersionLabel = fmt.Sprintf("v%d", v.Version)
 	v.Environment = si.Environment(env)
+	if configStr != "" && configStr != "{}" {
+		var cfg si.SIConfig
+		if err := json.Unmarshal([]byte(configStr), &cfg); err == nil {
+			v.Config = &cfg
+		}
+	}
 	v.CreatedAt = fromMillis(created)
 	v.UpdatedAt = fromMillis(updated)
 	if err := s.loadSILinks(ctx, &v); err != nil {
@@ -300,14 +310,21 @@ func (s *Store) ListSIs(ctx context.Context, customerNumber string, projectID in
 	out := []si.SI{}
 	for rows.Next() {
 		var v si.SI
-		var st, env string
+		var st, env, configStr string
 		var created, updated int64
-		if err := rows.Scan(&v.ID, &v.Code, &v.Name, &v.Description, &st, &v.Version, &env, &v.PrimaryProjectID, &v.CreatedBy, &created, &updated); err != nil {
+		if err := rows.Scan(&v.ID, &v.Code, &v.Name, &v.Description, &configStr, &st, &v.Version, &env, &v.PrimaryProjectID, &v.CreatedBy, &created, &updated); err != nil {
 			return nil, fmt.Errorf("scan SI: %w", err)
 		}
 		v.Status = si.Status(st)
 		v.StatusLabel = si.StatusLabel(v.Status)
+		v.VersionLabel = fmt.Sprintf("v%d", v.Version)
 		v.Environment = si.Environment(env)
+		if configStr != "" && configStr != "{}" {
+			var cfg si.SIConfig
+			if err := json.Unmarshal([]byte(configStr), &cfg); err == nil {
+				v.Config = &cfg
+			}
+		}
 		v.CreatedAt = fromMillis(created)
 		v.UpdatedAt = fromMillis(updated)
 		out = append(out, v)
@@ -337,7 +354,7 @@ func (s *Store) UpdateSI(ctx context.Context, id int64, req si.UpdateSIRequest, 
 			return si.SI{}, errors.New("name must not be empty")
 		}
 		if trimmed != current.Name {
-			changes = append(changes, "name: " + current.Name + " -> " + trimmed)
+			changes = append(changes, "name: "+current.Name+" -> "+trimmed)
 			name = trimmed
 		}
 	}
@@ -354,15 +371,37 @@ func (s *Store) UpdateSI(ctx context.Context, id int64, req si.UpdateSIRequest, 
 			return si.SI{}, errors.New("invalid environment; allowed: TEST, ACCEPTATIE, PRODUCTIE")
 		}
 		if *req.Environment != current.Environment {
-			changes = append(changes, "environment: " + string(current.Environment) + " -> " + string(*req.Environment))
+			changes = append(changes, "environment: "+string(current.Environment)+" -> "+string(*req.Environment))
 			env = *req.Environment
 		}
+	}
+	configChanged := false
+	if req.Config != nil {
+		configChanged = true
+		changes = append(changes, "config updated")
 	}
 	if len(changes) == 0 {
 		return current, nil
 	}
-	if _, err := s.db.ExecContext(ctx, `UPDATE system_integrations SET name = ?, description = ?, environment = ?, updated_at = ? WHERE id = ?`,
-		name, description, string(env), millis(now), id); err != nil {
+	var configJSON string
+	if configChanged {
+		b, err := json.Marshal(req.Config)
+		if err != nil {
+			return si.SI{}, fmt.Errorf("marshal config: %w", err)
+		}
+		configJSON = string(b)
+	} else {
+		b, err := json.Marshal(current.Config)
+		if err != nil {
+			return si.SI{}, fmt.Errorf("marshal existing config: %w", err)
+		}
+		configJSON = string(b)
+		if configJSON == "null" {
+			configJSON = "{}"
+		}
+	}
+	if _, err := s.db.ExecContext(ctx, `UPDATE system_integrations SET name = ?, description = ?, config = ?, environment = ?, updated_at = ? WHERE id = ?`,
+		name, description, configJSON, string(env), millis(now), id); err != nil {
 		return si.SI{}, fmt.Errorf("update SI: %w", err)
 	}
 	if err := s.siEvent(ctx, id, "updated", "", "", current.Version, strings.Join(changes, "; "), performedBy, now); err != nil {
@@ -381,7 +420,7 @@ func (s *Store) TransitionSI(ctx context.Context, id int64, to si.Status, note, 
 		return si.SI{}, err
 	}
 	version := current.Version
-	if target == si.StatusLive {
+	if target == si.StatusAccepted {
 		version++
 	}
 	tx, err := s.db.BeginTx(ctx, nil)

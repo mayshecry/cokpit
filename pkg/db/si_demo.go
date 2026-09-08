@@ -52,10 +52,10 @@ func (s *Store) SeedDemoSI(ctx context.Context, now time.Time) (int, error) {
 		env                        si.Environment
 		transitions                []si.Status
 	}{
-		{"SI-0001", "EDI inkooporders", "Elektronische inkooporder-koppeling", "P-001", []string{"P-001", "P-003"}, si.EnvironmentProductie, []si.Status{si.StatusDesign, si.StatusDevelopment, si.StatusTesting, si.StatusLive}},
-		{"SI-0002", "Factuuruitgifte", "Uitgifte van facturen naar het klantportaal", "P-002", []string{"P-002"}, si.EnvironmentAcceptatie, []si.Status{si.StatusDesign, si.StatusDevelopment, si.StatusTesting}},
-		{"SI-0003", "WMS-koppeling", "Voorraad en picking-koppeling met het WMS", "P-003", []string{"P-003"}, si.EnvironmentTest, []si.Status{si.StatusDesign, si.StatusDevelopment}},
-		{"SI-0004", "BI-extract", "Rapportage-extract naar het BI-platform", "P-004", []string{"P-004"}, si.EnvironmentProductie, []si.Status{}},
+		{"SI-0001", "EDI inkooporders", "Elektronische inkooporder-koppeling", "P-001", []string{"P-001", "P-003"}, si.EnvironmentProductie, []si.Status{si.StatusInValidation, si.StatusAccepted}},
+		{"SI-0002", "Factuuruitgifte", "Uitgifte van facturen naar het klantportaal", "P-002", []string{"P-002"}, si.EnvironmentAcceptatie, []si.Status{si.StatusInValidation}},
+		{"SI-0003", "WMS-koppeling", "Voorraad en picking-koppeling met het WMS", "P-003", []string{"P-003"}, si.EnvironmentTest, []si.Status{}},
+		{"SI-0004", "BI-extract", "Rapportage-extract naar het BI-platform", "P-004", []string{"P-004"}, si.EnvironmentProductie, []si.Status{si.StatusInValidation, si.StatusAccepted, si.StatusOutphased}},
 	}
 	// The demo customer counts as a seeded entity too: a full seed returns
 	// 1 customer + 4 SIs = 5.
@@ -68,6 +68,14 @@ func (s *Store) SeedDemoSI(ctx context.Context, now time.Time) (int, error) {
 			Description:       d.description,
 			PrimaryProjectID:  reqID,
 			Environment:       d.env,
+			Config: &si.SIConfig{
+				WorkInstructions: "Volg de standaard werkinstructies voor " + d.name,
+				SWI:              "SWI-" + d.code,
+				Workflow:         "1. Voorbereiding\n2. Uitvoering\n3. Validatie",
+				QCProfile:        "Standaard QC profiel",
+				Automations:      "Auto-notificatie bij statuswijziging",
+				EscalationFlow:   []string{"NPI", "Operations"},
+			},
 		}, "demo", now)
 		if err != nil {
 			return created, fmt.Errorf("seed SI %s: %w", d.code, err)

@@ -749,6 +749,9 @@
       if (!ok) return;
       const done = await act('DELETE', `/api/v1/users/${id}`, undefined, 'User deleted');
       if (done) renderUsers(true);
+
+    } else if (btn.dataset.act === 'dept') {
+      openManageDepartments(Number(id));
     }
   });
 

@@ -178,7 +178,7 @@ func (s *Store) UserByToken(ctx context.Context, token string, now time.Time) (a
 		`SELECT u.id, u.username, u.password_hash, u.display_name, u.role, u.created_at
 		 FROM api_tokens t JOIN users u ON u.id = t.user_id
 		 WHERE t.token = ? AND t.expires_at > ?`, token, millis(now)))
-	if errors.Is(err, ErrNotFound) {
+	if errors.Is(err, sql.ErrNoRows) {
 		return auth.User{}, ErrInvalidToken
 	}
 	if err != nil {

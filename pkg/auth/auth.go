@@ -100,6 +100,7 @@ const (
 	PermQCSubmit        Permission = "qc:submit"
 	PermAuditView       Permission = "audit:view"
 	PermUsersManage     Permission = "users:manage"
+	PermUsersList       Permission = "users:list"
 	PermScanUse         Permission = "scan:use"
 	PermPickUse         Permission = "pick:use"
 	PermCommentRead     Permission = "comments:read"
@@ -134,6 +135,7 @@ var rolePermissions = map[Role][]Permission{
 	},
 	RoleNPI: {
 		PermSIList, PermSIView, PermSICreate, PermSIUpdate, PermSITransition, PermSIProjects,
+		PermUsersList,
 	},
 	RoleAdmin: {
 		PermOrderList, PermOrderView, PermAuditView,

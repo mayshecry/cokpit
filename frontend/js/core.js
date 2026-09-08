@@ -70,23 +70,19 @@
     viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'notifications:read', 'si:list', 'si:view'],
     operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'scan:use', 'pick:use', 'si:list', 'si:view'],
     qc:       ['orders:list', 'orders:view', 'qc:submit', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'si:list', 'si:view'],
-    npi:      ['si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects'],
-    admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'manuals:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'config:manage', 'si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'si:manage'],
+    npi:      ['si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'users:list'],
+    admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'users:list', 'manuals:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'config:manage', 'notifications:read', 'si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'si:manage'],
   };
 
   const ROLES = ['viewer', 'operator', 'qc', 'npi', 'admin'];
 
   const SI_STATUSES = [
     { value: 'All', label: 'All' },
-    { value: 'Requested', label: 'Requested' },
-    { value: 'Design', label: 'Design' },
-    { value: 'Development', label: 'Development' },
-    { value: 'Testing', label: 'Testing' },
-    { value: 'Live', label: 'Live' },
-    { value: 'Change', label: 'Change' },
-    { value: 'Retired', label: 'Retired' },
-    { value: 'Archived', label: 'Archived' },
-    { value: 'Cancelled', label: 'Cancelled' },
+    { value: 'Concept', label: 'Concept' },
+    { value: 'In Validation', label: 'In Validation' },
+    { value: 'Accepted', label: 'Accepted' },
+    { value: 'Outphased', label: 'Outphased' },
+    { value: 'Blocked', label: 'Blocked' },
   ];
 
   const SI_ENVIRONMENTS = [
@@ -96,15 +92,11 @@
   ];
 
   const SI_TRANSITIONS = {
-    'Requested': ['Design', 'Cancelled'],
-    'Design': ['Development', 'Cancelled'],
-    'Development': ['Testing', 'Design'],
-    'Testing': ['Live', 'Development'],
-    'Live': ['Change', 'Retired'],
-    'Change': ['Development', 'Retired'],
-    'Retired': ['Archived'],
-    'Archived': [],
-    'Cancelled': [],
+    'Concept': ['In Validation', 'Blocked'],
+    'In Validation': ['Accepted', 'Concept', 'Blocked'],
+    'Accepted': ['Outphased', 'Blocked'],
+    'Blocked': ['Concept', 'In Validation', 'Accepted'],
+    'Outphased': [],
   };
 
   const STATUS_FILTERS = [
@@ -451,6 +443,12 @@
       const form = $('#modal-form', root);
       const close = (result) => {
         document.removeEventListener('keydown', onKey, true);
+        // Clean up any checklist modal event handlers
+        var modalBody = $('.modal-body', root);
+        if (modalBody && modalBody._checklistHandler) {
+          modalBody.removeEventListener('click', modalBody._checklistHandler);
+          delete modalBody._checklistHandler;
+        }
         root.classList.add('hidden');
         root.innerHTML = '';
         modalCleanup = null;

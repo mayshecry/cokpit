@@ -3,8 +3,8 @@ package si
 import "testing"
 
 func TestValidStatuses(t *testing.T) {
-	if len(AllStatuses) != 9 {
-		t.Fatalf("AllStatuses = %d, want 9", len(AllStatuses))
+	if len(AllStatuses) != 5 {
+		t.Fatalf("AllStatuses = %d, want 5", len(AllStatuses))
 	}
 	for _, s := range AllStatuses {
 		if !IsValidStatus(s) {
@@ -14,8 +14,8 @@ func TestValidStatuses(t *testing.T) {
 	if IsValidStatus("Bogus") || IsValidStatus("") {
 		t.Error("Bogus / empty must not be accepted as statuses")
 	}
-	if got := StatusLabel(StatusLive); got != "Live / actief" {
-		t.Errorf("StatusLabel(Live) = %q", got)
+	if got := StatusLabel(StatusAccepted); got != "Geaccepteerd" {
+		t.Errorf("StatusLabel(Accepted) = %q", got)
 	}
 }
 
@@ -24,27 +24,23 @@ func TestCanTransition(t *testing.T) {
 		from, to Status
 		want     bool
 	}{
-		{StatusRequested, StatusDesign, true},
-		{StatusRequested, StatusCancelled, true},
-		{StatusDesign, StatusDevelopment, true},
-		{StatusDesign, StatusCancelled, true},
-		{StatusDevelopment, StatusTesting, true},
-		{StatusDevelopment, StatusDesign, true},
-		{StatusTesting, StatusLive, true},
-		{StatusTesting, StatusDevelopment, true},
-		{StatusLive, StatusChange, true},
-		{StatusLive, StatusRetired, true},
-		{StatusChange, StatusDevelopment, true},
-		{StatusChange, StatusRetired, true},
-		{StatusRetired, StatusArchived, true},
-		{StatusRequested, StatusLive, false},
-		{StatusRequested, StatusArchived, false},
-		{StatusArchived, StatusLive, false},
-		{StatusCancelled, StatusDesign, false},
-		{StatusLive, StatusLive, false},
-		{StatusRetired, StatusCancelled, false},
-		{"Bogus", StatusDesign, false},
-		{"", StatusDesign, false},
+		{StatusConcept, StatusInValidation, true},
+		{StatusConcept, StatusBlocked, true},
+		{StatusInValidation, StatusAccepted, true},
+		{StatusInValidation, StatusConcept, true},
+		{StatusInValidation, StatusBlocked, true},
+		{StatusAccepted, StatusOutphased, true},
+		{StatusAccepted, StatusBlocked, true},
+		{StatusBlocked, StatusConcept, true},
+		{StatusBlocked, StatusInValidation, true},
+		{StatusBlocked, StatusAccepted, true},
+		{StatusConcept, StatusAccepted, false},
+		{StatusConcept, StatusOutphased, false},
+		{StatusOutphased, StatusConcept, false},
+		{StatusAccepted, StatusInValidation, false},
+		{StatusAccepted, StatusAccepted, false},
+		{"Bogus", StatusConcept, false},
+		{"", StatusConcept, false},
 	}
 	for _, tc := range tests {
 		if got := CanTransition(tc.from, tc.to); got != tc.want {
@@ -54,27 +50,27 @@ func TestCanTransition(t *testing.T) {
 }
 
 func TestDetermineTransition(t *testing.T) {
-	if got, err := DetermineTransition(StatusTesting, StatusLive); err != nil || got != StatusLive {
-		t.Errorf("legal transition = %v, %v; want Live, nil", got, err)
+	if got, err := DetermineTransition(StatusInValidation, StatusAccepted); err != nil || got != StatusAccepted {
+		t.Errorf("legal transition = %v, %v; want Accepted, nil", got, err)
 	}
-	if _, err := DetermineTransition(StatusRequested, StatusLive); err == nil {
-		t.Error("Requested->Live must be rejected")
+	if _, err := DetermineTransition(StatusConcept, StatusAccepted); err == nil {
+		t.Error("Concept->Accepted must be rejected")
 	}
-	if _, err := DetermineTransition("Bogus", StatusDesign); err == nil {
+	if _, err := DetermineTransition("Bogus", StatusConcept); err == nil {
 		t.Error("bogus source must be rejected")
 	}
-	if _, err := DetermineTransition(StatusDesign, "Bogus"); err == nil {
+	if _, err := DetermineTransition(StatusConcept, "Bogus"); err == nil {
 		t.Error("bogus target must be rejected")
 	}
-	if got, err := DetermineTransition(StatusArchived, StatusLive); err == nil {
-		t.Errorf("Archived->Live must be rejected, got %v", got)
+	if got, err := DetermineTransition(StatusOutphased, StatusConcept); err == nil {
+		t.Errorf("Outphased->Concept must be rejected, got %v", got)
 	}
 }
 
 func TestNextStatuses(t *testing.T) {
-	nxt := NextStatuses(StatusLive)
-	if len(nxt) != 2 {
-		t.Errorf("NextStatuses(Live) = %v, want 2 targets", nxt)
+	nxt := NextStatuses(StatusInValidation)
+	if len(nxt) != 3 {
+		t.Errorf("NextStatuses(InValidation) = %v, want 3 targets", nxt)
 	}
 	if got := NextStatuses("Bogus"); got != nil {
 		t.Errorf("NextStatuses(Bogus) = %v, want nil", got)
@@ -146,15 +142,21 @@ func TestParseSICode(t *testing.T) {
 
 func TestSIConfigValidation(t *testing.T) {
 	validConfig := &SIConfig{
-		DebitNumber:    "92931",
-		DeviceType:     "LAP",
-		ConfigID:       "CFG0003",
-		WindowsProfile: "Standard User",
-		Software:       "Office 365, VPN Client",
-		AssetSticker:   true,
-		Sleeve:         true,
+		DebitNumber:     "92931",
+		DeviceType:      "LAP",
+		ConfigID:        "CFG0003",
+		WindowsProfile:  "Standard User",
+		Software:        "Office 365, VPN Client",
+		AssetSticker:    true,
+		Sleeve:          true,
 		ScreenProtector: false,
-		OtherDemands:   "Deliver to floor 3",
+		OtherDemands:    "Deliver to floor 3",
+		WorkInstructions: "Follow standard procedure",
+		SWI:              "SWI-001",
+		Workflow:         "1. Prep\n2. Execute\n3. Validate",
+		QCProfile:        "Standard QC",
+		Automations:      "Auto-notify on status change",
+		EscalationFlow:   []string{"NPI", "Operations"},
 	}
 
 	if validConfig.DebitNumber != "92931" {
@@ -171,5 +173,8 @@ func TestSIConfigValidation(t *testing.T) {
 	}
 	if validConfig.ScreenProtector {
 		t.Error("ScreenProtector should be false")
+	}
+	if len(validConfig.EscalationFlow) != 2 {
+		t.Errorf("EscalationFlow length = %d, want 2", len(validConfig.EscalationFlow))
 	}
 }

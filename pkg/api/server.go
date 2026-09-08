@@ -141,6 +141,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/si/projects/checklist/{itemId}/tick", s.requireAuth(s.requirePerm(auth.PermSIUpdate, s.handleSITickChecklistItem)))
 	mux.HandleFunc("POST /api/v1/si/projects/checklist/{itemId}/untick", s.requireAuth(s.requirePerm(auth.PermSIUpdate, s.handleSIUntickChecklistItem)))
 	mux.HandleFunc("DELETE /api/v1/si/projects/checklist/{itemId}", s.requireAuth(s.requirePerm(auth.PermSIUpdate, s.handleDeleteChecklistItem)))
+	mux.HandleFunc("GET /api/v1/departments", s.requireAuth(s.requirePerm(auth.PermUsersList, s.handleListDepartments)))
+	mux.HandleFunc("POST /api/v1/departments", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleCreateDepartment)))
+	mux.HandleFunc("DELETE /api/v1/departments/{id}", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleDeleteDepartment)))
+	mux.HandleFunc("POST /api/v1/departments/{id}/users", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleAddUserToDepartment)))
+	mux.HandleFunc("DELETE /api/v1/departments/{id}/users/{userId}", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleRemoveUserFromDepartment)))
+	mux.HandleFunc("GET /api/v1/departments/{id}/users", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleListDepartmentUsers)))
+	mux.HandleFunc("GET /api/v1/users/{id}/departments", s.requireAuth(s.requirePerm(auth.PermUsersList, s.handleListUserDepartments)))
 	mux.HandleFunc("GET /api/v1/admin/backup", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleAdminBackup)))
 	mux.HandleFunc("GET /api/v1/events", s.requireAuthSSE(s.requirePerm(auth.PermOrderList, s.handleEvents)))
 
@@ -206,6 +213,14 @@ func (s *Server) classifyError(err error) (int, string, string) {
 		return http.StatusConflict, "duplicate_product_code", err.Error()
 	case errors.Is(err, db.ErrDuplicateManual):
 		return http.StatusConflict, "duplicate_manual", err.Error()
+	case errors.Is(err, db.ErrDuplicateCustomerNumber):
+		return http.StatusConflict, "duplicate_customer_number", err.Error()
+	case errors.Is(err, db.ErrDuplicateProjectCode):
+		return http.StatusConflict, "duplicate_project_code", err.Error()
+	case errors.Is(err, db.ErrDuplicateSICode):
+		return http.StatusConflict, "duplicate_si_code", err.Error()
+	case errors.Is(err, db.ErrDuplicateDepartmentName):
+		return http.StatusConflict, "duplicate_department_name", err.Error()
 	case errors.Is(err, db.ErrUnknownAssignee):
 		return http.StatusBadRequest, "unknown_assignee", err.Error()
 	case errors.Is(err, db.ErrBadAnswer):

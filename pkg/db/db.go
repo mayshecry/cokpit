@@ -280,6 +280,22 @@ CREATE TABLE IF NOT EXISTS project_checklist_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_project_checklist_project ON project_checklist_items(project_id, seq);
+
+CREATE TABLE IF NOT EXISTS departments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    name        TEXT    NOT NULL UNIQUE,
+    description TEXT    NOT NULL DEFAULT '',
+    created_at  BIGINT  NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_departments (
+    user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    department_id INTEGER NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    PRIMARY KEY (user_id, department_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_departments_user ON user_departments(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_departments_dept ON user_departments(department_id);
 `
 
 func Open(ctx context.Context, path string) (*sql.DB, error) {
@@ -391,6 +407,22 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_barcode_scans_barcode ON barcode_scans(barcode);
 	`); err != nil {
 		return fmt.Errorf("create barcode_scans table: %w", err)
+	}
+
+	siCols, err := tableColumns(ctx, conn, "system_integrations")
+	if err != nil {
+		return err
+	}
+	siDDL := map[string]string{
+		"config": `ALTER TABLE system_integrations ADD COLUMN config TEXT NOT NULL DEFAULT '{}'`,
+	}
+	for name, ddl := range siDDL {
+		if siCols[name] {
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("add column %s: %w", name, err)
+		}
 	}
 
 	return nil

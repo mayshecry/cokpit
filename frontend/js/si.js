@@ -3,6 +3,10 @@
 // SI Management Module
 // Handles customers, projects, and System Integration lifecycle
 
+// Track whether SI events have been bound to prevent duplicate listeners
+var siEventsBound = false;
+var customerListBound = false;
+
 function escapeSI(str) {
   return String(str || '')
     .replace(/&/g, '&amp;')
@@ -30,6 +34,32 @@ async function loadSIView() {
   renderSITable();
   renderSIFilters();
   bindSIEvents();
+}
+
+// Efficient partial refresh after data modifications - avoids full reload
+async function refreshSIData(options) {
+  options = options || {};
+  var promises = [];
+
+  if (options.reloadCustomers) {
+    promises.push(loadSICustomers());
+  }
+  if (options.reloadProjects) {
+    promises.push(loadSIProjects());
+  }
+  if (options.reloadSIs !== false) {
+    promises.push(loadSISIs());
+  }
+
+  await Promise.all(promises);
+
+  if (options.reloadCustomers) {
+    renderSICustomerList();
+  }
+  if (options.reloadProjects) {
+    renderSIFilters();
+  }
+  renderSITable();
 }
 
 async function loadSICustomers() {
@@ -123,13 +153,14 @@ function renderSITable() {
       if (state.si.projects[i].id === projectId) { project = state.si.projects[i]; break; }
     }
     var projectName = project ? project.code : (projectId === '-' ? '-' : '#' + projectId);
-    return '<tr data-id="' + si.id + '">' +
+    var projectClickable = project ? 'si-project-link' : '';
+    return '<tr class="si-row-clickable" data-id="' + si.id + '">' +
       '<td class="num">' + si.id + '</td>' +
       '<td>' + escapeSI(si.code) + '</td>' +
       '<td>' + escapeSI(si.name) + '</td>' +
       '<td>' + siStatusBadge(si.statusLabel || si.status) + '</td>' +
       '<td>' + siEnvBadge(si.environment) + '</td>' +
-      '<td>' + escapeSI(projectName) + '</td>' +
+      '<td class="' + projectClickable + '" data-project-id="' + (project ? project.id : '') + '">' + escapeSI(projectName) + '</td>' +
       '<td class="num">v' + si.version + '</td>' +
       '<td>' + (si.updatedAt ? fmtTime(si.updatedAt) : '-') + '</td>' +
       '<td class="right"><button type="button" class="btn btn-sm btn-ghost si-view-btn" data-id="' + si.id + '">View</button></td>' +
@@ -160,12 +191,16 @@ function renderSIDetail() {
   if (canTransition) {
     transitionsHtml = '<div class="si-transitions"><h4>Lifecycle Transitions</h4><div class="si-transition-btns">';
     for (var i = 0; i < allowedTransitions.length; i++) {
-      transitionsHtml += '<button type="button" class="btn btn-sm btn-secondary si-transition-btn" data-status="' + allowedTransitions[i] + '">-> ' + allowedTransitions[i] + '</button>';
+      var label = allowedTransitions[i];
+      var btnLabel = '-> ' + label;
+      if (label === 'Blocked') btnLabel = '🔒 Block';
+      else if (si.status === 'Blocked') btnLabel = '🔓 Release: ' + label;
+      transitionsHtml += '<button type="button" class="btn btn-sm btn-secondary si-transition-btn" data-status="' + label + '">' + btnLabel + '</button>';
     }
     transitionsHtml += '</div></div>';
   }
   var html = '<div class="si-detail-head">' +
-    '<div><h3>' + escapeSI(si.code) + ' <span class="muted">v' + si.version + '</span></h3>' +
+    '<div><h3>' + escapeSI(si.code) + ' <span class="muted">' + (si.versionLabel || ('v' + si.version)) + '</span></h3>' +
     '<p class="si-detail-name">' + escapeSI(si.name) + '</p></div>' +
     '<button type="button" class="icon-btn si-close-detail" aria-label="Close detail">' +
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>' +
@@ -181,6 +216,18 @@ function renderSIDetail() {
   if (si.description) {
     html += '<div class="si-detail-desc"><h4>Description</h4><p>' + escapeSI(si.description) + '</p></div>';
   }
+  // NPI-determined automatic fields
+  if (si.config) {
+    html += '<div class="si-detail-config"><h4>NPI Configuration (Automatic)</h4>';
+    var cfg = si.config;
+    if (cfg.workInstructions) html += '<div class="si-meta-row"><span class="si-meta-label">Work Instructions</span><span class="si-meta-value">' + escapeSI(cfg.workInstructions) + '</span></div>';
+    if (cfg.swi) html += '<div class="si-meta-row"><span class="si-meta-label">SWI</span><span class="si-meta-value">' + escapeSI(cfg.swi) + '</span></div>';
+    if (cfg.workflow) html += '<div class="si-meta-row"><span class="si-meta-label">Workflow</span><span class="si-meta-value si-pre">' + escapeSI(cfg.workflow) + '</span></div>';
+    if (cfg.qcProfile) html += '<div class="si-meta-row"><span class="si-meta-label">QC Profile</span><span class="si-meta-value">' + escapeSI(cfg.qcProfile) + '</span></div>';
+    if (cfg.automations) html += '<div class="si-meta-row"><span class="si-meta-label">Automations</span><span class="si-meta-value">' + escapeSI(cfg.automations) + '</span></div>';
+    if (cfg.escalationFlow && cfg.escalationFlow.length > 0) html += '<div class="si-meta-row"><span class="si-meta-label">Escalation Flow</span><span class="si-meta-value">' + cfg.escalationFlow.map(function(d) { return '<span class="dept-tag">' + escapeSI(d) + '</span>'; }).join(' ') + '</span></div>';
+    html += '</div>';
+  }
   html += transitionsHtml;
   html += '<div class="si-detail-actions">';
   if (canEdit) html += '<button type="button" class="btn btn-secondary" id="si-edit-btn">Edit</button>';
@@ -192,40 +239,67 @@ function renderSIDetail() {
   bindSIDetailEvents();
 }
 
+// Track whether SI detail events have been bound
+var siDetailEventsBound = false;
+
 function bindSIDetailEvents() {
-  var closeBtn = $('.si-close-detail');
-  if (closeBtn) closeBtn.addEventListener('click', closeSIDetail);
-  var editBtn = $('#si-edit-btn');
-  if (editBtn) editBtn.addEventListener('click', function() { openSIEditModal(state.si.selectedSI); });
-  var projectsBtn = $('#si-projects-btn');
-  if (projectsBtn) projectsBtn.addEventListener('click', function() { openSIManageProjectsModal(state.si.selectedSI); });
-  var checklistBtn = $('#si-checklist-btn');
-  if (checklistBtn) {
-    checklistBtn.addEventListener('click', function() {
-      var projectId = state.si.selectedSI.primaryProjectId;
-      if (projectId) openProjectChecklistModal(projectId);
-      else toast('No primary project linked.', 'error');
-    });
-  }
-  var btns = $$('.si-transition-btn');
-  for (var i = 0; i < btns.length; i++) {
-    (function(btn) {
-      btn.addEventListener('click', async function() {
-        var newStatus = btn.dataset.status;
-        var note = prompt('Transition to "' + newStatus + '" - add a note (optional):');
-        if (note === null) return;
-        try {
-          await api('POST', '/api/v1/si/sis/' + state.si.selectedSI.id + '/transition', { status: newStatus, note: note });
-          toast('SI transitioned to ' + newStatus, 'success');
-          await viewSI(state.si.selectedSI.id);
-          await loadSISIs();
-          renderSITable();
-        } catch (err) {
-          toast('Transition failed: ' + err.message, 'error');
-        }
-      });
-    })(btns[i]);
-  }
+  // Use event delegation on the detail container to avoid duplicate listeners
+  if (siDetailEventsBound) return;
+  siDetailEventsBound = true;
+
+  var detailBody = $('#si-detail-body');
+  if (!detailBody) return;
+
+  // Single delegated event handler for all detail actions
+  detailBody.addEventListener('click', async function(e) {
+    var target = e.target;
+
+    // Close button
+    if (target.closest('.si-close-detail')) {
+      closeSIDetail();
+      return;
+    }
+
+    // Edit button
+    if (target.id === 'si-edit-btn' || target.closest('#si-edit-btn')) {
+      if (state.si.selectedSI) openSIEditModal(state.si.selectedSI);
+      return;
+    }
+
+    // Manage projects button
+    if (target.id === 'si-projects-btn' || target.closest('#si-projects-btn')) {
+      if (state.si.selectedSI) openSIManageProjectsModal(state.si.selectedSI);
+      return;
+    }
+
+    // Checklist button
+    if (target.id === 'si-checklist-btn' || target.closest('#si-checklist-btn')) {
+      if (state.si.selectedSI) {
+        var projectId = state.si.selectedSI.primaryProjectId;
+        if (projectId) openProjectChecklistModal(projectId);
+        else toast('No primary project linked.', 'error');
+      }
+      return;
+    }
+
+    // Transition buttons
+    var transitionBtn = target.closest('.si-transition-btn');
+    if (transitionBtn && state.si.selectedSI) {
+      var newStatus = transitionBtn.dataset.status;
+      var note = prompt('Transition to "' + newStatus + '" - add a note (optional):');
+      if (note === null) return;
+      try {
+        await api('POST', '/api/v1/si/sis/' + state.si.selectedSI.id + '/transition', { status: newStatus, note: note });
+        toast('SI transitioned to ' + newStatus, 'success');
+        await viewSI(state.si.selectedSI.id);
+        await loadSISIs();
+        renderSITable();
+      } catch (err) {
+        toast('Transition failed: ' + err.message, 'error');
+      }
+      return;
+    }
+  });
 }
 
 function closeSIDetail() {
@@ -235,8 +309,14 @@ function closeSIDetail() {
 }
 
 function bindSIEvents() {
+  // Prevent duplicate event listeners - only bind once
+  if (siEventsBound) return;
+  siEventsBound = true;
+
+  // Use event delegation for customer list (single listener on container)
   var customerList = $('#si-customer-list');
-  if (customerList) {
+  if (customerList && !customerListBound) {
+    customerListBound = true;
     customerList.addEventListener('click', async function(e) {
       var item = e.target.closest('.si-customer-item');
       if (!item) return;
@@ -253,6 +333,8 @@ function bindSIEvents() {
       renderSITable();
     });
   }
+
+  // Status filter - use { once: false } but check if already bound
   var statusFilter = $('#si-status-filter');
   if (statusFilter) {
     statusFilter.addEventListener('change', async function(e) {
@@ -261,6 +343,8 @@ function bindSIEvents() {
       renderSITable();
     });
   }
+
+  // Project filter
   var projectFilter = $('#si-project-filter');
   if (projectFilter) {
     projectFilter.addEventListener('change', async function(e) {
@@ -275,6 +359,8 @@ function bindSIEvents() {
       renderSITable();
     });
   }
+
+  // Refresh button
   var refreshBtn = $('#si-refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async function() {
@@ -287,12 +373,20 @@ function bindSIEvents() {
       toast('Refreshed', 'success');
     });
   }
+
+  // New SI button
   var newBtn = $('#si-new-btn');
   if (newBtn) newBtn.addEventListener('click', function() { openSICreateModal(); });
+
+  // New Customer button
   var newCustomerBtn = $('#si-new-customer-btn');
   if (newCustomerBtn) newCustomerBtn.addEventListener('click', function() { openSICreateCustomerModal(); });
+
+  // New Project button
   var newProjectBtn = $('#si-new-project-btn');
   if (newProjectBtn) newProjectBtn.addEventListener('click', function() { openSICreateProjectModal(); });
+
+  // Seed button
   var seedBtn = $('#si-seed-btn');
   if (seedBtn) {
     seedBtn.addEventListener('click', async function() {
@@ -305,9 +399,30 @@ function bindSIEvents() {
       }
     });
   }
+
+  // Table event delegation for row clicks and project links
   var table = $('#si-table');
   if (table) {
     table.addEventListener('click', function(e) {
+      // Handle project link clicks
+      var projectLink = e.target.closest('.si-project-link');
+      if (projectLink) {
+        var projectId = projectLink.dataset.projectId;
+        if (projectId) {
+          e.stopPropagation();
+          openProjectChecklistModal(Number(projectId));
+          return;
+        }
+      }
+
+      // Handle row clicks - view SI detail
+      var row = e.target.closest('.si-row-clickable');
+      if (row) {
+        viewSI(Number(row.dataset.id));
+        return;
+      }
+
+      // Handle view button clicks (for backward compatibility)
       var viewBtn = e.target.closest('.si-view-btn');
       if (viewBtn) {
         viewSI(Number(viewBtn.dataset.id));
@@ -337,18 +452,32 @@ async function openSICreateModal() {
       { name: 'name', label: 'Name', required: true, placeholder: 'Integration name' },
       { name: 'description', label: 'Description', placeholder: 'Optional description' },
       { name: 'primaryProjectId', label: 'Primary Project', type: 'select', options: projectOptions, required: true },
-      { name: 'environment', label: 'Environment', type: 'select', options: envOptions, required: true }
+      { name: 'environment', label: 'Environment', type: 'select', options: envOptions, required: true },
+      { name: 'workInstructions', label: 'Work Instructions (Werkinstructies)', placeholder: 'Standard work instructions' },
+      { name: 'swi', label: 'SWI', placeholder: 'Which SWI is shown' },
+      { name: 'workflow', label: 'Workflow', placeholder: 'Steps to execute' },
+      { name: 'qcProfile', label: 'QC Profile', placeholder: 'Quality controls needed' },
+      { name: 'automations', label: 'Automations', placeholder: 'External actions' },
     ],
     confirmLabel: 'Create'
   });
   if (!result) return;
   try {
+    var config = {
+      workInstructions: result.workInstructions || '',
+      swi: result.swi || '',
+      workflow: result.workflow || '',
+      qcProfile: result.qcProfile || '',
+      automations: result.automations || '',
+      escalationFlow: [],
+    };
     await api('POST', '/api/v1/si/sis', {
       code: result.code,
       name: result.name,
       description: result.description || '',
       primaryProjectId: Number(result.primaryProjectId),
-      environment: result.environment
+      environment: result.environment,
+      config: config
     });
     toast('SI created', 'success');
     await loadSISIs();
@@ -363,12 +492,18 @@ async function openSIEditModal(si) {
   for (var i = 0; i < SI_ENVIRONMENTS.length; i++) {
     envOptions.push({ value: SI_ENVIRONMENTS[i].value, label: SI_ENVIRONMENTS[i].label });
   }
+  var cfg = si.config || {};
   var result = await modal({
     title: 'Edit SI',
     fields: [
       { name: 'name', label: 'Name', required: true, value: si.name },
       { name: 'description', label: 'Description', value: si.description || '' },
-      { name: 'environment', label: 'Environment', type: 'select', options: envOptions, value: si.environment }
+      { name: 'environment', label: 'Environment', type: 'select', options: envOptions, value: si.environment },
+      { name: 'workInstructions', label: 'Work Instructions (Werkinstructies)', value: cfg.workInstructions || '' },
+      { name: 'swi', label: 'SWI', value: cfg.swi || '' },
+      { name: 'workflow', label: 'Workflow', value: cfg.workflow || '' },
+      { name: 'qcProfile', label: 'QC Profile', value: cfg.qcProfile || '' },
+      { name: 'automations', label: 'Automations', value: cfg.automations || '' },
     ],
     confirmLabel: 'Save'
   });
@@ -378,6 +513,24 @@ async function openSIEditModal(si) {
     if (result.name !== si.name) body.name = result.name;
     if (result.description !== si.description) body.description = result.description;
     if (result.environment !== si.environment) body.environment = result.environment;
+    var newConfig = {
+      workInstructions: result.workInstructions || '',
+      swi: result.swi || '',
+      workflow: result.workflow || '',
+      qcProfile: result.qcProfile || '',
+      automations: result.automations || '',
+      escalationFlow: cfg.escalationFlow || [],
+    };
+    if (cfg.debitNumber) newConfig.debitNumber = cfg.debitNumber;
+    if (cfg.deviceType) newConfig.deviceType = cfg.deviceType;
+    if (cfg.configId) newConfig.configId = cfg.configId;
+    if (cfg.windowsProfile) newConfig.windowsProfile = cfg.windowsProfile;
+    if (cfg.software) newConfig.software = cfg.software;
+    newConfig.assetSticker = cfg.assetSticker || false;
+    newConfig.sleeve = cfg.sleeve || false;
+    newConfig.screenProtector = cfg.screenProtector || false;
+    if (cfg.otherDemands) newConfig.otherDemands = cfg.otherDemands;
+    body.config = newConfig;
     await api('POST', '/api/v1/si/sis/' + si.id, body);
     toast('SI updated', 'success');
     await viewSI(si.id);
@@ -569,9 +722,21 @@ function renderChecklistModal(project) {
 }
 
 function bindChecklistModalEvents(projectId) {
-  var addBtn = $('#checklist-add-btn');
-  if (addBtn) {
-    addBtn.addEventListener('click', async function() {
+  // Use event delegation on the modal body instead of individual button listeners
+  var modalBody = $('.modal-body');
+  if (!modalBody) return;
+
+  // Remove any existing checklist handler to prevent duplicates
+  if (modalBody._checklistHandler) {
+    modalBody.removeEventListener('click', modalBody._checklistHandler);
+  }
+
+  // Create a single delegated event handler
+  modalBody._checklistHandler = async function(e) {
+    var target = e.target;
+
+    // Handle add button click
+    if (target.id === 'checklist-add-btn' || target.closest('#checklist-add-btn')) {
       var input = $('#checklist-new-label');
       var label = input.value.trim();
       if (!label) return;
@@ -583,12 +748,13 @@ function bindChecklistModalEvents(projectId) {
       } catch (err) {
         toast('Add failed: ' + err.message, 'error');
       }
-    });
-  }
+      return;
+    }
 
-  $$('.si-check-btn').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      var itemId = btn.dataset.id;
+    // Handle check button click
+    var checkBtn = target.closest('.si-check-btn');
+    if (checkBtn) {
+      var itemId = checkBtn.dataset.id;
       try {
         await api('POST', '/api/v1/si/projects/checklist/' + itemId + '/tick', {});
         await loadProjectChecklist(projectId);
@@ -597,12 +763,13 @@ function bindChecklistModalEvents(projectId) {
       } catch (err) {
         toast('Check failed: ' + err.message, 'error');
       }
-    });
-  });
+      return;
+    }
 
-  $$('.si-uncheck-btn').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      var itemId = btn.dataset.id;
+    // Handle uncheck button click
+    var uncheckBtn = target.closest('.si-uncheck-btn');
+    if (uncheckBtn) {
+      var itemId = uncheckBtn.dataset.id;
       try {
         await api('POST', '/api/v1/si/projects/checklist/' + itemId + '/untick', {});
         await loadProjectChecklist(projectId);
@@ -611,12 +778,13 @@ function bindChecklistModalEvents(projectId) {
       } catch (err) {
         toast('Undo failed: ' + err.message, 'error');
       }
-    });
-  });
+      return;
+    }
 
-  $$('.si-del-item-btn').forEach(function(btn) {
-    btn.addEventListener('click', async function() {
-      var itemId = btn.dataset.id;
+    // Handle delete button click
+    var delBtn = target.closest('.si-del-item-btn');
+    if (delBtn) {
+      var itemId = delBtn.dataset.id;
       try {
         await api('DELETE', '/api/v1/si/projects/checklist/' + itemId);
         await loadProjectChecklist(projectId);
@@ -625,14 +793,18 @@ function bindChecklistModalEvents(projectId) {
       } catch (err) {
         toast('Delete failed: ' + err.message, 'error');
       }
-    });
-  });
+      return;
+    }
 
-  $$('.si-qr-btn').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      showQRCode(btn.dataset.url);
-    });
-  });
+    // Handle QR button click
+    var qrBtn = target.closest('.si-qr-btn');
+    if (qrBtn) {
+      showQRCode(qrBtn.dataset.url);
+      return;
+    }
+  };
+
+  modalBody.addEventListener('click', modalBody._checklistHandler);
 }
 
 function showQRCode(url) {

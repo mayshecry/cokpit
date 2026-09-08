@@ -11,28 +11,19 @@ import (
 type Status string
 
 const (
-	StatusRequested   Status = "Requested"
-	StatusDesign      Status = "Design"
-	StatusDevelopment Status = "Development"
-	StatusTesting     Status = "Testing"
-	StatusLive        Status = "Live"
-	StatusChange      Status = "Change"
-	StatusRetired     Status = "Retired"
-	StatusArchived    Status = "Archived"
-	StatusCancelled   Status = "Cancelled"
+	StatusConcept      Status = "Concept"
+	StatusInValidation Status = "In Validation"
+	StatusAccepted     Status = "Accepted"
+	StatusOutphased    Status = "Outphased"
+	StatusBlocked      Status = "Blocked"
 )
 
-
 var AllStatuses = []Status{
-	StatusRequested,
-	StatusDesign,
-	StatusDevelopment,
-	StatusTesting,
-	StatusLive,
-	StatusChange,
-	StatusRetired,
-	StatusArchived,
-	StatusCancelled,
+	StatusConcept,
+	StatusInValidation,
+	StatusAccepted,
+	StatusOutphased,
+	StatusBlocked,
 }
 
 
@@ -49,15 +40,11 @@ func IsValidStatus(s Status) bool {
 
 func StatusLabel(s Status) string {
 	labels := map[Status]string{
-		StatusRequested:   "Aangevraagd",
-		StatusDesign:      "In ontwerp",
-		StatusDevelopment: "In ontwikkeling",
-		StatusTesting:     "In test",
-		StatusLive:        "Live / actief",
-		StatusChange:      "In wijziging",
-		StatusRetired:     "Uitgefaseerd",
-		StatusArchived:    "Gearchiveerd",
-		StatusCancelled:  "Geannuleerd",
+		StatusConcept:      "Concept",
+		StatusInValidation: "In Validatie",
+		StatusAccepted:     "Geaccepteerd",
+		StatusOutphased:    "Uitgefaseerd",
+		StatusBlocked:      "Geblokkeerd",
 	}
 	if l, ok := labels[s]; ok {
 		return l
@@ -99,35 +86,25 @@ var (
 
 
 var transitionTable = map[Status]map[Status]bool{
-	StatusRequested: {
-		StatusDesign:  true,
-		StatusCancelled: true,
+	StatusConcept: {
+		StatusInValidation: true,
+		StatusBlocked:      true,
 	},
-	StatusDesign: {
-		StatusDevelopment: true,
-		StatusCancelled:     true,
+	StatusInValidation: {
+		StatusAccepted: true,
+		StatusConcept:  true,
+		StatusBlocked:  true,
 	},
-	StatusDevelopment: {
-		StatusTesting: true,
-		StatusDesign:   true,
+	StatusAccepted: {
+		StatusOutphased: true,
+		StatusBlocked:   true,
 	},
-	StatusTesting: {
-		StatusLive:       true,
-		StatusDevelopment: true,
+	StatusBlocked: {
+		StatusConcept:      true,
+		StatusInValidation: true,
+		StatusAccepted:     true,
 	},
-	StatusLive: {
-		StatusChange: true,
-		StatusRetired: true,
-	},
-	StatusChange: {
-		StatusDevelopment: true,
-		StatusRetired:     true,
-	},
-	StatusRetired: {
-		StatusArchived: true,
-	},
-	StatusArchived: {},
-	StatusCancelled: {},
+	StatusOutphased: {},
 }
 
 
@@ -178,15 +155,22 @@ type Customer struct {
 }
 
 type SIConfig struct {
-	DebitNumber    string `json:"debitNumber"`
-	DeviceType     string `json:"deviceType"`
-	ConfigID       string `json:"configId"`
-	WindowsProfile string `json:"windowsProfile,omitempty"`
-	Software       string `json:"software,omitempty"`
-	AssetSticker   bool   `json:"assetSticker"`
-	Sleeve         bool   `json:"sleeve"`
-	ScreenProtector bool  `json:"screenProtector"`
-	OtherDemands   string `json:"otherDemands,omitempty"`
+	DebitNumber     string   `json:"debitNumber,omitempty"`
+	DeviceType      string   `json:"deviceType,omitempty"`
+	ConfigID        string   `json:"configId,omitempty"`
+	WindowsProfile  string   `json:"windowsProfile,omitempty"`
+	Software        string   `json:"software,omitempty"`
+	AssetSticker    bool     `json:"assetSticker"`
+	Sleeve          bool     `json:"sleeve"`
+	ScreenProtector bool     `json:"screenProtector"`
+	OtherDemands    string   `json:"otherDemands,omitempty"`
+	// NPI-determined automatic fields
+	WorkInstructions string   `json:"workInstructions,omitempty"`
+	SWI              string   `json:"swi,omitempty"`
+	Workflow         string   `json:"workflow,omitempty"`
+	QCProfile        string   `json:"qcProfile,omitempty"`
+	Automations      string   `json:"automations,omitempty"`
+	EscalationFlow   []string `json:"escalationFlow,omitempty"`
 }
 
 func ParseSICode(code string) (string, string, string, error) {
@@ -219,12 +203,20 @@ type SI struct {
 	Status           Status      `json:"status"`
 	StatusLabel      string      `json:"statusLabel"`
 	Version          int         `json:"version"`
-	Environment      Environment  `json:"environment"`
+	VersionLabel     string      `json:"versionLabel"`
+	Environment      Environment `json:"environment"`
 	PrimaryProjectID int64       `json:"primaryProjectId"`
 	ProjectIDs       []int64     `json:"projectIds"`
 	CreatedBy        string      `json:"createdBy,omitempty"`
 	CreatedAt        time.Time   `json:"createdAt"`
 	UpdatedAt        time.Time   `json:"updatedAt"`
+}
+
+type Department struct {
+	ID          int64     `json:"id"`
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
 }
 
 
