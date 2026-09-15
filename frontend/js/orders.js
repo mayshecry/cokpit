@@ -54,7 +54,9 @@
           <span>Target ${fmtTime(c.targetAt)}<span class="sub">${esc(relTime(c.targetAt))}</span></span>
           <span class="muted">Updated ${esc(relTime(c.updatedAt))}</span>
         </div>
+        ${quickCardActions(c)}
       </article>`).join('');
+    bindAttentionCards();
   }
 
   function goToOrder(id) {
@@ -66,6 +68,55 @@
     } else {
       location.hash = target;
     }
+  }
+
+  // One-click "move to the next state" on the dashboard attention cards.
+  function quickCardActions(c) {
+    if (!can('orders:transition')) return '';
+    const next = nextStates(c.status);
+    if (!next.length) return '';
+    return `<div class="acard-actions">
+      <button type="button" class="btn btn-primary btn-sm" data-quick-next="${c.orderId}" data-status="${esc(next[0])}">
+        ${esc(statusLabel(next[0]))} <span aria-hidden="true">→</span>
+      </button>
+    </div>`;
+  }
+
+  function bindAttentionCards() {
+    const grid = $('#attention-cards');
+    if (!grid || grid._boundAttention) return;
+    grid._boundAttention = true;
+    grid.addEventListener('click', async (e) => {
+      const nextBtn = e.target.closest('[data-quick-next]');
+      if (nextBtn) {
+        e.stopPropagation();
+        const status = nextBtn.dataset.status;
+        nextBtn.disabled = true;
+        try {
+          await doQuickTransition(Number(nextBtn.dataset.quickNext), status);
+          await loadAttention(true);
+        } catch { /* act() already toasts */ }
+        finally {
+          nextBtn.disabled = false;
+        }
+        return;
+      }
+      const card = e.target.closest('.acard[data-id]');
+      if (card) goToOrder(Number(card.dataset.id));
+    });
+  }
+
+  // Used by the inline "quick transition" selects in the orders table and by
+  // the one-click buttons on the dashboard cards.
+  async function doQuickTransition(id, status) {
+    const cur = state.orders.find((o) => o.id === id) || state.detail;
+    const body = { status };
+    if (cur && cur.updatedAt) body.expectedUpdatedAt = cur.updatedAt;
+    await act('POST', `/api/v1/orders/${id}/transition`, body, t('toast.moved'), {
+      orderId: id,
+      applyLocal: { status, updatedAt: new Date().toISOString() },
+      revertLocal: cur ? { status: cur.status, updatedAt: cur.updatedAt } : undefined,
+    });
   }
 
   
@@ -215,7 +266,14 @@
     const rows = state.orders.filter((o) => {
       if (state.filter !== 'All' && !(o.status === state.filter || (state.filter === 'On_Hold' && isHeld(o)))) return false;
       if (state.mine && o.assignee !== (state.user && state.user.username)) return false;
-      if (q && !(String(o.id).includes(q) || String(o.orderNumber).toLowerCase().includes(q) || String(o.assignee || '').toLowerCase().includes(q))) return false;
+      if (q && !(
+        String(o.id).includes(q) ||
+        String(o.orderNumber).toLowerCase().includes(q) ||
+        String(o.assignee || '').toLowerCase().includes(q) ||
+        String(o.customerName || '').toLowerCase().includes(q) ||
+        String(o.debitNumber || '').toLowerCase().includes(q) ||
+        String(o.device || '').toLowerCase().includes(q)
+      )) return false;
       return true;
     });
 
@@ -244,9 +302,23 @@
     ).join('');
   }
 
+  // Inline "move to next state" control rendered in every orders table row.
+  function quickSelectHtml(o) {
+    if (!can('orders:transition')) return '';
+    const next = nextStates(o.status);
+    if (!next.length) return '<span class="muted quick-dash">—</span>';
+    return `<select class="row-quick" data-id="${o.id}" aria-label="${esc(t('orders.quickTitle'))}" title="${esc(t('orders.quick'))}">
+      <option value="">${esc(t('orders.quick'))}</option>
+      ${next.map((s) => `<option value="${esc(s)}">${esc(statusLabel(s))}</option>`).join('')}
+    </select>`;
+  }
+
   function renderTable() {
     const tbody = $('#orders-table tbody');
     const countEl = $('#row-count');
+    const showQuick = can('orders:transition');
+    const qHead = $('#orders-table th.quick-col');
+    if (qHead) qHead.classList.toggle('hidden', !showQuick);
 
     $$('#orders-table th.sortable').forEach((th) => {
       const on = th.dataset.sort === state.sort.key;
@@ -257,7 +329,7 @@
     });
 
     if (state.loadingOrders) {
-      tbody.innerHTML = skeletonRows(6, 7);
+      tbody.innerHTML = skeletonRows(6, 10);
       countEl.textContent = '';
       $('#load-more').classList.add('hidden');
       return;
@@ -268,7 +340,7 @@
 
     if (!rows.length) {
       const filtering = state.search || state.filter !== 'All' || state.mine;
-      tbody.innerHTML = `<tr><td colspan="7">
+      tbody.innerHTML = `<tr><td colspan="10">
         <div class="empty">
           <div class="empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/></svg></div>
           <h3>${filtering ? esc(t('orders.empty.filtered')) : esc(t('orders.empty.none'))}</h3>
@@ -290,9 +362,12 @@
         <td class="mono">${o.id}</td>
         <td class="strong">${esc(o.orderNumber)}</td>
         <td>${badge('status-' + esc(statusClass(o.status)), statusLabel(o.status))}</td>
+        <td class="clip">${esc(o.customerName || '—')}</td>
+        <td>${o.assignee ? '@' + esc(o.assignee) : '<span class="muted">—</span>'}</td>
         <td class="time">${fmtTime(o.targetCompletionAt)}<span class="rel">${esc(relTime(o.targetCompletionAt))}</span></td>
         <td>${badge('sla-' + sla, sla.replace('_', ' '))}</td>
         <td class="time">${fmtTime(o.createdAt)}</td>
+        <td class="quick-cell">${quickSelectHtml(o)}</td>
       </tr>`;
     }).join('');
 
