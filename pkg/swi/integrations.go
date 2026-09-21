@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// System is an external system the SWI process keeps in sync. These are the
-// systems listed in the process scope: AFAS (ERP / order import), Omnitracker
-// (ticketing), Intune (MDM), Knox (Samsung MDM) and Apple Business Manager.
 type System string
 
 const (
@@ -20,7 +17,6 @@ const (
 	SystemAppleBusinessManager System = "AppleBusinessManager"
 )
 
-// AllSystems lists every integrated system.
 var AllSystems = []System{
 	SystemAFAS,
 	SystemOmnitracker,
@@ -29,7 +25,6 @@ var AllSystems = []System{
 	SystemAppleBusinessManager,
 }
 
-// SystemLabel returns the display label of a system.
 func SystemLabel(s System) string {
 	if s == SystemAppleBusinessManager {
 		return "Apple Business Manager"
@@ -46,7 +41,6 @@ func IsValidSystem(s System) bool {
 	return false
 }
 
-// Operation is the kind of change pushed to (or pulled from) a system.
 type Operation string
 
 const (
@@ -64,7 +58,6 @@ func IsValidOperation(o Operation) bool {
 	return false
 }
 
-// Direction distinguishes inbound (import) from outbound (update) traffic.
 type Direction string
 
 const (
@@ -72,7 +65,6 @@ const (
 	DirectionOutbound Direction = "OUTBOUND"
 )
 
-// SyncStatus is the lifecycle of a queued external update.
 type SyncStatus string
 
 const (
@@ -91,7 +83,6 @@ func IsValidSyncStatus(s SyncStatus) bool {
 	return false
 }
 
-// SyncStatusLabel returns the display label of a sync status.
 func SyncStatusLabel(s SyncStatus) string {
 	switch s {
 	case SyncPending:
@@ -108,7 +99,6 @@ func SyncStatusLabel(s SyncStatus) string {
 	return string(s)
 }
 
-// PlannedSync is a single external update the process requires.
 type PlannedSync struct {
 	System      System    `json:"system"`
 	SystemLabel string    `json:"systemLabel"`
@@ -118,9 +108,6 @@ type PlannedSync struct {
 	Reason      string    `json:"reason"`
 }
 
-// SyncJob is a persisted, queueable external update (outbox item). The
-// integration worker claims pending jobs, performs the call against the
-// external system and reports the result back.
 type SyncJob struct {
 	ID             int64           `json:"id"`
 	OrderID        int64           `json:"orderId"`
@@ -143,7 +130,6 @@ type SyncJob struct {
 	CompletedAt    *time.Time      `json:"completedAt,omitempty"`
 }
 
-// SyncJobFilter selects sync jobs for the integration dashboard.
 type SyncJobFilter struct {
 	System      System
 	Status      SyncStatus
@@ -152,7 +138,6 @@ type SyncJobFilter struct {
 	PendingOnly bool
 }
 
-// JobKey builds the idempotency key of a sync job.
 func JobKey(orderID int64, from, to Stage, index int, p PlannedSync) string {
 	parts := []string{
 		"ord", itoa64(orderID),
@@ -165,7 +150,6 @@ func JobKey(orderID int64, from, to Stage, index int, p PlannedSync) string {
 	return strings.ToLower(strings.Join(parts, ":"))
 }
 
-// SortJobs orders jobs by system so the worker processes them predictably.
 func SortJobs(jobs []SyncJob) {
 	sort.SliceStable(jobs, func(i, j int) bool {
 		if jobs[i].System != jobs[j].System {
@@ -197,9 +181,6 @@ func itoa64(n int64) string {
 	return string(b[i:])
 }
 
-// syncPlan maps a stage transition onto the external updates that must be
-// queued. Straight-forward transitions mirror the process steps; rework and
-// escalation movements only need Omnitracker to be updated.
 var syncPlan = map[Stage]map[Stage][]PlannedSync{
 	StageOrderImport: {
 		StageWorkPreparation: {
@@ -242,26 +223,22 @@ var syncPlan = map[Stage]map[Stage][]PlannedSync{
 }
 
 var (
-	// escalationEnterSync is queued when a process enters the escalation lane.
 	escalationEnterSync = PlannedSync{
 		System: SystemOmnitracker, Operation: OpUpdate, Direction: DirectionOutbound,
 		Entity: "ticket", Reason: "Escalatie vastleggen op het Omnitracker-ticket",
 	}
-	// escalationLeaveSync is queued when an escalation is released.
+
 	escalationLeaveSync = PlannedSync{
 		System: SystemOmnitracker, Operation: OpUpdate, Direction: DirectionOutbound,
 		Entity: "ticket", Reason: "Escalatie afsluiten op het Omnitracker-ticket",
 	}
-	// reworkSync is queued when work moves a step back.
+
 	reworkSync = PlannedSync{
 		System: SystemOmnitracker, Operation: OpUpdate, Direction: DirectionOutbound,
 		Entity: "ticket", Reason: "Herwerk/terugzetten van de processtap vastleggen",
 	}
 )
 
-// PlanSync returns the external updates required for a stage transition. The
-// result is deterministic (stable order) so re-queueing the same transition is
-// idempotent when combined with the job idempotency key.
 func PlanSync(from, to Stage) []PlannedSync {
 	if !CanAdvance(from, to) {
 		return nil
@@ -277,7 +254,6 @@ func PlanSync(from, to Stage) []PlannedSync {
 		copy(out, plans)
 		return out
 	}
-	// Rework transitions (a step back) only keep Omnitracker in step.
+
 	return []PlannedSync{reworkSync}
 }
-

@@ -1,4 +1,3 @@
-
 package si
 
 import (
@@ -26,7 +25,6 @@ var AllStatuses = []Status{
 	StatusBlocked,
 }
 
-
 func IsValidStatus(s Status) bool {
 	for _, v := range AllStatuses {
 		if s == v {
@@ -35,8 +33,6 @@ func IsValidStatus(s Status) bool {
 	}
 	return false
 }
-
-
 
 func StatusLabel(s Status) string {
 	labels := map[Status]string{
@@ -52,23 +48,19 @@ func StatusLabel(s Status) string {
 	return string(s)
 }
 
-
-
 type Environment string
 
 const (
-	EnvironmentTest      Environment = "TEST"
+	EnvironmentTest       Environment = "TEST"
 	EnvironmentAcceptatie Environment = "ACCEPTATIE"
-	EnvironmentProductie Environment = "PRODUCTIE"
+	EnvironmentProductie  Environment = "PRODUCTIE"
 )
+
 var AllEnvironments = []Environment{
 	EnvironmentTest,
 	EnvironmentAcceptatie,
 	EnvironmentProductie,
 }
-
-
-
 
 func IsValidEnvironment(e Environment) bool {
 	for _, v := range AllEnvironments {
@@ -78,12 +70,12 @@ func IsValidEnvironment(e Environment) bool {
 	}
 	return false
 }
+
 var (
 	ErrInvalidStatus     = errors.New("invalid SI status")
 	ErrInvalidTransition = errors.New("invalid SI status transition")
 	ErrValidation        = errors.New("validation error")
 )
-
 
 var transitionTable = map[Status]map[Status]bool{
 	StatusConcept: {
@@ -107,18 +99,12 @@ var transitionTable = map[Status]map[Status]bool{
 	StatusOutphased: {},
 }
 
-
-
-
 func CanTransition(src, dst Status) bool {
 	if !IsValidStatus(src) || !IsValidStatus(dst) {
 		return false
 	}
 	return transitionTable[src][dst]
 }
-
-
-
 
 func NextStatuses(src Status) []Status {
 	if !IsValidStatus(src) {
@@ -132,7 +118,6 @@ func NextStatuses(src Status) []Status {
 	}
 	return out
 }
-
 
 func DetermineTransition(src, dst Status) (Status, error) {
 	if !IsValidStatus(src) {
@@ -155,16 +140,16 @@ type Customer struct {
 }
 
 type SIConfig struct {
-	DebitNumber     string   `json:"debitNumber,omitempty"`
-	DeviceType      string   `json:"deviceType,omitempty"`
-	ConfigID        string   `json:"configId,omitempty"`
-	WindowsProfile  string   `json:"windowsProfile,omitempty"`
-	Software        string   `json:"software,omitempty"`
-	AssetSticker    bool     `json:"assetSticker"`
-	Sleeve          bool     `json:"sleeve"`
-	ScreenProtector bool     `json:"screenProtector"`
-	OtherDemands    string   `json:"otherDemands,omitempty"`
-	// NPI-determined automatic fields
+	DebitNumber     string `json:"debitNumber,omitempty"`
+	DeviceType      string `json:"deviceType,omitempty"`
+	ConfigID        string `json:"configId,omitempty"`
+	WindowsProfile  string `json:"windowsProfile,omitempty"`
+	Software        string `json:"software,omitempty"`
+	AssetSticker    bool   `json:"assetSticker"`
+	Sleeve          bool   `json:"sleeve"`
+	ScreenProtector bool   `json:"screenProtector"`
+	OtherDemands    string `json:"otherDemands,omitempty"`
+
 	WorkInstructions string   `json:"workInstructions,omitempty"`
 	SWI              string   `json:"swi,omitempty"`
 	Workflow         string   `json:"workflow,omitempty"`
@@ -181,18 +166,16 @@ func ParseSICode(code string) (string, string, string, error) {
 	return parts[1], parts[2], parts[3], nil
 }
 
-
 type Project struct {
 	ID             int64     `json:"id"`
 	CustomerID     int64     `json:"customerId"`
 	CustomerNumber string    `json:"customerNumber"`
-	Code          string    `json:"code"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description,omitempty"`
-	CreatedAt     time.Time `json:"createdAt"`
-	UpdatedAt     time.Time `json:"updatedAt"`
+	Code           string    `json:"code"`
+	Name           string    `json:"name"`
+	Description    string    `json:"description,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
+	UpdatedAt      time.Time `json:"updatedAt"`
 }
-
 
 type SI struct {
 	ID               int64       `json:"id"`
@@ -220,7 +203,6 @@ type Department struct {
 	CreatedAt   time.Time `json:"createdAt"`
 }
 
-
 type SIEvent struct {
 	ID          int64     `json:"id"`
 	SIID        int64     `json:"siId"`
@@ -233,16 +215,14 @@ type SIEvent struct {
 	Timestamp   time.Time `json:"timestamp"`
 }
 
-
 type CreateSIRequest struct {
-	Code              string      `json:"code"`
-	Name              string      `json:"name"`
-	Description       string      `json:"description"`
-	Config            *SIConfig   `json:"config,omitempty"`
-	PrimaryProjectID  int64       `json:"primaryProjectId"`
-	Environment       Environment `json:"environment"`
+	Code             string      `json:"code"`
+	Name             string      `json:"name"`
+	Description      string      `json:"description"`
+	Config           *SIConfig   `json:"config,omitempty"`
+	PrimaryProjectID int64       `json:"primaryProjectId"`
+	Environment      Environment `json:"environment"`
 }
-
 
 type UpdateSIRequest struct {
 	Name        *string      `json:"name,omitempty"`
@@ -251,17 +231,14 @@ type UpdateSIRequest struct {
 	Environment *Environment `json:"environment,omitempty"`
 }
 
-
 type TransitionRequest struct {
 	Status Status `json:"status"`
 	Note   string `json:"note"`
 }
 
-
 type SetProjectsRequest struct {
 	ProjectIDs []int64 `json:"projectIds"`
 }
-
 
 type ProjectChecklistItem struct {
 	ID          int64      `json:"id"`
@@ -273,7 +250,6 @@ type ProjectChecklistItem struct {
 	CheckedAt   *time.Time `json:"checkedAt,omitempty"`
 	CreatedAt   time.Time  `json:"createdAt"`
 }
-
 
 type AddChecklistItemRequest struct {
 	Label       string `json:"label"`

@@ -101,16 +101,14 @@ func TestSeedDemoSI(t *testing.T) {
 	ctx := context.Background()
 	now := fixedNow()
 
-	// Seed demo data
 	count, err := s.SeedDemoSI(ctx, now)
 	if err != nil {
 		t.Fatalf("SeedDemoSI failed: %v", err)
 	}
-	if count != 5 { // 1 customer + 4 SIs
+	if count != 5 {
 		t.Errorf("SeedDemoSI created %d items, want 5", count)
 	}
 
-	// Verify idempotency - seeding again should be no-op
 	count2, err := s.SeedDemoSI(ctx, now)
 	if err != nil {
 		t.Fatalf("SeedDemoSI second call failed: %v", err)

@@ -198,9 +198,6 @@ func (s *Server) handleTransition(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]order.Order{"order": updated})
 }
 
-// Omnitracker / Barcode handlers
-
-// handleUpdateOmnitrackerInfo updates AFAS/Omnitracker fields on an order.
 func (s *Server) handleUpdateOmnitrackerInfo(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r, "id")
 	if err != nil {
@@ -224,7 +221,6 @@ func (s *Server) handleUpdateOmnitrackerInfo(w http.ResponseWriter, r *http.Requ
 	s.writeJSON(w, http.StatusOK, map[string]order.Order{"order": updated})
 }
 
-// handleGenerateBarcode generates a unique barcode for an order.
 func (s *Server) handleGenerateBarcode(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r, "id")
 	if err != nil {
@@ -234,7 +230,7 @@ func (s *Server) handleGenerateBarcode(w http.ResponseWriter, r *http.Request) {
 
 	var req order.GenerateBarcodeRequest
 	if err := s.decodeJSON(w, r, &req); err != nil {
-		// Body is optional, ignore decode errors
+
 	}
 
 	barcode, err := s.store.GenerateBarcode(r.Context(), id, req.Regenerate, s.now().UTC())
@@ -246,7 +242,6 @@ func (s *Server) handleGenerateBarcode(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{"barcode": barcode})
 }
 
-// handleGetBarcode returns the barcode for an order.
 func (s *Server) handleGetBarcode(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r, "id")
 	if err != nil {
@@ -263,7 +258,6 @@ func (s *Server) handleGetBarcode(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{"barcode": o.Barcode})
 }
 
-// handleScanBarcode looks up an order by barcode and records the scan.
 func (s *Server) handleScanBarcode(w http.ResponseWriter, r *http.Request) {
 	barcode := r.URL.Query().Get("code")
 	if barcode == "" {
@@ -278,7 +272,6 @@ func (s *Server) handleScanBarcode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Record the scan event
 	deviceInfo := r.UserAgent()
 	scanType := r.URL.Query().Get("type")
 	if scanType == "" {
@@ -287,13 +280,12 @@ func (s *Server) handleScanBarcode(w http.ResponseWriter, r *http.Request) {
 	_, _ = s.store.RecordBarcodeScan(r.Context(), o.ID, barcode, s.currentUser(r).Username, scanType, deviceInfo, s.now().UTC())
 
 	s.writeJSON(w, http.StatusOK, map[string]any{
-		"order":    o,
-		"scanUrl":  "/scan?code=" + barcode,
-		"omniUrl":  s.omnitrackerURL(o),
+		"order":   o,
+		"scanUrl": "/scan?code=" + barcode,
+		"omniUrl": s.omnitrackerURL(o),
 	})
 }
 
-// handleBarcodeScanHistory returns scan events for an order.
 func (s *Server) handleBarcodeScanHistory(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r, "id")
 	if err != nil {
@@ -310,12 +302,11 @@ func (s *Server) handleBarcodeScanHistory(w http.ResponseWriter, r *http.Request
 	s.writeJSON(w, http.StatusOK, map[string]any{"events": events})
 }
 
-// omnitrackerURL builds the Omnitracker deep link for an order.
 func (s *Server) omnitrackerURL(o order.Order) string {
 	if o.OmnitrackerTicket == "" {
 		return ""
 	}
-	// Configure your Omnitracker base URL here
+
 	base := s.config.OmnitrackerBaseURL
 	if base == "" {
 		return ""

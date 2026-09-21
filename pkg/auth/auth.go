@@ -108,18 +108,17 @@ const (
 	PermNotifyRead      Permission = "notifications:read"
 	PermManualManage    Permission = "manuals:manage"
 	PermSIList          Permission = "si:list"
-	PermSIView           Permission = "si:view"
-	PermSICreate         Permission = "si:create"
-	PermSIUpdate         Permission = "si:update"
-	PermSITransition     Permission = "si:transition"
-	PermSIProjects        Permission = "si:projects"
-	PermSIManage         Permission = "si:manage"
+	PermSIView          Permission = "si:view"
+	PermSICreate        Permission = "si:create"
+	PermSIUpdate        Permission = "si:update"
+	PermSITransition    Permission = "si:transition"
+	PermSIProjects      Permission = "si:projects"
+	PermSIManage        Permission = "si:manage"
 
-	// SWI tool process permissions
-	PermProcessView       Permission = "process:view"
-	PermProcessAdvance    Permission = "process:advance"
-	PermProcessEscalate   Permission = "process:escalate"
-	PermProcessManage     Permission = "process:manage"
+	PermProcessView        Permission = "process:view"
+	PermProcessAdvance     Permission = "process:advance"
+	PermProcessEscalate    Permission = "process:escalate"
+	PermProcessManage      Permission = "process:manage"
 	PermIntegrationsManage Permission = "integrations:manage"
 )
 
@@ -170,8 +169,6 @@ func HasPermission(role Role, perm Permission) bool {
 	return false
 }
 
-// AllPermissions is the complete, grantable permission set (used by the
-// department permission tables in the dashboard).
 var AllPermissions = []Permission{
 	PermOrderList, PermOrderCreate, PermOrderView, PermOrderTransition,
 	PermHoldCreate, PermHoldResolve, PermQCSubmit, PermAuditView,
@@ -190,18 +187,15 @@ var validPermissionSet = func() map[Permission]bool {
 	return m
 }()
 
-// IsValidPermission reports whether perm is a known, grantable permission.
 func IsValidPermission(perm Permission) bool { return validPermissionSet[perm] }
 
 type User struct {
-	ID           int64     `json:"id"`
-	Username     string    `json:"username"`
-	PasswordHash string    `json:"-"`
-	DisplayName  string    `json:"displayName"`
-	Role         Role      `json:"role"`
-	// Permissions holds the effective department-level permissions for this
-	// user, on top of what their role already grants. Only populated on
-	// login / me responses (and only for non-admin users).
+	ID           int64  `json:"id"`
+	Username     string `json:"username"`
+	PasswordHash string `json:"-"`
+	DisplayName  string `json:"displayName"`
+	Role         Role   `json:"role"`
+
 	Permissions []string  `json:"permissions,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 }

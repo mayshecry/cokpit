@@ -166,7 +166,6 @@ func TestNeedsEscalation(t *testing.T) {
 		t.Errorf("level/reason = %s/%s, want L3/SLA_BREACH", level, reason)
 	}
 
-	// Stage dwell: past the 8h budget of WorkPreparation.
 	stalled := Process{OrderID: 1, Stage: StageWorkPreparation, StageSince: base.Add(-9 * time.Hour)}
 	level, reason, ok = NeedsEscalation(o, stalled, order.ComputeSLA(o.TargetCompletion, base), base)
 	if !ok || level != LevelL1 || reason != ReasonStageStalled {

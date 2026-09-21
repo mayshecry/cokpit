@@ -56,9 +56,9 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 }
 
 type createProjectRequest struct {
-	CustomerID int64  `json:"customerId"`
-	Code       string `json:"code"`
-	Name       string `json:"name"`
+	CustomerID  int64  `json:"customerId"`
+	Code        string `json:"code"`
+	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
@@ -96,7 +96,7 @@ func (s *Server) handleListSIs(w http.ResponseWriter, r *http.Request) {
 		}
 		projectID = n
 	}
-		sis, err := s.store.ListSIs(r.Context(), r.URL.Query().Get("customer"), projectID, status)
+	sis, err := s.store.ListSIs(r.Context(), r.URL.Query().Get("customer"), projectID, status)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
 		s.writeError(w, status, code, msg)
@@ -226,8 +226,6 @@ func (s *Server) handleSeedDemoSI(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, http.StatusOK, map[string]int{"seeded": count})
 }
-
-// --- Project checklist handlers ---
 
 func (s *Server) handleListChecklist(w http.ResponseWriter, r *http.Request) {
 	projectID, err := parseID(r, "projectId")

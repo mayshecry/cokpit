@@ -15,14 +15,11 @@ import (
 
 var (
 	ErrDuplicateCustomerNumber = errors.New("customer number already exists")
-	ErrDuplicateProjectCode     = errors.New("project code already exists for this customer")
-	ErrDuplicateSICode          = errors.New("SI code already exists")
-	ErrPrimaryProjectRequired    = errors.New("the primary project must be linked to the SI")
-	ErrCrossCustomerLink         = errors.New("all linked projects must belong to the same customer as the primary project")
+	ErrDuplicateProjectCode    = errors.New("project code already exists for this customer")
+	ErrDuplicateSICode         = errors.New("SI code already exists")
+	ErrPrimaryProjectRequired  = errors.New("the primary project must be linked to the SI")
+	ErrCrossCustomerLink       = errors.New("all linked projects must belong to the same customer as the primary project")
 )
-
-
-
 
 func (s *Store) CreateCustomer(ctx context.Context, number, name string, now time.Time) (si.Customer, error) {
 	name = strings.TrimSpace(name)
@@ -94,8 +91,6 @@ func (s *Store) ListCustomers(ctx context.Context) ([]si.Customer, error) {
 	return customers, rows.Err()
 }
 
-
-
 func (s *Store) CreateProject(ctx context.Context, customerID int64, code, name, description string, now time.Time) (si.Project, error) {
 	code = strings.TrimSpace(code)
 	name = strings.TrimSpace(name)
@@ -140,7 +135,6 @@ func (s *Store) ProjectByID(ctx context.Context, id int64) (si.Project, error) {
 	return p, nil
 }
 
-
 func (s *Store) ListProjects(ctx context.Context, customerID int64) ([]si.Project, error) {
 	query := `SELECT p.id, p.customer_id, c.number, p.code, p.name, p.description, p.created_at, p.updated_at
 			FROM projects p JOIN customers c ON c.id = p.customer_id`
@@ -148,7 +142,7 @@ func (s *Store) ListProjects(ctx context.Context, customerID int64) ([]si.Projec
 	if customerID > 0 {
 		query += ` WHERE p.customer_id = ?`
 		args = append(args, customerID)
-	
+
 	}
 	query += ` ORDER BY p.code ASC, p.id ASC`
 	rows, err := s.db.QueryContext(ctx, query, args...)
@@ -169,10 +163,8 @@ func (s *Store) ListProjects(ctx context.Context, customerID int64) ([]si.Projec
 	}
 	return projects, rows.Err()
 }
+
 const siCols = `id, code, name, description, config, status, version, environment, primary_project_id, created_by, created_at, updated_at`
-
-
-
 
 func (s *Store) CreateSI(ctx context.Context, req si.CreateSIRequest, performedBy string, now time.Time) (si.SI, error) {
 	code := strings.TrimSpace(req.Code)
@@ -281,7 +273,6 @@ func (s *Store) loadSILinks(ctx context.Context, v *si.SI) error {
 	return rows.Err()
 }
 
-
 func (s *Store) ListSIs(ctx context.Context, customerNumber string, projectID int64, status *si.Status) ([]si.SI, error) {
 	query := `SELECT ` + siCols + ` FROM system_integrations si`
 	where := []string{}
@@ -339,7 +330,6 @@ func (s *Store) ListSIs(ctx context.Context, customerNumber string, projectID in
 	}
 	return out, nil
 }
-
 
 func (s *Store) UpdateSI(ctx context.Context, id int64, req si.UpdateSIRequest, performedBy string, now time.Time) (si.SI, error) {
 	current, err := s.GetSI(ctx, id)
@@ -440,8 +430,6 @@ func (s *Store) TransitionSI(ctx context.Context, id int64, to si.Status, note, 
 	return s.GetSI(ctx, id)
 }
 
-
-
 func (s *Store) SetSIProjects(ctx context.Context, id int64, projectIDs []int64, performedBy string, now time.Time) (si.SI, error) {
 	current, err := s.GetSI(ctx, id)
 	if err != nil {
@@ -497,7 +485,7 @@ func (s *Store) SetSIProjects(ctx context.Context, id int64, projectIDs []int64,
 	for _, pid := range projectIDs {
 		isPrimary := 0
 		if pid == current.PrimaryProjectID {
-			isPrimary =  1
+			isPrimary = 1
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO si_project_links (si_id, project_id, is_primary) VALUES (?, ?, ?)`, id, pid, isPrimary); err != nil {
 			return si.SI{}, fmt.Errorf("insert SI link: %w", err)
@@ -586,7 +574,6 @@ func joinIDs(ids []int64) string {
 	}
 	return strings.Join(parts, ", ")
 }
-
 
 func (s *Store) ProjectChecklist(ctx context.Context, projectID int64) ([]si.ProjectChecklistItem, error) {
 	rows, err := s.db.QueryContext(ctx,

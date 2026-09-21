@@ -269,19 +269,19 @@ func (s *Store) PlaceHoldGuarded(ctx context.Context, id int64, reason, createdB
 	}
 
 	return order.Hold{
-			ID:        holdID,
-			OrderID:   id,
-			Reason:    reason,
-			CreatedBy: createdBy,
-			CreatedAt: now.UTC(),
-		}, order.Order{
-			ID:               current.ID,
-			OrderNumber:      current.OrderNumber,
-			Status:           held,
-			TargetCompletion: current.TargetCompletion,
-			CreatedAt:        current.CreatedAt,
-			UpdatedAt:        now.UTC(),
-		}, nil
+		ID:        holdID,
+		OrderID:   id,
+		Reason:    reason,
+		CreatedBy: createdBy,
+		CreatedAt: now.UTC(),
+	}, order.Order{
+		ID:               current.ID,
+		OrderNumber:      current.OrderNumber,
+		Status:           held,
+		TargetCompletion: current.TargetCompletion,
+		CreatedAt:        current.CreatedAt,
+		UpdatedAt:        now.UTC(),
+	}, nil
 }
 
 func (s *Store) ResolveHold(ctx context.Context, holdID int64, resolvedBy string, now time.Time) (order.Hold, order.Order, error) {
@@ -642,9 +642,6 @@ func (s *Store) ActiveHoldStarts(ctx context.Context) (map[int64]time.Time, erro
 	return out, rows.Err()
 }
 
-// Barcode functions
-
-// UpdateOmnitrackerInfo updates the AFAS/Omnitracker fields on an order.
 func (s *Store) UpdateOmnitrackerInfo(ctx context.Context, id int64, req order.OmnitrackerInfoRequest, now time.Time) (order.Order, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -671,9 +668,6 @@ func (s *Store) UpdateOmnitrackerInfo(ctx context.Context, id int64, req order.O
 	return s.GetOrder(ctx, id)
 }
 
-// GenerateBarcode creates a unique barcode for an order. When regenerate is
-// true (or no barcode exists yet), a new barcode is generated even if the
-// order already has one, so the previous barcode stops working.
 func (s *Store) GenerateBarcode(ctx context.Context, id int64, regenerate bool, now time.Time) (string, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -681,7 +675,6 @@ func (s *Store) GenerateBarcode(ctx context.Context, id int64, regenerate bool, 
 	}
 	defer tx.Rollback()
 
-	// Check if barcode already exists
 	var existing string
 	err = tx.QueryRowContext(ctx, `SELECT barcode FROM orders WHERE id = ?`, id).Scan(&existing)
 	if err != nil {
@@ -691,7 +684,6 @@ func (s *Store) GenerateBarcode(ctx context.Context, id int64, regenerate bool, 
 		return existing, nil
 	}
 
-	// Generate unique barcode: COCKPIT-ORDERID-RANDOM
 	barcode := fmt.Sprintf("CPT-%d-%d", id, now.UnixNano()%1000000)
 
 	_, err = tx.ExecContext(ctx,
@@ -708,7 +700,6 @@ func (s *Store) GenerateBarcode(ctx context.Context, id int64, regenerate bool, 
 	return barcode, nil
 }
 
-// OrderByBarcode finds an order by its barcode.
 func (s *Store) OrderByBarcode(ctx context.Context, barcode string) (order.Order, error) {
 	row := s.db.QueryRowContext(ctx,
 		`SELECT `+orderCols+` FROM orders WHERE barcode = ?`, barcode)
@@ -722,7 +713,6 @@ func (s *Store) OrderByBarcode(ctx context.Context, barcode string) (order.Order
 	return o, nil
 }
 
-// RecordBarcodeScan logs a barcode scan event.
 func (s *Store) RecordBarcodeScan(ctx context.Context, orderID int64, barcode, scannedBy, scanType, deviceInfo string, now time.Time) (order.BarcodeScanEvent, error) {
 	res, err := s.db.ExecContext(ctx,
 		`INSERT INTO barcode_scans (order_id, barcode, scanned_by, scan_type, device_info, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
@@ -742,7 +732,6 @@ func (s *Store) RecordBarcodeScan(ctx context.Context, orderID int64, barcode, s
 	}, nil
 }
 
-// BarcodeScanHistory returns scan events for an order.
 func (s *Store) BarcodeScanHistory(ctx context.Context, orderID int64) ([]order.BarcodeScanEvent, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT id, order_id, barcode, scanned_by, scan_type, device_info, created_at FROM barcode_scans WHERE order_id = ? ORDER BY created_at DESC`, orderID)

@@ -14,7 +14,6 @@ import (
 
 var ErrDuplicateDepartmentName = errors.New("department name already exists")
 
-// scanPerms decodes the JSON permission list stored on a department row.
 func scanPerms(raw string) []string {
 	if raw == "" {
 		return nil
@@ -133,8 +132,6 @@ func (s *Store) UserDepartments(ctx context.Context, userID int64) ([]si.Departm
 	return departments, rows.Err()
 }
 
-// SetDepartmentPermissions replaces the permission list of a department.
-// The permissions are persisted as a JSON array.
 func (s *Store) SetDepartmentPermissions(ctx context.Context, id int64, perms []string) error {
 	if perms == nil {
 		perms = []string{}
@@ -153,8 +150,6 @@ func (s *Store) SetDepartmentPermissions(ctx context.Context, id int64, perms []
 	return nil
 }
 
-// UserDepartmentPermissions returns the deduplicated set of permissions the
-// user gains through their department memberships (independent of their role).
 func (s *Store) UserDepartmentPermissions(ctx context.Context, userID int64) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT d.permissions FROM departments d

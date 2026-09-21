@@ -141,8 +141,7 @@ func (s *Server) handleSetDepartmentPermissions(w http.ResponseWriter, r *http.R
 		s.writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
 		return
 	}
-	// Only known permissions are accepted; everything else is silently
-	// dropped so a stale client can never grant something unintended.
+
 	seen := map[string]bool{}
 	perms := []string{}
 	for _, p := range req.Permissions {
@@ -170,5 +169,5 @@ func (s *Server) handleSetDepartmentPermissions(w http.ResponseWriter, r *http.R
 }
 
 func init() {
-	_ = auth.PermSICreate // ensure auth package is used
+	_ = auth.PermSICreate
 }

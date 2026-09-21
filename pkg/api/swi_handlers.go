@@ -8,8 +8,6 @@ import (
 	"cockpit/pkg/swi"
 )
 
-// processResponse is the standard payload of the process endpoints: the
-// process state plus the external updates the action queued.
 type processResponse struct {
 	Process  swi.Process   `json:"process"`
 	OrderID  int64         `json:"orderId"`
@@ -30,9 +28,6 @@ func (s *Server) handleGetProcess(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, processResponse{Process: proc, OrderID: orderID})
 }
 
-// handleAdvanceProcess moves an order through the SWI process. A stage change
-// requires the mandatory work instructions of the current stage to be done;
-// only process:manage users may force the step.
 func (s *Server) handleAdvanceProcess(w http.ResponseWriter, r *http.Request) {
 	orderID, ok := s.orderIDParam(w, r)
 	if !ok {
@@ -217,8 +212,6 @@ func (s *Server) handleProcessEvents(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"events": events, "total": len(events)})
 }
 
-// handleProcessBoard returns the process-management board: every order in its
-// stage lane plus the aggregate metrics.
 func (s *Server) handleProcessBoard(w http.ResponseWriter, r *http.Request) {
 	limit := queryInt(r, "limit", 500, 1, 5000)
 	var stage *swi.Stage
@@ -272,8 +265,7 @@ func (s *Server) handleProcessMetrics(w http.ResponseWriter, r *http.Request) {
 		"systems": systemInfo(),
 	})
 }
-// handleImportOrder is the AFAS order import: step 1 of the SWI process. It is
-// idempotent: importing the same order number twice returns the existing order.
+
 func (s *Server) handleImportOrder(w http.ResponseWriter, r *http.Request) {
 	var req swi.ImportRequest
 	if err := s.decodeJSON(w, r, &req); err != nil {
@@ -318,8 +310,6 @@ func (s *Server) handleImportOrder(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleAutoEscalate lets a scheduler run the automatic escalation rules
-// (SLA breach or a stage that dwells past its budget).
 func (s *Server) handleAutoEscalate(w http.ResponseWriter, r *http.Request) {
 	raised, err := s.store.AutoEscalate(r.Context(), s.now().UTC())
 	if err != nil {
@@ -332,8 +322,6 @@ func (s *Server) handleAutoEscalate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"escalated": raised, "total": len(raised)})
 }
-
-// --- external system synchronisation -------------------------------------
 
 func (s *Server) handleListSyncJobs(w http.ResponseWriter, r *http.Request) {
 	f := swi.SyncJobFilter{Limit: queryInt(r, "limit", 200, 1, 1000)}
@@ -371,7 +359,6 @@ func (s *Server) handleListSyncJobs(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"syncJobs": jobs, "total": len(jobs)})
 }
 
-// handleClaimSyncJobs hands pending work to the integration worker.
 func (s *Server) handleClaimSyncJobs(w http.ResponseWriter, r *http.Request) {
 	system := swi.System(r.URL.Query().Get("system"))
 	if !swi.IsValidSystem(system) {
@@ -388,7 +375,6 @@ func (s *Server) handleClaimSyncJobs(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"syncJobs": jobs, "total": len(jobs)})
 }
 
-// handleCompleteSyncJob records the integration worker's result.
 func (s *Server) handleCompleteSyncJob(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(r, "id")
 	if err != nil {
@@ -430,10 +416,6 @@ func (s *Server) handleRetrySyncJob(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"syncJob": job})
 }
 
-// --- small shared helpers ---------------------------------------------------
-
-// orderIDParam parses the {id} path segment of an order endpoint, writing a
-// 400 response when it is not an integer.
 func (s *Server) orderIDParam(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := parseID(r, "id")
 	if err != nil {
@@ -443,8 +425,6 @@ func (s *Server) orderIDParam(w http.ResponseWriter, r *http.Request) (int64, bo
 	return id, true
 }
 
-// queryInt reads an integer query parameter, clamping it to [min, max] and
-// falling back to def when it is absent or malformed.
 func queryInt(r *http.Request, name string, def, min, max int) int {
 	raw := r.URL.Query().Get(name)
 	if raw == "" {
@@ -463,7 +443,6 @@ func queryInt(r *http.Request, name string, def, min, max int) int {
 	return n
 }
 
-// systemInfo describes the integrated external systems for the frontend.
 func systemInfo() []map[string]string {
 	out := make([]map[string]string, 0, len(swi.AllSystems))
 	for _, sys := range swi.AllSystems {

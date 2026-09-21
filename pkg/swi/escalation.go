@@ -4,10 +4,8 @@ import (
 	"time"
 
 	"cockpit/pkg/order"
-) 
+)
 
-// Level is the escalation level. L1 is handled in the team, L2 by operations,
-// L3 by the process owner.
 type Level string
 
 const (
@@ -16,7 +14,6 @@ const (
 	LevelL3 Level = "L3"
 )
 
-// AllLevels lists the escalation levels in increasing severity.
 var AllLevels = []Level{LevelL1, LevelL2, LevelL3}
 
 func IsValidLevel(l Level) bool {
@@ -28,7 +25,6 @@ func IsValidLevel(l Level) bool {
 	return false
 }
 
-// LevelLabel returns the display label (with the owner) of a level.
 func LevelLabel(l Level) string {
 	switch l {
 	case LevelL1:
@@ -41,7 +37,6 @@ func LevelLabel(l Level) string {
 	return string(l)
 }
 
-// Reason is why a process was escalated.
 type Reason string
 
 const (
@@ -53,7 +48,6 @@ const (
 	ReasonManual       Reason = "MANUAL"
 )
 
-// AllReasons lists every escalation reason.
 var AllReasons = []Reason{
 	ReasonSLABreach,
 	ReasonStageStalled,
@@ -72,7 +66,6 @@ func IsValidReason(r Reason) bool {
 	return false
 }
 
-// ReasonLabel returns the Dutch label of an escalation reason.
 func ReasonLabel(r Reason) string {
 	switch r {
 	case ReasonSLABreach:
@@ -91,8 +84,6 @@ func ReasonLabel(r Reason) string {
 	return string(r)
 }
 
-// Escalation is one escalation record. ReturnStage remembers where the process
-// came from so releasing the escalation puts it back on the right step.
 type Escalation struct {
 	ID             int64      `json:"id"`
 	OrderID        int64      `json:"orderId"`
@@ -113,8 +104,6 @@ type Escalation struct {
 	Open           bool       `json:"open"`
 }
 
-// StageBudget is the maximum time work may dwell in a stage before the process
-// raises an escalation. It drives the automatic escalations.
 func StageBudget(s Stage) time.Duration {
 	switch s {
 	case StageOrderImport:
@@ -133,7 +122,6 @@ func StageBudget(s Stage) time.Duration {
 	return 0
 }
 
-// SuggestedLevel maps an SLA position onto an escalation level.
 func SuggestedLevel(sla order.SLAStatus, overdue time.Duration) Level {
 	if sla != order.SLABreached {
 		return LevelL1
@@ -144,9 +132,6 @@ func SuggestedLevel(sla order.SLAStatus, overdue time.Duration) Level {
 	return LevelL2
 }
 
-// NeedsEscalation reports whether the process of an order should be escalated
-// automatically, and at which level. It returns false when the process is
-// already escalated or already completed.
 func NeedsEscalation(o order.Order, p Process, sla order.SLA, now time.Time) (Level, Reason, bool) {
 	if p.Escalated || IsTerminalStage(p.Stage) || !IsValidStage(p.Stage) {
 		return "", "", false
@@ -161,7 +146,6 @@ func NeedsEscalation(o order.Order, p Process, sla order.SLA, now time.Time) (Le
 	return "", "", false
 }
 
-// ValidateEscalation checks an escalation request.
 func ValidateEscalation(req EscalateRequest) error {
 	if !IsValidLevel(req.Level) {
 		return validationErr("level must be one of L1, L2, L3")

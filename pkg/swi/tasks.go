@@ -2,9 +2,6 @@ package swi
 
 import "time"
 
-// TaskTemplate is one work instruction step of a stage. Templates are
-// instantiated as Tasks when a process enters (or returns to) a stage, so every
-// order carries its own attributable checklist.
 type TaskTemplate struct {
 	Seq         int    `json:"seq"`
 	Title       string `json:"title"`
@@ -13,7 +10,6 @@ type TaskTemplate struct {
 	Required    bool   `json:"required"`
 }
 
-// Task is an instantiated work instruction step on an order.
 type Task struct {
 	ID          int64      `json:"id"`
 	OrderID     int64      `json:"orderId"`
@@ -29,9 +25,6 @@ type Task struct {
 	CreatedAt   time.Time  `json:"createdAt"`
 }
 
-// stageTemplates holds the work instructions per stage. They describe the
-// process as agreed in the SWI: what must be done, by which role, and which
-// steps are mandatory before the process may advance.
 var stageTemplates = map[Stage][]TaskTemplate{
 	StageOrderImport: {
 		{Seq: 1, Title: "AFAS-ordergegevens controleren", Description: "Debiteurnummer, klantnaam, device en assetnummer compleet en correct.", Role: "operator", Required: true},
@@ -70,7 +63,6 @@ var stageTemplates = map[Stage][]TaskTemplate{
 	},
 }
 
-// StageTasks returns the work instruction templates of a stage.
 func StageTasks(s Stage) []TaskTemplate {
 	out := stageTemplates[s]
 	if len(out) == 0 {
@@ -81,8 +73,6 @@ func StageTasks(s Stage) []TaskTemplate {
 	return cp
 }
 
-// TaskProgress reports how many tasks are total and done, and whether every
-// required task is done.
 func TaskProgress(tasks []Task) (total, done int, requiredOpen int) {
 	for _, t := range tasks {
 		total++

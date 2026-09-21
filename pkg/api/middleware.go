@@ -59,9 +59,7 @@ func (s *Server) userHasPerm(r *http.Request, user auth.User, perm auth.Permissi
 	if auth.HasPermission(user.Role, perm) {
 		return true
 	}
-	// Fall back to the department permission tables: a user inherits every
-	// permission granted to any department they are a member of. Admins are
-	// handled inside auth.HasPermission, so no special case is needed here.
+
 	perms, err := s.store.UserDepartmentPermissions(r.Context(), user.ID)
 	if err != nil {
 		return false

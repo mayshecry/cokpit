@@ -13,19 +13,12 @@ import (
 	"cockpit/pkg/swi"
 )
 
-// ErrProcessTasksOpen marks an advance blocked by unfinished required tasks.
 var ErrProcessTasksOpen = swi.ErrTasksOpen
 
-// ErrEscalationActive marks an action blocked by an open escalation.
 var ErrEscalationActive = swi.ErrEscalationActive
 
-// ErrTaskState is returned when a workflow task is already in the requested
-// state (ticking a ticked task or unticking an open one).
 var ErrTaskState = errors.New("process task is already in that state")
 
-// EnsureProcess creates the process row for an order when it does not exist yet
-// and instantiates the work instructions of the current stage. It is safe to
-// call for every order; existing processes are left untouched.
 func (s *Store) EnsureProcess(ctx context.Context, orderID int64, performedBy string, now time.Time) (swi.Process, error) {
 	if performedBy == "" {
 		performedBy = "system"
@@ -64,7 +57,7 @@ func (s *Store) EnsureProcess(ctx context.Context, orderID int64, performedBy st
 	case err != nil:
 		return swi.Process{}, fmt.Errorf("read process: %w", err)
 	default:
-		// Already present: make sure the stage has its work instructions.
+
 		if err := s.seedTasksTx(ctx, tx, orderID, swi.Stage(existing), now); err != nil {
 			return swi.Process{}, err
 		}
@@ -76,7 +69,6 @@ func (s *Store) EnsureProcess(ctx context.Context, orderID int64, performedBy st
 	return s.GetProcess(ctx, orderID)
 }
 
-// GetProcess returns the process state of an order, creating it when missing.
 func (s *Store) GetProcess(ctx context.Context, orderID int64) (swi.Process, error) {
 	p, err := s.getProcessRow(ctx, orderID)
 	if errors.Is(err, ErrNotFound) {
@@ -121,8 +113,6 @@ func scanProcess(row *sql.Row) (swi.Process, error) {
 	return p, nil
 }
 
-// fillProcess loads the derived counters of a process: open escalations, task
-// progress and the outstanding external updates.
 func (s *Store) fillProcess(ctx context.Context, p *swi.Process) error {
 	tasks, err := s.ProcessTasks(ctx, p.OrderID, nil)
 	if err != nil {
@@ -151,9 +141,7 @@ func (s *Store) fillProcess(ctx context.Context, p *swi.Process) error {
 	}
 	return nil
 }
-// seedTasksTx instantiates the work instructions of a stage, ignoring titles
-// that already exist for the order so re-entering a stage does not duplicate
-// completed steps.
+
 func (s *Store) seedTasksTx(ctx context.Context, tx *sql.Tx, orderID int64, stage swi.Stage, now time.Time) error {
 	for _, tpl := range swi.StageTasks(stage) {
 		required := 0
@@ -227,8 +215,6 @@ func orderNumberTx(ctx context.Context, tx *sql.Tx, orderID int64) (string, erro
 	return number, nil
 }
 
-// queueSyncJobsTx plans and persists the external updates of a stage change.
-// The idempotency key makes re-queueing the same transition a no-op.
 func queueSyncJobsTx(ctx context.Context, tx *sql.Tx, orderID int64, number string, from, to swi.Stage, now time.Time) ([]swi.SyncJob, error) {
 	plans := swi.PlanSync(from, to)
 	jobs := make([]swi.SyncJob, 0, len(plans))
@@ -267,11 +253,7 @@ func queueSyncJobsTx(ctx context.Context, tx *sql.Tx, orderID int64, number stri
 	swi.SortJobs(jobs)
 	return jobs, nil
 }
-// AdvanceProcess moves an order to the next stage of the SWI process. It
-// enforces the stage machine, blocks advancement while the order is escalated
-// and (unless force is set) requires every mandatory task of the current stage
-// to be done. All external updates of the transition are queued in the same
-// transaction, so the outbox can never miss a stage change.
+
 func (s *Store) AdvanceProcess(ctx context.Context, orderID int64, to swi.Stage, note, performedBy string, force bool, now time.Time) (swi.Process, []swi.SyncJob, error) {
 	if performedBy == "" {
 		performedBy = "system"
@@ -339,9 +321,6 @@ func (s *Store) AdvanceProcess(ctx context.Context, orderID int64, to swi.Stage,
 	return updated, jobs, nil
 }
 
-
-// ListProcesses returns the process rows, optionally filtered to a single
-// stage, for the process board.
 func (s *Store) ListProcesses(ctx context.Context, stage *swi.Stage, limit int) ([]swi.Process, error) {
 	query := `
 		SELECT p.order_id, o.order_number, o.status, o.assigned_to, p.stage, p.stage_since,
@@ -395,8 +374,6 @@ func (s *Store) ListProcesses(ctx context.Context, stage *swi.Stage, limit int) 
 	return procs, nil
 }
 
-// ProcessTasks returns the work instructions of an order, optionally filtered
-// to one stage.
 func (s *Store) ProcessTasks(ctx context.Context, orderID int64, stage *swi.Stage) ([]swi.Task, error) {
 	query := `SELECT id, order_id, stage, seq, title, description, role, required, done, done_by, done_at, created_at
 		FROM process_tasks WHERE order_id = ?`
@@ -431,9 +408,7 @@ func (s *Store) ProcessTasks(ctx context.Context, orderID int64, stage *swi.Stag
 	}
 	return tasks, rows.Err()
 }
-// SetProcessTaskDone ticks or unticks a work instruction step. Ticking records
-// who did it and when; unticking clears that attribution. It returns the task
-// and its order id so callers can publish the change.
+
 func (s *Store) SetProcessTaskDone(ctx context.Context, taskID int64, done bool, note, performedBy string, now time.Time) (swi.Task, int64, error) {
 	if performedBy == "" {
 		performedBy = "system"
@@ -494,7 +469,6 @@ func (s *Store) SetProcessTaskDone(ctx context.Context, taskID int64, done bool,
 	return t, t.OrderID, nil
 }
 
-// ProcessEvents returns the process trail of an order (newest first).
 func (s *Store) ProcessEvents(ctx context.Context, orderID int64, limit int) ([]swi.Event, error) {
 	if limit <= 0 {
 		limit = 200
@@ -535,10 +509,6 @@ func doneWord(done bool) string {
 	return "heropend"
 }
 
-// EscalateProcess raises an escalation on an order. The process moves to the
-// escalation lane (remembering where it came from) and an Omnitracker update
-// is queued. Escalating an already escalated order records the additional
-// escalation without queueing a duplicate sync job.
 func (s *Store) EscalateProcess(ctx context.Context, orderID int64, level swi.Level, reason swi.Reason, note, escalatedTo, performedBy string, now time.Time) (swi.Escalation, swi.Process, []swi.SyncJob, error) {
 	if performedBy == "" {
 		performedBy = "system"
@@ -633,7 +603,6 @@ func (s *Store) EscalateProcess(ctx context.Context, orderID int64, level swi.Le
 	return esc, updated, jobs, nil
 }
 
-// notifyEscalationTx notifies the escalation owner, when one was named.
 func notifyEscalationTx(ctx context.Context, tx *sql.Tx, orderID int64, number, escalatedTo string, level swi.Level, reason swi.Reason, note string, now time.Time) error {
 	if strings.TrimSpace(escalatedTo) == "" {
 		return nil
@@ -650,9 +619,7 @@ func notifyEscalationTx(ctx context.Context, tx *sql.Tx, orderID int64, number, 
 	}
 	return nil
 }
-// ResolveEscalation closes an escalation. When no open escalations remain the
-// process returns to the flow at the remembered return stage, and the release
-// is reported to Omnitracker.
+
 func (s *Store) ResolveEscalation(ctx context.Context, escalationID int64, resolution, performedBy string, now time.Time) (swi.Escalation, swi.Process, []swi.SyncJob, error) {
 	if performedBy == "" {
 		performedBy = "system"
@@ -738,7 +705,6 @@ func (s *Store) ResolveEscalation(ctx context.Context, escalationID int64, resol
 	return updated, proc, jobs, nil
 }
 
-// EscalationByID loads a single escalation.
 func (s *Store) EscalationByID(ctx context.Context, id int64) (swi.Escalation, error) {
 	row := s.db.QueryRowContext(ctx, `
 		SELECT e.id, e.order_id, o.order_number, e.stage, e.return_stage, e.level, e.reason, e.note,
@@ -747,7 +713,6 @@ func (s *Store) EscalationByID(ctx context.Context, id int64) (swi.Escalation, e
 	return scanEscalation(row)
 }
 
-// ListEscalations lists escalations, optionally only the open ones.
 func (s *Store) ListEscalations(ctx context.Context, openOnly bool, limit int) ([]swi.Escalation, error) {
 	if limit <= 0 {
 		limit = 200
@@ -805,10 +770,7 @@ func scanEscalationRows(row rowScanner) (swi.Escalation, error) {
 	e.ReasonLabel = swi.ReasonLabel(e.Reason)
 	return e, nil
 }
-// AutoEscalate walks the active processes and raises escalations for the ones
-// that breached their SLA or dwelled in a stage for too long. It is meant to be
-// called periodically (SWI_AUTO_ESCALATE_MINUTES) or from a scheduler, and is
-// safe to run repeatedly: an order that is already escalated is skipped.
+
 func (s *Store) AutoEscalate(ctx context.Context, now time.Time) ([]swi.Escalation, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT o.id, o.order_number, o.status, o.target_completion_at, o.created_at, o.updated_at,
@@ -862,9 +824,6 @@ func (s *Store) AutoEscalate(ctx context.Context, now time.Time) ([]swi.Escalati
 	return raised, nil
 }
 
-// ProcessMetrics aggregates the process board numbers used by process
-// management: work per stage, escalations, open tasks, outstanding external
-// updates and the age of the active work.
 func (s *Store) ProcessMetrics(ctx context.Context, now time.Time) (swi.Metrics, error) {
 	m := swi.Metrics{ByStage: map[swi.Stage]int{}, SyncFailedBySystem: map[swi.System]int{}, GeneratedAt: now.UTC()}
 
@@ -945,8 +904,6 @@ func (s *Store) ProcessMetrics(ctx context.Context, now time.Time) (swi.Metrics,
 	return m, nil
 }
 
-// OverdueProcesses returns the active processes whose stage budget is exceeded,
-// used by the process-management dashboard.
 func (s *Store) OverdueProcesses(ctx context.Context, now time.Time) ([]swi.Process, error) {
 	procs, err := s.ListProcesses(ctx, nil, 0)
 	if err != nil {
@@ -967,11 +924,11 @@ func (s *Store) OverdueProcesses(ctx context.Context, now time.Time) ([]swi.Proc
 	}
 	return out, nil
 }
+
 const syncJobCols = `SELECT id, order_id, order_number, system, operation, direction, entity, reason, status,
 	payload, response, attempts, last_error, idempotency_key, created_at, updated_at, completed_at
 	FROM external_sync_jobs`
 
-// SyncJobByID loads a single external sync job.
 func (s *Store) SyncJobByID(ctx context.Context, id int64) (swi.SyncJob, error) {
 	row := s.db.QueryRowContext(ctx, syncJobCols+` WHERE id = ?`, id)
 	j, err := scanSyncJob(row)
@@ -981,8 +938,6 @@ func (s *Store) SyncJobByID(ctx context.Context, id int64) (swi.SyncJob, error) 
 	return j, err
 }
 
-// ListSyncJobs lists the external updates queued for AFAS, Omnitracker, Intune,
-// Knox and Apple Business Manager.
 func (s *Store) ListSyncJobs(ctx context.Context, f swi.SyncJobFilter) ([]swi.SyncJob, error) {
 	query := syncJobCols
 	conds := []string{}
@@ -1028,8 +983,6 @@ func (s *Store) ListSyncJobs(ctx context.Context, f swi.SyncJobFilter) ([]swi.Sy
 	return out, rows.Err()
 }
 
-// ClaimSyncJobs hands the pending jobs of one system to the integration worker
-// and marks them in progress, so two workers never pick up the same job.
 func (s *Store) ClaimSyncJobs(ctx context.Context, system swi.System, limit int, now time.Time) ([]swi.SyncJob, error) {
 	if limit <= 0 {
 		limit = 20
@@ -1084,7 +1037,7 @@ func (s *Store) ClaimSyncJobs(ctx context.Context, system swi.System, limit int,
 	}
 	return claimed, nil
 }
-// CompleteSyncJob records the result reported by the integration worker.
+
 func (s *Store) CompleteSyncJob(ctx context.Context, id int64, status swi.SyncStatus, response, errMsg string, now time.Time) (swi.SyncJob, error) {
 	current, err := s.SyncJobByID(ctx, id)
 	if err != nil {
@@ -1106,7 +1059,6 @@ func (s *Store) CompleteSyncJob(ctx context.Context, id int64, status swi.SyncSt
 	return s.SyncJobByID(ctx, id)
 }
 
-// RetrySyncJob puts a failed job back in the queue.
 func (s *Store) RetrySyncJob(ctx context.Context, id int64, now time.Time) (swi.SyncJob, error) {
 	current, err := s.SyncJobByID(ctx, id)
 	if err != nil {
@@ -1123,8 +1075,6 @@ func (s *Store) RetrySyncJob(ctx context.Context, id int64, now time.Time) (swi.
 	return s.SyncJobByID(ctx, id)
 }
 
-// QueueOrderSync manually queues an update for one system (for example an
-// Omnitracker re-push after a failure).
 func (s *Store) QueueOrderSync(ctx context.Context, orderID int64, system swi.System, op swi.Operation, entity, reason, performedBy string, now time.Time) (swi.SyncJob, error) {
 	o, err := s.GetOrder(ctx, orderID)
 	if err != nil {
@@ -1163,11 +1113,6 @@ func (s *Store) QueueOrderSync(ctx context.Context, orderID int64, system swi.Sy
 	return s.SyncJobByID(ctx, id)
 }
 
-// ImportOrder implements the AFAS order import: step 1 of the SWI process. It
-// creates the order, stores the AFAS/Omnitracker reference data, starts the
-// process in OrderImport and queues the inbound AFAS read for the order lines.
-// An existing order with the same number is returned as-is (idempotent import),
-// so re-running the AFAS feed never duplicates work.
 func (s *Store) ImportOrder(ctx context.Context, req swi.ImportRequest, slaTarget time.Duration, performedBy string, now time.Time) (order.Order, bool, error) {
 	if performedBy == "" {
 		performedBy = "system"

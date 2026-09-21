@@ -17,15 +17,14 @@ type Order struct {
 
 	SLA *SLA `json:"sla,omitempty"`
 
-	// AFAS / Omnitracker integration fields
-	DebitNumber      string `json:"debitNumber,omitempty"`
-	CustomerName     string `json:"customerName,omitempty"`
+	DebitNumber       string `json:"debitNumber,omitempty"`
+	CustomerName      string `json:"customerName,omitempty"`
 	OmnitrackerTicket string `json:"omnitrackerTicket,omitempty"`
-	Device           string `json:"device,omitempty"`
-	AssetNumber      string `json:"assetNumber,omitempty"`
-	Configuration    string `json:"configuration,omitempty"`
-	SIID             *int64 `json:"siId,omitempty"`
-	Barcode          string `json:"barcode,omitempty"`
+	Device            string `json:"device,omitempty"`
+	AssetNumber       string `json:"assetNumber,omitempty"`
+	Configuration     string `json:"configuration,omitempty"`
+	SIID              *int64 `json:"siId,omitempty"`
+	Barcode           string `json:"barcode,omitempty"`
 }
 
 type Hold struct {
@@ -178,13 +177,13 @@ type QCRequest struct {
 }
 
 type OmnitrackerInfoRequest struct {
-	DebitNumber      string `json:"debitNumber,omitempty"`
-	CustomerName     string `json:"customerName,omitempty"`
+	DebitNumber       string `json:"debitNumber,omitempty"`
+	CustomerName      string `json:"customerName,omitempty"`
 	OmnitrackerTicket string `json:"omnitrackerTicket,omitempty"`
-	Device           string `json:"device,omitempty"`
-	AssetNumber      string `json:"assetNumber,omitempty"`
-	Configuration    string `json:"configuration,omitempty"`
-	SIID             *int64 `json:"siId,omitempty"`
+	Device            string `json:"device,omitempty"`
+	AssetNumber       string `json:"assetNumber,omitempty"`
+	Configuration     string `json:"configuration,omitempty"`
+	SIID              *int64 `json:"siId,omitempty"`
 }
 
 type GenerateBarcodeRequest struct {

@@ -36,7 +36,6 @@ type ServerConfig struct {
 
 	Logger *log.Logger
 
-	// OmnitrackerBaseURL is the base URL for Omnitracker deep links (e.g., "https://omnitracker.example.com")
 	OmnitrackerBaseURL string
 }
 
@@ -114,15 +113,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/orders/{id}/comments", s.requireAuth(s.requirePerm(auth.PermCommentRead, s.handleListComments)))
 	mux.HandleFunc("POST /api/v1/orders/{id}/comments", s.requireAuth(s.requirePerm(auth.PermCommentPost, s.handleAddComment)))
 
-	// Barcode / Omnitracker endpoints
 	mux.HandleFunc("GET /api/v1/orders/{id}/barcode", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleGetBarcode)))
 	mux.HandleFunc("POST /api/v1/orders/{id}/barcode", s.requireAuth(s.requirePerm(auth.PermOrderTransition, s.handleGenerateBarcode)))
 	mux.HandleFunc("POST /api/v1/orders/{id}/omnitracker", s.requireAuth(s.requirePerm(auth.PermOrderTransition, s.handleUpdateOmnitrackerInfo)))
 	mux.HandleFunc("GET /api/v1/orders/{id}/barcode/history", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleBarcodeScanHistory)))
 	mux.HandleFunc("GET /api/v1/scan/barcode", s.requireAuth(s.requirePerm(auth.PermScanUse, s.handleScanBarcode)))
 
-	// SWI tool process: orderimport -> workpreperation -> pointing in work ->
-	// in control work -> escalations -> process management -> external systems
 	mux.HandleFunc("POST /api/v1/process/orders/import", s.requireAuth(s.requirePerm(auth.PermProcessAdvance, s.handleImportOrder)))
 	mux.HandleFunc("GET /api/v1/process/board", s.requireAuth(s.requirePerm(auth.PermProcessView, s.handleProcessBoard)))
 	mux.HandleFunc("GET /api/v1/process/metrics", s.requireAuth(s.requirePerm(auth.PermProcessView, s.handleProcessMetrics)))

@@ -58,9 +58,6 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-// userWithDeptPerms annotates a user with the effective permissions they gain
-// through their department memberships. Admins already have everything via
-// their role, so they are returned unchanged.
 func (s *Server) userWithDeptPerms(ctx context.Context, user auth.User) auth.User {
 	if user.Role == auth.RoleAdmin {
 		return user
