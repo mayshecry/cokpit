@@ -177,7 +177,6 @@ type QCRequest struct {
 	Notes       string   `json:"notes"`
 }
 
-// OmnitrackerInfoRequest updates the AFAS/Omnitracker fields on an order.
 type OmnitrackerInfoRequest struct {
 	DebitNumber      string `json:"debitNumber,omitempty"`
 	CustomerName     string `json:"customerName,omitempty"`
@@ -188,13 +187,10 @@ type OmnitrackerInfoRequest struct {
 	SIID             *int64 `json:"siId,omitempty"`
 }
 
-// GenerateBarcodeRequest triggers barcode generation for an order.
 type GenerateBarcodeRequest struct {
-	// Regenerate forces a new barcode even if one exists.
 	Regenerate bool `json:"regenerate,omitempty"`
 }
 
-// BarcodeScanEvent records when a barcode is scanned.
 type BarcodeScanEvent struct {
 	ID         int64     `json:"id"`
 	OrderID    int64     `json:"orderId"`

@@ -1,7 +1,5 @@
 'use strict';
 
-  
-
   let clViewTimer = null;
 
   function startChecklistsPolling() {

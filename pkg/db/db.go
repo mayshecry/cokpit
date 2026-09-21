@@ -285,6 +285,7 @@ CREATE TABLE IF NOT EXISTS departments (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT    NOT NULL UNIQUE,
     description TEXT    NOT NULL DEFAULT '',
+    permissions TEXT    NOT NULL DEFAULT '[]',
     created_at  BIGINT  NOT NULL
 );
 
@@ -296,6 +297,97 @@ CREATE TABLE IF NOT EXISTS user_departments (
 
 CREATE INDEX IF NOT EXISTS idx_user_departments_user ON user_departments(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_departments_dept ON user_departments(department_id);
+
+-- SWI tool process: one row per order holding the current process stage.
+CREATE TABLE IF NOT EXISTS order_process (
+    order_id         INTEGER PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+    stage            TEXT    NOT NULL,
+    stage_since      BIGINT  NOT NULL,
+    escalated        INTEGER NOT NULL DEFAULT 0,
+    escalation_level TEXT    NOT NULL DEFAULT '',
+    version          INTEGER NOT NULL DEFAULT 1,
+    updated_by       TEXT    NOT NULL DEFAULT 'system',
+    updated_at       BIGINT  NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_process_stage ON order_process(stage, escalated);
+
+-- Append-only trail of every process action.
+CREATE TABLE IF NOT EXISTS process_events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    action       TEXT    NOT NULL,
+    from_stage   TEXT    NOT NULL DEFAULT '',
+    to_stage     TEXT    NOT NULL DEFAULT '',
+    level        TEXT    NOT NULL DEFAULT '',
+    note         TEXT    NOT NULL DEFAULT '',
+    performed_by TEXT    NOT NULL DEFAULT 'system',
+    created_at   BIGINT  NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_process_events_order ON process_events(order_id, created_at);
+
+-- Instantiated work instructions (per order, per stage).
+CREATE TABLE IF NOT EXISTS process_tasks (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    stage       TEXT    NOT NULL,
+    seq         INTEGER NOT NULL,
+    title       TEXT    NOT NULL,
+    description TEXT    NOT NULL DEFAULT '',
+    role        TEXT    NOT NULL DEFAULT '',
+    required    INTEGER NOT NULL DEFAULT 0,
+    done        INTEGER NOT NULL DEFAULT 0,
+    done_by     TEXT    NOT NULL DEFAULT '',
+    done_at     BIGINT,
+    created_at  BIGINT  NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_process_tasks_order ON process_tasks(order_id, stage, seq);
+
+-- Escalations raised from any stage; return_stage remembers where to resume.
+CREATE TABLE IF NOT EXISTS escalations (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id        INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    stage           TEXT    NOT NULL,
+    return_stage    TEXT    NOT NULL DEFAULT '',
+    level           TEXT    NOT NULL,
+    reason          TEXT    NOT NULL,
+    note            TEXT    NOT NULL DEFAULT '',
+    raised_by       TEXT    NOT NULL DEFAULT 'system',
+    raised_at       BIGINT  NOT NULL,
+    escalated_to    TEXT    NOT NULL DEFAULT '',
+    resolved_at     BIGINT,
+    resolved_by     TEXT    NOT NULL DEFAULT '',
+    resolution_note TEXT    NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_escalations_order ON escalations(order_id, resolved_at);
+CREATE INDEX IF NOT EXISTS idx_escalations_open ON escalations(resolved_at);
+
+-- Outbox of automatic updates to AFAS, Omnitracker, Intune, Knox and ABM.
+CREATE TABLE IF NOT EXISTS external_sync_jobs (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id        INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    order_number    TEXT    NOT NULL DEFAULT '',
+    system          TEXT    NOT NULL,
+    operation       TEXT    NOT NULL,
+    direction       TEXT    NOT NULL,
+    entity          TEXT    NOT NULL DEFAULT '',
+    reason          TEXT    NOT NULL DEFAULT '',
+    status          TEXT    NOT NULL DEFAULT 'PENDING',
+    payload         TEXT    NOT NULL DEFAULT '{}',
+    response        TEXT    NOT NULL DEFAULT '',
+    attempts        INTEGER NOT NULL DEFAULT 0,
+    last_error      TEXT    NOT NULL DEFAULT '',
+    idempotency_key TEXT    NOT NULL UNIQUE,
+    created_at      BIGINT  NOT NULL,
+    updated_at      BIGINT  NOT NULL,
+    completed_at    BIGINT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sync_jobs_status ON external_sync_jobs(status, system);
+CREATE INDEX IF NOT EXISTS idx_sync_jobs_order ON external_sync_jobs(order_id, created_at);
 `
 
 func Open(ctx context.Context, path string) (*sql.DB, error) {
@@ -422,6 +514,16 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		}
 		if _, err := conn.ExecContext(ctx, ddl); err != nil {
 			return fmt.Errorf("add column %s: %w", name, err)
+		}
+	}
+
+	deptCols, err := tableColumns(ctx, conn, "departments")
+	if err != nil {
+		return err
+	}
+	if !deptCols["permissions"] {
+		if _, err := conn.ExecContext(ctx, `ALTER TABLE departments ADD COLUMN permissions TEXT NOT NULL DEFAULT '[]'`); err != nil {
+			return fmt.Errorf("add column permissions: %w", err)
 		}
 	}
 

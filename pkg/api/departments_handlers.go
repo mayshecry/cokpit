@@ -126,6 +126,49 @@ func (s *Server) handleListUserDepartments(w http.ResponseWriter, r *http.Reques
 	s.writeJSON(w, http.StatusOK, map[string]any{"departments": departments})
 }
 
+type setDepartmentPermissionsRequest struct {
+	Permissions []string `json:"permissions"`
+}
+
+func (s *Server) handleSetDepartmentPermissions(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(r, "id")
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "department id must be an integer")
+		return
+	}
+	var req setDepartmentPermissionsRequest
+	if err := s.decodeJSON(w, r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
+		return
+	}
+	// Only known permissions are accepted; everything else is silently
+	// dropped so a stale client can never grant something unintended.
+	seen := map[string]bool{}
+	perms := []string{}
+	for _, p := range req.Permissions {
+		p = cleanString(p)
+		if p == "" || !auth.IsValidPermission(auth.Permission(p)) {
+			continue
+		}
+		if !seen[p] {
+			seen[p] = true
+			perms = append(perms, p)
+		}
+	}
+	if err := s.store.SetDepartmentPermissions(r.Context(), id, perms); err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	department, err := s.store.DepartmentByID(r.Context(), id)
+	if err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"department": department})
+}
+
 func init() {
 	_ = auth.PermSICreate // ensure auth package is used
 }

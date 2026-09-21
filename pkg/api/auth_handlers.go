@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"cockpit/pkg/auth"
@@ -45,6 +46,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user.PasswordHash = ""
+	user = s.userWithDeptPerms(r.Context(), user)
 	s.writeJSON(w, http.StatusOK, loginResponse{Token: token, User: user})
 }
 
@@ -56,8 +58,22 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+// userWithDeptPerms annotates a user with the effective permissions they gain
+// through their department memberships. Admins already have everything via
+// their role, so they are returned unchanged.
+func (s *Server) userWithDeptPerms(ctx context.Context, user auth.User) auth.User {
+	if user.Role == auth.RoleAdmin {
+		return user
+	}
+	if perms, err := s.store.UserDepartmentPermissions(ctx, user.ID); err == nil {
+		user.Permissions = perms
+	}
+	return user
+}
+
 func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	user.PasswordHash = ""
+	user = s.userWithDeptPerms(r.Context(), user)
 	s.writeJSON(w, http.StatusOK, map[string]auth.User{"user": user})
 }

@@ -1041,8 +1041,6 @@
     if (ok) renderUsers(true);
   }
 
-  /* ------------------------------------------------------------ shortcuts modal */
-
   function openShortcuts() {
     const rows = [
       ['My Work', ['h']],
@@ -1066,13 +1064,7 @@
     });
   }
 
-  /* ------------------------------------------------------------ configuration (excel -> json) */
-  // Portaalconfiguratie: de vier Excel-bronnen (Artikelweergave, Klantenlijst,
-  // PQ_regels, Excel_regels) worden client-side omgezet naar één
-  // orderpick-config.json. Alleen admins mogen dit bewerken (perm: config:manage).
-  // De opgeslagen configuratie blijft in localStorage; een gedeeld
-  // orderpick-config.json naast de portal-pagina wordt bij het inloggen
-  // automatisch geladen (zie probeerAutomatischeConfigJSON).
+
   const CONFIG_PERSIST_KEY = 'cockpit_config';
 
   function hasConfigMeta() {
@@ -1257,11 +1249,6 @@
     return { ok: vrd >= aantal, retour: false, label: '' };
   }
 
-  // Importeert het dagelijkse verkoopregels-Excel en duwt per order de
-  // pickregels naar de API-checklist (POST /orders/{id}/checklist).
-  // Alleen orders die in de API bestaan worden bijgewerkt; de rest wordt
-  // gerapporteerd als niet gevonden (bijv. nog niet aangemaakt of
-  // ander ordernummervormaat).
   async function handleVerkoopregels(file) {
     if (!state.config.meta.artikelweergave || !state.config.meta.klantenlijst) {
       toast('Upload eerst Artikelweergave en Klantenlijst bij Configuratie.', true);

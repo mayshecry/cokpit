@@ -114,6 +114,13 @@ const (
 	PermSITransition     Permission = "si:transition"
 	PermSIProjects        Permission = "si:projects"
 	PermSIManage         Permission = "si:manage"
+
+	// SWI tool process permissions
+	PermProcessView       Permission = "process:view"
+	PermProcessAdvance    Permission = "process:advance"
+	PermProcessEscalate   Permission = "process:escalate"
+	PermProcessManage     Permission = "process:manage"
+	PermIntegrationsManage Permission = "integrations:manage"
 )
 
 var rolePermissions = map[Role][]Permission{
@@ -121,21 +128,25 @@ var rolePermissions = map[Role][]Permission{
 		PermOrderList, PermOrderView, PermAuditView,
 		PermCommentRead, PermNotifyRead,
 		PermSIList, PermSIView,
+		PermProcessView,
 	},
 	RoleOperator: {
 		PermOrderList, PermOrderView, PermAuditView,
 		PermOrderCreate, PermOrderTransition, PermHoldCreate, PermHoldResolve,
 		PermCommentRead, PermCommentPost, PermNotifyRead, PermScanUse, PermPickUse,
 		PermSIList, PermSIView,
+		PermProcessView, PermProcessAdvance, PermProcessEscalate,
 	},
 	RoleQC: {
 		PermOrderList, PermOrderView, PermAuditView, PermQCSubmit,
 		PermCommentRead, PermCommentPost, PermNotifyRead,
 		PermSIList, PermSIView,
+		PermProcessView, PermProcessEscalate,
 	},
 	RoleNPI: {
 		PermSIList, PermSIView, PermSICreate, PermSIUpdate, PermSITransition, PermSIProjects,
 		PermUsersList,
+		PermProcessView, PermProcessManage, PermIntegrationsManage,
 	},
 	RoleAdmin: {
 		PermOrderList, PermOrderView, PermAuditView,
@@ -143,6 +154,7 @@ var rolePermissions = map[Role][]Permission{
 		PermQCSubmit, PermUsersManage, PermManualManage,
 		PermCommentRead, PermCommentPost, PermNotifyRead, PermScanUse, PermPickUse,
 		PermSIList, PermSIView, PermSICreate, PermSIUpdate, PermSITransition, PermSIProjects, PermSIManage,
+		PermProcessView, PermProcessAdvance, PermProcessEscalate, PermProcessManage, PermIntegrationsManage,
 	},
 }
 
@@ -158,11 +170,38 @@ func HasPermission(role Role, perm Permission) bool {
 	return false
 }
 
+// AllPermissions is the complete, grantable permission set (used by the
+// department permission tables in the dashboard).
+var AllPermissions = []Permission{
+	PermOrderList, PermOrderCreate, PermOrderView, PermOrderTransition,
+	PermHoldCreate, PermHoldResolve, PermQCSubmit, PermAuditView,
+	PermUsersManage, PermUsersList, PermScanUse, PermPickUse,
+	PermCommentRead, PermCommentPost, PermNotifyRead, PermManualManage,
+	PermSIList, PermSIView, PermSICreate, PermSIUpdate, PermSITransition,
+	PermSIProjects, PermSIManage,
+	PermProcessView, PermProcessAdvance, PermProcessEscalate, PermProcessManage, PermIntegrationsManage,
+}
+
+var validPermissionSet = func() map[Permission]bool {
+	m := make(map[Permission]bool, len(AllPermissions))
+	for _, p := range AllPermissions {
+		m[p] = true
+	}
+	return m
+}()
+
+// IsValidPermission reports whether perm is a known, grantable permission.
+func IsValidPermission(perm Permission) bool { return validPermissionSet[perm] }
+
 type User struct {
 	ID           int64     `json:"id"`
 	Username     string    `json:"username"`
 	PasswordHash string    `json:"-"`
 	DisplayName  string    `json:"displayName"`
 	Role         Role      `json:"role"`
-	CreatedAt    time.Time `json:"createdAt"`
+	// Permissions holds the effective department-level permissions for this
+	// user, on top of what their role already grants. Only populated on
+	// login / me responses (and only for non-admin users).
+	Permissions []string  `json:"permissions,omitempty"`
+	CreatedAt   time.Time `json:"createdAt"`
 }

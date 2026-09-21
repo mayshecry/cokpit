@@ -104,7 +104,7 @@
     if (page === 'products' && !can('orders:list')) { location.replace(fallbackHash()); return; }
     if (page === 'manuals' && !can('orders:view')) { location.replace(fallbackHash()); return; }
 
-    if (can('users:manage') && page === 'users') {
+    if (can('users:list') && page === 'users') {
       showPane('users');
       renderUsers(true);
       return;
@@ -305,6 +305,9 @@
 
   
   $('#new-order-btn').addEventListener('click', openCreateOrder);
+  $('#home-new-order-btn').addEventListener('click', () => {
+    if (can('orders:create')) openCreateOrder();
+  });
   $('#refresh-btn').addEventListener('click', () => {
     if (location.hash.startsWith('#/checklists')) loadChecklistsView();
     else if (location.hash.startsWith('#/users')) renderUsers(true);
@@ -362,12 +365,23 @@
       return;
     }
     const tr = e.target.closest('tr[data-id]');
-    if (tr && !e.target.closest('input[data-sel]')) openDetail(Number(tr.dataset.id));
+    if (tr && !e.target.closest('input[data-sel]') && !e.target.closest('select.row-quick')) openDetail(Number(tr.dataset.id));
+  });
+
+  // Inline quick transitions: pick a next state straight from the table row.
+  $('#orders-table tbody').addEventListener('change', (e) => {
+    const sel = e.target.closest('select.row-quick');
+    if (!sel) return;
+    const value = sel.value;
+    sel.value = '';
+    if (!value) return;
+    doQuickTransition(Number(sel.dataset.id), value);
   });
 
   $('#orders-table tbody').addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     if (e.target.closest('input[data-sel]')) return;
+    if (e.target.closest('select.row-quick')) return;
     const tr = e.target.closest('tr[data-id]');
     if (!tr) return;
     e.preventDefault();
@@ -839,7 +853,7 @@
       gPending = false;
       if (e.key === 'o') { location.hash = '#/orders'; return; }
       if (e.key === 'h') { location.hash = '#/home'; return; }
-      if (e.key === 'u' && can('users:manage')) { location.hash = '#/users'; return; }
+      if (e.key === 'u' && can('users:list')) { location.hash = '#/users'; return; }
       if (e.key === 'c' && can('config:manage')) { location.hash = '#/config'; return; }
       if (e.key === 'p') { location.hash = '#/checklists'; return; }
       if (e.key === 's' && can('si:list')) { location.hash = '#/si'; return; }
@@ -897,11 +911,14 @@
   $('#orders-split').classList.add('no-detail');
   if (state.token && state.user) {
     enterApp();
-    // Revalidate the cached profile: a role changed server-side (e.g. user was
-    // demoted) must not keep showing actions that now answer 403.
+    // Revalidate the cached profile: a role or the department permission
+    // tables may have changed server-side; the UI must not keep showing
+    // actions that would now answer 403.
     api('GET', '/api/v1/auth/me').then((d) => {
       const u = d && d.user;
-      if (u && u.role !== state.user.role) {
+      if (!u) return;
+      const permsChanged = JSON.stringify(u.permissions || null) !== JSON.stringify(state.user.permissions || null);
+      if (u.role !== state.user.role || permsChanged) {
         state.user = u;
         localStorage.setItem('cockpit_user', JSON.stringify(u));
         enterApp();

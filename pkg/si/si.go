@@ -216,6 +216,7 @@ type Department struct {
 	ID          int64     `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
+	Permissions []string  `json:"permissions"`
 	CreatedAt   time.Time `json:"createdAt"`
 }
 

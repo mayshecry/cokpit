@@ -62,6 +62,41 @@ func main() {
 		Logger:                logger,
 	})
 
+	// Automatic escalation worker: raises escalations for processes that
+	// breached their SLA or dwelled past a stage budget. SWI_AUTO_ESCALATE_MINUTES
+	// configures the interval (0 disables the worker).
+	escalateMinutes, err := strconv.Atoi(envOr("SWI_AUTO_ESCALATE_MINUTES", "15"))
+	if err != nil || escalateMinutes < 0 {
+		logger.Printf("invalid SWI_AUTO_ESCALATE_MINUTES value %q, using 15", os.Getenv("SWI_AUTO_ESCALATE_MINUTES"))
+		escalateMinutes = 15
+	}
+	if escalateMinutes > 0 {
+		go func() {
+			interval := time.Duration(escalateMinutes) * time.Minute
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					raised, err := store.AutoEscalate(ctx, time.Now().UTC())
+					if err != nil {
+						logger.Printf("auto escalate: %v", err)
+						continue
+					}
+					for _, esc := range raised {
+						logger.Printf("auto escalated order %d (%s) to %s", esc.OrderID, esc.OrderNumber, esc.Level)
+					}
+					if len(raised) > 0 {
+						logger.Printf("auto escalate: raised %d escalation(s)", len(raised))
+					}
+				}
+			}
+		}()
+		logger.Printf("auto escalation worker enabled (every %d minute(s))", escalateMinutes)
+	}
+
 	httpServer := &http.Server{
 		Addr:              ":" + port,
 		Handler:           svr.Handler(),

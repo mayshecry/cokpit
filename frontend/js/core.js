@@ -110,7 +110,55 @@
 
   
 
-  const can = (perm) => !!state.user && (rolePerms[state.user.role] || []).includes(perm);
+  const can = (perm) => {
+    if (!state.user) return false;
+    if (state.user.role === 'admin') return true;
+    const base = rolePerms[state.user.role] || [];
+    // Department permission tables add on top of the role's own permissions.
+    return base.includes(perm) || (state.user.permissions || []).includes(perm);
+  };
+
+  // Permission matrix shown in the department cards on the Users page.
+  // Mirrors the backend's grantable set in pkg/auth (auth.AllPermissions).
+  const PERM_GROUPS = [
+    { label: 'Orders', perms: [
+      ['orders:list', 'View the order list'],
+      ['orders:view', 'View order details, checklists and manuals'],
+      ['orders:create', 'Create new orders'],
+      ['orders:transition', 'Move orders to the next state'],
+    ]},
+    { label: 'Holds & QC', perms: [
+      ['holds:create', 'Place holds on orders'],
+      ['holds:resolve', 'Resolve active holds'],
+      ['qc:submit', 'Submit QC checks'],
+    ]},
+    { label: 'Audit & comments', perms: [
+      ['audit:view', 'View the audit trail'],
+      ['comments:read', 'Read order comments'],
+      ['comments:post', 'Post order comments'],
+    ]},
+    { label: 'Scanning & picking', perms: [
+      ['scan:use', 'Use the barcode scanner'],
+      ['pick:use', 'Tick off pick-list lines'],
+    ]},
+    { label: 'Users & departments', perms: [
+      ['users:list', 'View users and departments'],
+      ['users:manage', 'Manage users, departments and permission tables'],
+    ]},
+    { label: 'System integrations (SI)', perms: [
+      ['si:list', 'View the SI list'],
+      ['si:view', 'View SI details'],
+      ['si:create', 'Create new SI'],
+      ['si:update', 'Update existing SI'],
+      ['si:transition', 'Change SI status'],
+      ['si:projects', 'Link projects to SI'],
+      ['si:manage', 'Full SI management (admin)'],
+    ]},
+    { label: 'Notifications & manuals', perms: [
+      ['notifications:read', 'Read own notifications'],
+      ['manuals:manage', 'Build product manuals and flag answers'],
+    ]},
+  ];
 
   
 
@@ -165,6 +213,17 @@
       'shortcut.goOrders': 'Go to orders', 'shortcut.goUsers': 'Go to users',
       'shortcut.goConfig': 'Go to config (admin)', 'shortcut.refresh': 'Refresh data',
       'shortcut.close': 'Close panel / dialog', 'shortcut.cheats': 'This dialog',
+      'dept.permissions': 'Department permissions',
+      'dept.hint': 'Members inherit each granted permission on top of their role. Toggle the table, then save.',
+      'dept.save': 'Save permissions',
+      'dept.saved': 'Permissions saved',
+      'dept.member': '{n} members',
+      'dept.member1': '1 member',
+      'dept.none': 'No extra permissions — members keep only their role.',
+      'orders.customer': 'Customer',
+      'orders.assignee': 'Assignee',
+      'orders.quick': 'Move →',
+      'orders.quickTitle': 'Move this order to the next state',
     },
   };
 
@@ -217,6 +276,17 @@
     'shortcut.goOrders': 'Ga naar orders', 'shortcut.goUsers': 'Ga naar gebruikers',
     'shortcut.goConfig': 'Ga naar configuratie', 'shortcut.refresh': 'Gegevens verversen',
     'shortcut.close': 'Paneel / dialoog sluiten', 'shortcut.cheats': 'Dit venster',
+    'dept.permissions': 'Afdeling permissies',
+    'dept.hint': 'Leden erven elke toegekende permissie bovenop hun rol. Vink aan, sla daarna op.',
+    'dept.save': 'Permissies opslaan',
+    'dept.saved': 'Permissies opgeslagen',
+    'dept.member': '{n} leden',
+    'dept.member1': '1 lid',
+    'dept.none': 'Geen extra permissies — leden houden alleen hun rol.',
+    'orders.customer': 'Klant',
+    'orders.assignee': 'Toegewezen aan',
+    'orders.quick': 'Overzetten →',
+    'orders.quickTitle': 'Zet deze order naar de volgende status',
   };
 
   const lang = () => localStorage.getItem('cockpit_lang')

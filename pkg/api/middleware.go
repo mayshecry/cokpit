@@ -55,10 +55,29 @@ func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func (s *Server) userHasPerm(r *http.Request, user auth.User, perm auth.Permission) bool {
+	if auth.HasPermission(user.Role, perm) {
+		return true
+	}
+	// Fall back to the department permission tables: a user inherits every
+	// permission granted to any department they are a member of. Admins are
+	// handled inside auth.HasPermission, so no special case is needed here.
+	perms, err := s.store.UserDepartmentPermissions(r.Context(), user.ID)
+	if err != nil {
+		return false
+	}
+	for _, p := range perms {
+		if auth.Permission(p) == perm {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) requirePerm(perm auth.Permission, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := s.currentUser(r)
-		if !auth.HasPermission(user.Role, perm) {
+		if !s.userHasPerm(r, user, perm) {
 			s.writeError(w, http.StatusForbidden, "forbidden",
 				"your role does not permit this action")
 			return

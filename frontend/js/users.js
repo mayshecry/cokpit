@@ -5,7 +5,11 @@
   function renderRoleLegend() {
     const byRole = { viewer: 0, operator: 0, qc: 0, npi: 0, admin: 0 };
     for (const u of state.users) if (byRole[u.role] !== undefined) byRole[u.role]++;
-    $('#role-legend').innerHTML = ROLES.map((r) => `
+    const extras = (state.user && state.user.permissions && state.user.permissions.length) || 0;
+    const extraNote = extras
+      ? `<p class="muted dept-extra-note">Your account also receives <strong>${extras}</strong> permission${extras === 1 ? '' : 's'} through your department membership${extras === 1 ? '' : 's'} — on top of your role.</p>`
+      : '';
+    $('#role-legend').innerHTML = extraNote + ROLES.map((r) => `
       <div class="role-card">
         <div class="head">${badge('role-' + r, r)}<span class="n">${byRole[r]} user${byRole[r] === 1 ? '' : 's'}</span></div>
         <div class="perm-list">${rolePerms[r].map((p) => `<span class="perm">${esc(p)}</span>`).join('')}</div>
@@ -197,27 +201,23 @@
       html += '<button type="button" class="btn btn-sm btn-primary" id="new-dept-btn">+ New Department</button>';
     }
     html += '</div>';
+    if (canManage) {
+      html += '<div class="dept-matrix-note muted"><span class="dot dot-brand" aria-hidden="true"></span> ' +
+        esc(t('dept.hint')) + '</div>';
+    }
     if (depts.length === 0) {
       html += '<p class="muted">No departments yet.</p>';
     } else {
       html += '<div class="dept-list">';
       for (var i = 0; i < depts.length; i++) {
-        var d = depts[i];
-        html += '<div class="dept-card" data-id="' + d.id + '">' +
-          '<div class="dept-card-head"><strong>' + escapeSI(d.name) + '</strong>';
-        if (canManage) {
-          html += '<button type="button" class="btn btn-sm btn-ghost danger-ghost dept-del-btn" data-id="' + d.id + '">Delete</button>';
-        }
-        html += '</div>' +
-          (d.description ? '<p class="muted dept-desc">' + escapeSI(d.description) + '</p>' : '') +
-          '</div>';
+        html += departmentCardHtml(depts[i], canManage);
       }
       html += '</div>';
     }
     panel.innerHTML = html;
-    if (!canManage) return;
     var newBtn = $('#new-dept-btn', panel);
     if (newBtn) newBtn.addEventListener('click', function() { openCreateDepartment(); });
+    if (!canManage) return;
     $$('.dept-del-btn', panel).forEach(function(btn) {
       btn.addEventListener('click', async function(e) {
         e.stopPropagation();
@@ -233,6 +233,87 @@
           renderUsers(false);
         } catch (err) {
           toast('Delete failed: ' + err.message, 'error');
+        }
+      });
+    });
+    bindDeptPermPanel(panel);
+  }
+
+  function deptMemberCount(id) {
+    var n = 0;
+    for (var k in userDepartments) {
+      if ((userDepartments[k] || []).some((ud) => ud.id === id)) n++;
+    }
+    return n;
+  }
+
+  // Renders one department card including its permission table.
+  function departmentCardHtml(d, canManage) {
+    var perms = d.permissions || [];
+    var members = deptMemberCount(d.id);
+    var memberLabel = members === 1 ? t('dept.member1') : t('dept.member', { n: members });
+    var body;
+    if (canManage) {
+      body = PERM_GROUPS.map((g) => `
+        <div class="perm-group">
+          <span class="perm-group-label">${esc(g.label)}</span>
+          <div class="perm-opts">
+            ${g.perms.map(([p, label]) => `
+              <label class="perm-opt${perms.includes(p) ? ' on' : ''}" title="${esc(label)}">
+                <input type="checkbox" class="dept-perm" data-dept="${d.id}" data-perm="${esc(p)}"${perms.includes(p) ? ' checked' : ''}>
+                <span class="perm-opt-label">${esc(p)}</span>
+              </label>`).join('')}
+          </div>
+        </div>`).join('');
+    } else {
+      body = perms.length
+        ? '<div class="perm-list">' + perms.map((p) => `<span class="perm">${esc(p)}</span>`).join('') + '</div>'
+        : '<p class="muted">' + esc(t('dept.none')) + '</p>';
+    }
+    return `<div class="dept-card" data-id="${d.id}">
+      <div class="dept-card-head">
+        <div class="dept-title">
+          <strong>${escapeSI(d.name)}</strong>
+          <span class="dept-count muted">${memberLabel}</span>
+        </div>
+        <div class="dept-head-actions">
+          ${canManage ? `<button type="button" class="btn btn-sm btn-primary dept-perm-save hidden" data-id="${d.id}">${esc(t('dept.save'))}</button>` : ''}
+          ${canManage ? `<button type="button" class="btn btn-sm btn-ghost danger-ghost dept-del-btn" data-id="${d.id}">Delete</button>` : ''}
+        </div>
+      </div>
+      ${d.description ? `<p class="muted dept-desc">${escapeSI(d.description)}</p>` : ''}
+      <div class="dept-matrix">${body}</div>
+    </div>`;
+  }
+
+  function bindDeptPermPanel(panel) {
+    $$('.dept-perm', panel).forEach((cb) => {
+      cb.addEventListener('change', () => {
+        var card = cb.closest('.dept-card');
+        var opt = cb.closest('.perm-opt');
+        if (opt) opt.classList.toggle('on', cb.checked);
+        if (card) {
+          var save = card.querySelector('.dept-perm-save');
+          if (save) save.classList.remove('hidden');
+        }
+      });
+    });
+    $$('.dept-perm-save', panel).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        var id = Number(btn.dataset.id);
+        var perms = $$('.dept-perm', panel)
+          .filter((c) => Number(c.dataset.dept) === id && c.checked)
+          .map((c) => c.dataset.perm);
+        btn.disabled = true;
+        try {
+          await api('POST', '/api/v1/departments/' + id + '/permissions', { permissions: perms });
+          await loadDepartments();
+          renderUsers(false);
+          toast(t('dept.saved'), 'success');
+        } catch (err) {
+          toast('Failed to save permissions: ' + err.message, 'error');
+        } finally {
+          btn.disabled = false;
         }
       });
     });

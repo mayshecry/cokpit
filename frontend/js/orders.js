@@ -106,8 +106,7 @@
     });
   }
 
-  // Used by the inline "quick transition" selects in the orders table and by
-  // the one-click buttons on the dashboard cards.
+
   async function doQuickTransition(id, status) {
     const cur = state.orders.find((o) => o.id === id) || state.detail;
     const body = { status };

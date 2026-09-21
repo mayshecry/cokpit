@@ -207,6 +207,9 @@
           <p class="muted" id="home-subtitle">Everything that needs attention, highest severity first.</p>
         </div>
         <div class="page-head-actions">
+          <button type="button" class="btn btn-primary hidden" id="home-new-order-btn" data-perm="orders:create">
+            <span aria-hidden="true">+</span> New order
+          </button>
           <span class="refresh-note" id="home-note" title="Auto-refreshes every 20 seconds">
             <span class="pulse" aria-hidden="true"></span><span id="home-refresh-text">Live</span>
           </span>
@@ -290,9 +293,12 @@
                   <th class="sortable num" data-sort="id" style="width:76px">ID</th>
                   <th class="sortable" data-sort="orderNumber">Order number</th>
                   <th class="sortable" data-sort="status">Status</th>
+                  <th class="sortable" data-sort="customerName">Customer</th>
+                  <th class="sortable" data-sort="assignee">Assignee</th>
                   <th class="sortable" data-sort="targetCompletionAt">Target completes</th>
                   <th class="sortable" data-sort="sla">SLA</th>
                   <th class="sortable" data-sort="createdAt">Created</th>
+                  <th class="quick-col" title="Move to next state">Move</th>
                 </tr>
               </thead>
               <tbody></tbody>
