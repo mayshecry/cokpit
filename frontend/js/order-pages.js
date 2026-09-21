@@ -1,5 +1,3 @@
-/* Full-page order workspace with tabbed pages.
-   Wraps the existing detail panel — does not replace order logic. */
 (function () {
   const view = document.getElementById('view-orders');
   const panel = document.getElementById('detail-panel');

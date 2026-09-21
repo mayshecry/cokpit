@@ -8,13 +8,9 @@
 <title>Cockpit — Order Operations · Esprit ICT</title>
 <link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ff8200'/%3E%3Cpath d='m9 17 5 5 9-11' stroke='%23fff' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
 <style>
-/* Esprit ICT · Cockpit — “Obsidian Control” redesign
-   Pure visual layer. Every selector, state, theme and density hook the
-   JS relies on is preserved. No structural/JS changes. */
 
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:ital,wght@0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@500;700&display=swap');
 
-/* Local project fonts kept as graceful fallbacks */
 @font-face {
   font-family: 'Archivo';
   src: url('fonts/Archivo-700.woff2') format('woff2');
@@ -123,7 +119,6 @@ body {
   font-feature-settings: "kern" 1, "liga" 1, "cv02" 1;
 }
 
-/* fine grain overlay */
 body::before {
   content: "";
   position: fixed;
@@ -170,7 +165,6 @@ h1, h2, h3, h4 {
 * { scrollbar-width: thin; scrollbar-color: #d6d1c6 transparent; }
 
 
-/* ── Brand ─────────────────────────────────────────────── */
 
 .brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); }
 
@@ -200,7 +194,6 @@ h1, h2, h3, h4 {
 .brand-lockup { display: flex; align-items: center; gap: 11px; }
 
 
-/* ── Forms ─────────────────────────────────────────────── */
 
 input, select, textarea, button { font: inherit; color: inherit; }
 
@@ -289,7 +282,6 @@ select {
 }
 
 
-/* ── Buttons ───────────────────────────────────────────── */
 
 .btn {
   position: relative;
@@ -376,7 +368,6 @@ select {
 .icon-btn:hover { background: var(--surface-hover); color: var(--text); }
 
 
-/* ── Auth / login ──────────────────────────────────────── */
 
 .auth {
   min-height: 100vh;
@@ -523,7 +514,6 @@ select {
 }
 
 
-/* ── App shell ─────────────────────────────────────────── */
 
 .app {
   display: grid;
@@ -693,7 +683,6 @@ kbd {
 }
 
 
-/* ── Page head (sticky frosted bar) ───────────────────── */
 
 .page-head {
   position: sticky;
@@ -740,7 +729,6 @@ kbd {
 .refresh-note.stale .pulse { background: var(--warn); animation: none; }
 
 
-/* ── Stats ─────────────────────────────────────────────── */
 
 .stat-grid {
   display: grid;
@@ -820,7 +808,6 @@ kbd {
 .stat-divider::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--border), transparent); }
 
 
-/* ── Controls / chips / search ─────────────────────────── */
 
 .controls {
   display: flex; align-items: center; justify-content: space-between;
@@ -869,7 +856,6 @@ kbd {
 .search-wrap input:focus ~ .search-kbd { opacity: 0; }
 
 
-/* ── Bulk bar ──────────────────────────────────────────── */
 
 .bulk-bar {
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -884,7 +870,6 @@ kbd {
 .mine-chip.active { background: var(--accent-soft); border-color: var(--accent-line); color: var(--brand-press); box-shadow: none; }
 
 
-/* ── Cards / split ─────────────────────────────────────── */
 
 .card {
   background: var(--surface);
@@ -897,7 +882,6 @@ kbd {
 .split.no-detail { grid-template-columns: minmax(0, 1fr); }
 
 
-/* ── Tables ────────────────────────────────────────────── */
 
 .table-card { overflow: hidden; }
 .table-scroll { overflow-x: auto; }
@@ -963,7 +947,6 @@ tr.selected-row { background: var(--accent-soft); }
 #load-more { margin-left: auto; }
 
 
-/* ── Empty / skeleton ──────────────────────────────────── */
 
 .empty { padding: 56px 24px; text-align: center; }
 .empty-ico {
@@ -991,7 +974,6 @@ tr.selected-row { background: var(--accent-soft); }
 @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 
 
-/* ── Badges / pills ────────────────────────────────────── */
 
 .badge {
   display: inline-flex; align-items: center; gap: 5px;
@@ -1035,7 +1017,6 @@ tr.selected-row { background: var(--accent-soft); }
 .pill-bad  { background: var(--bad-soft);  color: var(--bad); }
 .pill-flag { background: var(--bad-soft);  color: var(--bad); }
 
-/* SI badges get the same pill base even when rendered without .badge */
 .status-badge, .env-badge {
   display: inline-flex; align-items: center; gap: 5px;
   border-radius: 99px;
@@ -1047,7 +1028,6 @@ tr.selected-row { background: var(--accent-soft); }
 }
 
 
-/* ── Detail panel ──────────────────────────────────────── */
 
 .detail-card {
   position: sticky;
@@ -1151,7 +1131,6 @@ tr.selected-row { background: var(--accent-soft); }
 }
 
 
-/* ── Role legend ───────────────────────────────────────── */
 
 .role-legend {
   display: grid;
@@ -1182,7 +1161,6 @@ tr.selected-row { background: var(--accent-soft); }
 }
 
 
-/* ── Modal ─────────────────────────────────────────────── */
 
 .modal-root {
   position: fixed; inset: 0; z-index: 100;
@@ -1245,7 +1223,6 @@ tr.selected-row { background: var(--accent-soft); }
 .shortcut-row .keys { display: flex; gap: 4px; }
 
 
-/* ── Toasts ────────────────────────────────────────────── */
 
 .toast-stack {
   position: fixed; bottom: 20px; right: 20px; z-index: 200;
@@ -1291,7 +1268,6 @@ tr.selected-row { background: var(--accent-soft); }
 }
 
 
-/* ── Attention / home ──────────────────────────────────── */
 
 .attention-summary {
   display: grid;
@@ -1357,7 +1333,6 @@ tr.selected-row { background: var(--accent-soft); }
 .badge.sev-low { color: var(--info); background: var(--info-soft); border-color: var(--info-line); }
 
 
-/* ── Scanner ───────────────────────────────────────────── */
 
 .scan-panel {
   position: relative;
@@ -1402,7 +1377,6 @@ tr.selected-row { background: var(--accent-soft); }
 .scan-hint { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
 
 
-/* ── Notifications ─────────────────────────────────────── */
 
 .bell-row {
   display: flex;
@@ -1501,7 +1475,6 @@ tr.selected-row { background: var(--accent-soft); }
 }
 
 
-/* ── Comments ──────────────────────────────────────────── */
 
 .comment-composer { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
 .comment-composer textarea {
@@ -1518,7 +1491,6 @@ tr.selected-row { background: var(--accent-soft); }
 .comment-item .mentions { color: var(--accent); font-weight: 650; }
 
 
-/* ── Config ────────────────────────────────────────────── */
 
 .config-card { padding: 18px 20px; }
 
@@ -1578,7 +1550,6 @@ code {
 }
 
 
-/* ── Checklists / pick lists ───────────────────────────── */
 
 .checklist-list { display: flex; flex-direction: column; gap: 6px; }
 
@@ -1752,7 +1723,6 @@ code {
 .cl-hero-box .btn { margin-top: 4px; }
 
 
-/* ── Manuals ───────────────────────────────────────────── */
 
 .manual-card {
   border: 1px solid var(--border);
@@ -1899,7 +1869,6 @@ code {
 }
 
 
-/* ── Command palette ───────────────────────────────────── */
 
 .palette-root {
   position: fixed; inset: 0; z-index: 90;
@@ -1950,7 +1919,6 @@ code {
 }
 
 
-/* ── Preferences popover ───────────────────────────────── */
 
 .settings-pop {
   position: fixed; left: calc(var(--sidebar-w) + 12px); bottom: 96px; z-index: 80;
@@ -1978,7 +1946,6 @@ code {
 }
 
 
-/* ===== SI Management ===== */
 
 .si-layout {
   display: grid;
@@ -2225,7 +2192,6 @@ code {
 }
 
 
-/* ===== Department Tags ===== */
 
 .dept-tag {
   display: inline-block;
@@ -2284,7 +2250,6 @@ code {
 }
 
 
-/* ===== Project Checklist modal ===== */
 
 .checklist-modal-content {
   max-height: 60vh;
@@ -2347,7 +2312,6 @@ code {
 }
 
 
-/* ===== QR Code Modal ===== */
 
 .qr-modal-content {
   text-align: center;
@@ -2382,7 +2346,6 @@ code {
 }
 
 
-/* ===== Barcode ===== */
 
 .barcode-display {
   text-align: center;
@@ -2417,7 +2380,6 @@ code {
 }
 
 
-/* ── Full-page order workspace ─────────────────────────── */
 
 #view-orders.order-open {
   padding-top: 18px;
@@ -2632,7 +2594,6 @@ code {
 }
 
 
-/* ── Dark theme ────────────────────────────────────────── */
 
 html[data-theme='dark'] {
   color-scheme: dark;
@@ -2731,7 +2692,6 @@ html[data-theme='dark'] .barcode-qr img,
 html[data-theme='dark'] .barcode-qr canvas { background: #fff; }
 
 
-/* ── Compact density ───────────────────────────────────── */
 
 html[data-density='compact'] { font-size: 13px; }
 html[data-density='compact'] td,
@@ -2745,7 +2705,6 @@ html[data-density='compact'] .page-head { padding-top: 12px; padding-bottom: 9px
 html[data-density='compact'] .pane { padding-top: 0; }
 html[data-density='compact'] .detail-card { top: 74px; max-height: calc(100vh - 96px); }
 
-/* ===== Orders: quick transitions + new columns ===== */
 
 #orders-table .quick-col { width: 102px; text-align: center; }
 #orders-table td.quick-cell { text-align: center; white-space: nowrap; }
@@ -2773,7 +2732,6 @@ td.clip {
   white-space: nowrap;
 }
 
-/* ===== One-click actions on the My Work cards ===== */
 
 .acard-actions {
   display: flex;
@@ -2785,7 +2743,6 @@ td.clip {
 }
 .acard-actions .btn { white-space: nowrap; }
 
-/* ===== Department permission tables ===== */
 
 .dept-matrix-note {
   display: flex;
@@ -3323,7 +3280,6 @@ td.clip {
       </div>
     </main>
 
-    <!-- SI MANAGEMENT VIEW -->
     <main id="view-si" class="pane hidden">
       <header class="page-head">
         <div>
@@ -3511,7 +3467,6 @@ td.clip {
     },
     configBron: null,
 
-    // SI management state
     si: {
       customers: [],
       selectedCustomer: null,
@@ -3572,12 +3527,9 @@ td.clip {
     if (!state.user) return false;
     if (state.user.role === 'admin') return true;
     const base = rolePerms[state.user.role] || [];
-    // Department permission tables add on top of the role's own permissions.
     return base.includes(perm) || (state.user.permissions || []).includes(perm);
   };
 
-  // Permission matrix shown in the department cards on the Users page.
-  // Mirrors the backend's grantable set in pkg/auth (auth.AllPermissions).
   const PERM_GROUPS = [
     { label: 'Orders', perms: [
       ['orders:list', 'View the order list'],
@@ -3971,7 +3923,6 @@ td.clip {
       const form = $('#modal-form', root);
       const close = (result) => {
         document.removeEventListener('keydown', onKey, true);
-        // Clean up any checklist modal event handlers
         var modalBody = $('.modal-body', root);
         if (modalBody && modalBody._checklistHandler) {
           modalBody.removeEventListener('click', modalBody._checklistHandler);
@@ -4166,7 +4117,7 @@ td.clip {
       else if (location.hash.startsWith('#/checklists')) loadChecklistsView(true);
       else if (location.hash.startsWith('#/products')) loadProducts(true);
       else if (location.hash.startsWith('#/manuals')) loadManualsView(true);
-      else if (location.hash.startsWith('#/si')) { /* SI view refreshes on demand */ }
+      else if (location.hash.startsWith('#/si')) {  }
       else if (location.hash.startsWith('#/home')) { if (can('orders:list')) loadAttention(true); loadNotifications(true); }
       else if (can('orders:list')) loadOrders(true);
     }, 20000);
@@ -4227,6 +4178,14 @@ td.clip {
     state.sel = new Set();
     state.mine = false;
     state.userBriefs = [];
+    state.si.customers = [];
+    state.si.selectedCustomer = null;
+    state.si.projects = [];
+    state.si.selectedProject = null;
+    state.si.sis = [];
+    state.si.selectedSI = null;
+    state.si.filter = 'All';
+    state.si.loading = false;
     disconnectEvents();
     clearInterval(window.__refresh);
     clearInterval(window.__clock);
@@ -4316,7 +4275,6 @@ td.clip {
     }
   }
 
-  // One-click "move to the next state" on the dashboard attention cards.
   function quickCardActions(c) {
     if (!can('orders:transition')) return '';
     const next = nextStates(c.status);
@@ -4341,7 +4299,7 @@ td.clip {
         try {
           await doQuickTransition(Number(nextBtn.dataset.quickNext), status);
           await loadAttention(true);
-        } catch { /* act() already toasts */ }
+        } catch {  }
         finally {
           nextBtn.disabled = false;
         }
@@ -4352,8 +4310,6 @@ td.clip {
     });
   }
 
-  // Used by the inline "quick transition" selects in the orders table and by
-  // the one-click buttons on the dashboard cards.
   async function doQuickTransition(id, status) {
     const cur = state.orders.find((o) => o.id === id) || state.detail;
     const body = { status };
@@ -4548,7 +4504,6 @@ td.clip {
     ).join('');
   }
 
-  // Inline "move to next state" control rendered in every orders table row.
   function quickSelectHtml(o) {
     if (!can('orders:transition')) return '';
     const next = nextStates(o.status);
@@ -4995,7 +4950,6 @@ td.clip {
     }
   }
 
-  // Barcode section
 
   function barcodeSectionHtml() {
     var order = state.detail;
@@ -5978,10 +5932,7 @@ td.clip {
 
 "use strict";
 
-// SI Management Module
-// Handles customers, projects, and System Integration lifecycle
 
-// Track whether SI events have been bound to prevent duplicate listeners
 var siEventsBound = false;
 var customerListBound = false;
 
@@ -6006,7 +5957,8 @@ function siEnvBadge(env) {
 
 async function loadSIView() {
   state.si.loading = true;
-  await Promise.all([loadSICustomers(), loadSIProjects(), loadSISIs()]);
+  await loadSICustomers();
+  await Promise.all([loadSIProjects(), loadSISIs()]);
   state.si.loading = false;
   renderSICustomerList();
   renderSITable();
@@ -6014,13 +5966,12 @@ async function loadSIView() {
   bindSIEvents();
 }
 
-// Efficient partial refresh after data modifications - avoids full reload
 async function refreshSIData(options) {
   options = options || {};
   var promises = [];
 
   if (options.reloadCustomers) {
-    promises.push(loadSICustomers());
+    await loadSICustomers();
   }
   if (options.reloadProjects) {
     promises.push(loadSIProjects());
@@ -6047,16 +5998,42 @@ async function loadSICustomers() {
   } catch (err) {
     toast('Failed to load customers: ' + err.message, 'error');
     state.si.customers = [];
+    state.si.selectedCustomer = null;
+    state.si.selectedProject = null;
+    state.si.projects = [];
+    return;
+  }
+  if (state.si.selectedCustomer) {
+    var fresh = null;
+    for (var i = 0; i < state.si.customers.length; i++) {
+      if (state.si.customers[i].id === state.si.selectedCustomer.id) { fresh = state.si.customers[i]; break; }
+    }
+    if (fresh) {
+      state.si.selectedCustomer = fresh;
+    } else {
+      state.si.selectedCustomer = null;
+      state.si.selectedProject = null;
+      state.si.projects = [];
+    }
   }
 }
 
 async function loadSIProjects() {
-  if (!state.si.selectedCustomer) {
+  var sel = state.si.selectedCustomer;
+  var valid = false;
+  if (sel) {
+    for (var i = 0; i < state.si.customers.length; i++) {
+      if (state.si.customers[i].id === sel.id) { valid = true; break; }
+    }
+  }
+  if (!valid) {
+    state.si.selectedCustomer = null;
+    state.si.selectedProject = null;
     state.si.projects = [];
     return;
   }
   try {
-    var data = await api('GET', '/api/v1/si/customers/' + state.si.selectedCustomer.number + '/projects');
+    var data = await api('GET', '/api/v1/si/customers/' + sel.number + '/projects');
     state.si.projects = data.projects || [];
   } catch (err) {
     toast('Failed to load projects: ' + err.message, 'error');
@@ -6110,6 +6087,11 @@ function renderSIFilters() {
     return '<option value="' + p.id + '"' + (state.si.selectedProject && state.si.selectedProject.id === p.id ? ' selected' : '') + '>' + escapeSI(p.code) + ' - ' + escapeSI(p.name) + '</option>';
   }).join('');
   projectSel.innerHTML = '<option value="">All projects</option>' + projectOptions;
+  var group = projectSel.closest ? projectSel.closest('.si-filter-group') : null;
+  if (group) {
+    if (state.si.selectedCustomer) group.classList.remove('hidden');
+    else group.classList.add('hidden');
+  }
 }
 
 function renderSITable() {
@@ -6194,7 +6176,6 @@ function renderSIDetail() {
   if (si.description) {
     html += '<div class="si-detail-desc"><h4>Description</h4><p>' + escapeSI(si.description) + '</p></div>';
   }
-  // NPI-determined automatic fields
   if (si.config) {
     html += '<div class="si-detail-config"><h4>NPI Configuration (Automatic)</h4>';
     var cfg = si.config;
@@ -6217,40 +6198,33 @@ function renderSIDetail() {
   bindSIDetailEvents();
 }
 
-// Track whether SI detail events have been bound
 var siDetailEventsBound = false;
 
 function bindSIDetailEvents() {
-  // Use event delegation on the detail container to avoid duplicate listeners
   if (siDetailEventsBound) return;
   siDetailEventsBound = true;
 
   var detailBody = $('#si-detail-body');
   if (!detailBody) return;
 
-  // Single delegated event handler for all detail actions
   detailBody.addEventListener('click', async function(e) {
     var target = e.target;
 
-    // Close button
     if (target.closest('.si-close-detail')) {
       closeSIDetail();
       return;
     }
 
-    // Edit button
     if (target.id === 'si-edit-btn' || target.closest('#si-edit-btn')) {
       if (state.si.selectedSI) openSIEditModal(state.si.selectedSI);
       return;
     }
 
-    // Manage projects button
     if (target.id === 'si-projects-btn' || target.closest('#si-projects-btn')) {
       if (state.si.selectedSI) openSIManageProjectsModal(state.si.selectedSI);
       return;
     }
 
-    // Checklist button
     if (target.id === 'si-checklist-btn' || target.closest('#si-checklist-btn')) {
       if (state.si.selectedSI) {
         var projectId = state.si.selectedSI.primaryProjectId;
@@ -6260,7 +6234,6 @@ function bindSIDetailEvents() {
       return;
     }
 
-    // Transition buttons
     var transitionBtn = target.closest('.si-transition-btn');
     if (transitionBtn && state.si.selectedSI) {
       var newStatus = transitionBtn.dataset.status;
@@ -6287,11 +6260,9 @@ function closeSIDetail() {
 }
 
 function bindSIEvents() {
-  // Prevent duplicate event listeners - only bind once
   if (siEventsBound) return;
   siEventsBound = true;
 
-  // Use event delegation for customer list (single listener on container)
   var customerList = $('#si-customer-list');
   if (customerList && !customerListBound) {
     customerListBound = true;
@@ -6312,7 +6283,6 @@ function bindSIEvents() {
     });
   }
 
-  // Status filter - use { once: false } but check if already bound
   var statusFilter = $('#si-status-filter');
   if (statusFilter) {
     statusFilter.addEventListener('change', async function(e) {
@@ -6322,7 +6292,6 @@ function bindSIEvents() {
     });
   }
 
-  // Project filter
   var projectFilter = $('#si-project-filter');
   if (projectFilter) {
     projectFilter.addEventListener('change', async function(e) {
@@ -6338,7 +6307,6 @@ function bindSIEvents() {
     });
   }
 
-  // Refresh button
   var refreshBtn = $('#si-refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async function() {
@@ -6352,19 +6320,15 @@ function bindSIEvents() {
     });
   }
 
-  // New SI button
   var newBtn = $('#si-new-btn');
   if (newBtn) newBtn.addEventListener('click', function() { openSICreateModal(); });
 
-  // New Customer button
   var newCustomerBtn = $('#si-new-customer-btn');
   if (newCustomerBtn) newCustomerBtn.addEventListener('click', function() { openSICreateCustomerModal(); });
 
-  // New Project button
   var newProjectBtn = $('#si-new-project-btn');
   if (newProjectBtn) newProjectBtn.addEventListener('click', function() { openSICreateProjectModal(); });
 
-  // Seed button
   var seedBtn = $('#si-seed-btn');
   if (seedBtn) {
     seedBtn.addEventListener('click', async function() {
@@ -6378,11 +6342,9 @@ function bindSIEvents() {
     });
   }
 
-  // Table event delegation for row clicks and project links
   var table = $('#si-table');
   if (table) {
     table.addEventListener('click', function(e) {
-      // Handle project link clicks
       var projectLink = e.target.closest('.si-project-link');
       if (projectLink) {
         var projectId = projectLink.dataset.projectId;
@@ -6393,14 +6355,12 @@ function bindSIEvents() {
         }
       }
 
-      // Handle row clicks - view SI detail
       var row = e.target.closest('.si-row-clickable');
       if (row) {
         viewSI(Number(row.dataset.id));
         return;
       }
 
-      // Handle view button clicks (for backward compatibility)
       var viewBtn = e.target.closest('.si-view-btn');
       if (viewBtn) {
         viewSI(Number(viewBtn.dataset.id));
@@ -6620,7 +6580,6 @@ function updateSINavVisibility() {
   }
 }
 
-// ===== Project Checklist with QR Codes =====
 
 async function openProjectChecklistModal(projectId) {
   var project = state.si.projects.find(function(p) { return p.id === projectId; });
@@ -6693,27 +6652,22 @@ function renderChecklistModal(project) {
     wide: true
   });
 
-  // Bind events after modal renders
   setTimeout(function() {
     bindChecklistModalEvents(project.id);
   }, 50);
 }
 
 function bindChecklistModalEvents(projectId) {
-  // Use event delegation on the modal body instead of individual button listeners
   var modalBody = $('.modal-body');
   if (!modalBody) return;
 
-  // Remove any existing checklist handler to prevent duplicates
   if (modalBody._checklistHandler) {
     modalBody.removeEventListener('click', modalBody._checklistHandler);
   }
 
-  // Create a single delegated event handler
   modalBody._checklistHandler = async function(e) {
     var target = e.target;
 
-    // Handle add button click
     if (target.id === 'checklist-add-btn' || target.closest('#checklist-add-btn')) {
       var input = $('#checklist-new-label');
       var label = input.value.trim();
@@ -6729,7 +6683,6 @@ function bindChecklistModalEvents(projectId) {
       return;
     }
 
-    // Handle check button click
     var checkBtn = target.closest('.si-check-btn');
     if (checkBtn) {
       var itemId = checkBtn.dataset.id;
@@ -6744,7 +6697,6 @@ function bindChecklistModalEvents(projectId) {
       return;
     }
 
-    // Handle uncheck button click
     var uncheckBtn = target.closest('.si-uncheck-btn');
     if (uncheckBtn) {
       var itemId = uncheckBtn.dataset.id;
@@ -6759,7 +6711,6 @@ function bindChecklistModalEvents(projectId) {
       return;
     }
 
-    // Handle delete button click
     var delBtn = target.closest('.si-del-item-btn');
     if (delBtn) {
       var itemId = delBtn.dataset.id;
@@ -6774,7 +6725,6 @@ function bindChecklistModalEvents(projectId) {
       return;
     }
 
-    // Handle QR button click
     var qrBtn = target.closest('.si-qr-btn');
     if (qrBtn) {
       showQRCode(qrBtn.dataset.url);
@@ -6821,7 +6771,6 @@ function generateQRCode(containerId, text) {
   var container = $('#' + containerId);
   if (!container) return;
   container.innerHTML = '';
-  // Use QRCode.js from CDN (loaded in index.html)
   if (typeof QRCode !== 'undefined') {
     new QRCode(container, {
       text: text,
@@ -7086,7 +7035,6 @@ function generateQRCode(containerId, text) {
     return n;
   }
 
-  // Renders one department card including its permission table.
   function departmentCardHtml(d, canManage) {
     var perms = d.permissions || [];
     var members = deptMemberCount(d.id);
@@ -7759,8 +7707,6 @@ function generateQRCode(containerId, text) {
     if (!state.token) return showLogin();
     let { page, orderId, params } = parseHash();
 
-    // Never land on pages the role has no backend permission for: redirect
-    // instead of firing requests that can only answer 403.
     if (!can('orders:list') && (page === 'orders' || page === 'home' ||
         location.hash === '' || location.hash === '#' || location.hash === '#/')) {
       const fb = fallbackHash();
@@ -8034,7 +7980,6 @@ function generateQRCode(containerId, text) {
     if (tr && !e.target.closest('input[data-sel]') && !e.target.closest('select.row-quick')) openDetail(Number(tr.dataset.id));
   });
 
-  // Inline quick transitions: pick a next state straight from the table row.
   $('#orders-table tbody').addEventListener('change', (e) => {
     const sel = e.target.closest('select.row-quick');
     if (!sel) return;
@@ -8577,9 +8522,6 @@ function generateQRCode(containerId, text) {
   $('#orders-split').classList.add('no-detail');
   if (state.token && state.user) {
     enterApp();
-    // Revalidate the cached profile: a role or the department permission
-    // tables may have changed server-side; the UI must not keep showing
-    // actions that would now answer 403.
     api('GET', '/api/v1/auth/me').then((d) => {
       const u = d && d.user;
       if (!u) return;
@@ -8593,8 +8535,6 @@ function generateQRCode(containerId, text) {
   } else showLogin();
 
 
-/* Full-page order workspace with tabbed pages.
-   Wraps the existing detail panel — does not replace order logic. */
 (function () {
   const view = document.getElementById('view-orders');
   const panel = document.getElementById('detail-panel');
@@ -8868,5 +8808,5 @@ function generateQRCode(containerId, text) {
 })();
 
 </script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a3744a7a9f991c99',t:'MTc4ODc2OTE5Mg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script><script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a37dcaf6a8705f94',t:'MTc4ODg2ODgyNg=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</body>
 </html>

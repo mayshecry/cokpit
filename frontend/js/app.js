@@ -93,8 +93,6 @@
     if (!state.token) return showLogin();
     let { page, orderId, params } = parseHash();
 
-    // Never land on pages the role has no backend permission for: redirect
-    // instead of firing requests that can only answer 403.
     if (!can('orders:list') && (page === 'orders' || page === 'home' ||
         location.hash === '' || location.hash === '#' || location.hash === '#/')) {
       const fb = fallbackHash();
@@ -368,7 +366,6 @@
     if (tr && !e.target.closest('input[data-sel]') && !e.target.closest('select.row-quick')) openDetail(Number(tr.dataset.id));
   });
 
-  // Inline quick transitions: pick a next state straight from the table row.
   $('#orders-table tbody').addEventListener('change', (e) => {
     const sel = e.target.closest('select.row-quick');
     if (!sel) return;
@@ -911,9 +908,6 @@
   $('#orders-split').classList.add('no-detail');
   if (state.token && state.user) {
     enterApp();
-    // Revalidate the cached profile: a role or the department permission
-    // tables may have changed server-side; the UI must not keep showing
-    // actions that would now answer 403.
     api('GET', '/api/v1/auth/me').then((d) => {
       const u = d && d.user;
       if (!u) return;

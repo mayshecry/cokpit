@@ -44,7 +44,7 @@
       else if (location.hash.startsWith('#/checklists')) loadChecklistsView(true);
       else if (location.hash.startsWith('#/products')) loadProducts(true);
       else if (location.hash.startsWith('#/manuals')) loadManualsView(true);
-      else if (location.hash.startsWith('#/si')) { /* SI view refreshes on demand */ }
+      else if (location.hash.startsWith('#/si')) {  }
       else if (location.hash.startsWith('#/home')) { if (can('orders:list')) loadAttention(true); loadNotifications(true); }
       else if (can('orders:list')) loadOrders(true);
     }, 20000);
@@ -105,6 +105,14 @@
     state.sel = new Set();
     state.mine = false;
     state.userBriefs = [];
+    state.si.customers = [];
+    state.si.selectedCustomer = null;
+    state.si.projects = [];
+    state.si.selectedProject = null;
+    state.si.sis = [];
+    state.si.selectedSI = null;
+    state.si.filter = 'All';
+    state.si.loading = false;
     disconnectEvents();
     clearInterval(window.__refresh);
     clearInterval(window.__clock);

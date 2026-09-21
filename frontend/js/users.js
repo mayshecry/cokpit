@@ -247,7 +247,6 @@
     return n;
   }
 
-  // Renders one department card including its permission table.
   function departmentCardHtml(d, canManage) {
     var perms = d.permissions || [];
     var members = deptMemberCount(d.id);

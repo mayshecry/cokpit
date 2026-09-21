@@ -182,7 +182,6 @@
     }
   }
 
-  // Barcode section
 
   function barcodeSectionHtml() {
     var order = state.detail;

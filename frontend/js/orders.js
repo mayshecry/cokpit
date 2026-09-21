@@ -70,7 +70,6 @@
     }
   }
 
-  // One-click "move to the next state" on the dashboard attention cards.
   function quickCardActions(c) {
     if (!can('orders:transition')) return '';
     const next = nextStates(c.status);
@@ -95,7 +94,7 @@
         try {
           await doQuickTransition(Number(nextBtn.dataset.quickNext), status);
           await loadAttention(true);
-        } catch { /* act() already toasts */ }
+        } catch {  }
         finally {
           nextBtn.disabled = false;
         }
@@ -301,7 +300,6 @@
     ).join('');
   }
 
-  // Inline "move to next state" control rendered in every orders table row.
   function quickSelectHtml(o) {
     if (!can('orders:transition')) return '';
     const next = nextStates(o.status);

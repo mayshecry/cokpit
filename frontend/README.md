@@ -23,7 +23,7 @@ double-click, emailing someone a copy). Edit the three sources, then `python3 bu
 
 ## API contract — unchanged
 
-Every endpoint the original `app.js` called, still called the same way:
+Every endpoint the legacy single-file frontend called, still called the same way:
 
 | Method | Path | Sent | Expected back |
 |---|---|---|---|

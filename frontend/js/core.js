@@ -53,7 +53,6 @@
     },
     configBron: null,
 
-    // SI management state
     si: {
       customers: [],
       selectedCustomer: null,
@@ -114,12 +113,9 @@
     if (!state.user) return false;
     if (state.user.role === 'admin') return true;
     const base = rolePerms[state.user.role] || [];
-    // Department permission tables add on top of the role's own permissions.
     return base.includes(perm) || (state.user.permissions || []).includes(perm);
   };
 
-  // Permission matrix shown in the department cards on the Users page.
-  // Mirrors the backend's grantable set in pkg/auth (auth.AllPermissions).
   const PERM_GROUPS = [
     { label: 'Orders', perms: [
       ['orders:list', 'View the order list'],
@@ -513,7 +509,6 @@
       const form = $('#modal-form', root);
       const close = (result) => {
         document.removeEventListener('keydown', onKey, true);
-        // Clean up any checklist modal event handlers
         var modalBody = $('.modal-body', root);
         if (modalBody && modalBody._checklistHandler) {
           modalBody.removeEventListener('click', modalBody._checklistHandler);

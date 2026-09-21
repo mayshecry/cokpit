@@ -1,9 +1,6 @@
 "use strict";
 
-// SI Management Module
-// Handles customers, projects, and System Integration lifecycle
 
-// Track whether SI events have been bound to prevent duplicate listeners
 var siEventsBound = false;
 var customerListBound = false;
 
@@ -28,7 +25,8 @@ function siEnvBadge(env) {
 
 async function loadSIView() {
   state.si.loading = true;
-  await Promise.all([loadSICustomers(), loadSIProjects(), loadSISIs()]);
+  await loadSICustomers();
+  await Promise.all([loadSIProjects(), loadSISIs()]);
   state.si.loading = false;
   renderSICustomerList();
   renderSITable();
@@ -36,13 +34,12 @@ async function loadSIView() {
   bindSIEvents();
 }
 
-// Efficient partial refresh after data modifications - avoids full reload
 async function refreshSIData(options) {
   options = options || {};
   var promises = [];
 
   if (options.reloadCustomers) {
-    promises.push(loadSICustomers());
+    await loadSICustomers();
   }
   if (options.reloadProjects) {
     promises.push(loadSIProjects());
@@ -69,16 +66,42 @@ async function loadSICustomers() {
   } catch (err) {
     toast('Failed to load customers: ' + err.message, 'error');
     state.si.customers = [];
+    state.si.selectedCustomer = null;
+    state.si.selectedProject = null;
+    state.si.projects = [];
+    return;
+  }
+  if (state.si.selectedCustomer) {
+    var fresh = null;
+    for (var i = 0; i < state.si.customers.length; i++) {
+      if (state.si.customers[i].id === state.si.selectedCustomer.id) { fresh = state.si.customers[i]; break; }
+    }
+    if (fresh) {
+      state.si.selectedCustomer = fresh;
+    } else {
+      state.si.selectedCustomer = null;
+      state.si.selectedProject = null;
+      state.si.projects = [];
+    }
   }
 }
 
 async function loadSIProjects() {
-  if (!state.si.selectedCustomer) {
+  var sel = state.si.selectedCustomer;
+  var valid = false;
+  if (sel) {
+    for (var i = 0; i < state.si.customers.length; i++) {
+      if (state.si.customers[i].id === sel.id) { valid = true; break; }
+    }
+  }
+  if (!valid) {
+    state.si.selectedCustomer = null;
+    state.si.selectedProject = null;
     state.si.projects = [];
     return;
   }
   try {
-    var data = await api('GET', '/api/v1/si/customers/' + state.si.selectedCustomer.number + '/projects');
+    var data = await api('GET', '/api/v1/si/customers/' + sel.number + '/projects');
     state.si.projects = data.projects || [];
   } catch (err) {
     toast('Failed to load projects: ' + err.message, 'error');
@@ -132,6 +155,11 @@ function renderSIFilters() {
     return '<option value="' + p.id + '"' + (state.si.selectedProject && state.si.selectedProject.id === p.id ? ' selected' : '') + '>' + escapeSI(p.code) + ' - ' + escapeSI(p.name) + '</option>';
   }).join('');
   projectSel.innerHTML = '<option value="">All projects</option>' + projectOptions;
+  var group = projectSel.closest ? projectSel.closest('.si-filter-group') : null;
+  if (group) {
+    if (state.si.selectedCustomer) group.classList.remove('hidden');
+    else group.classList.add('hidden');
+  }
 }
 
 function renderSITable() {
@@ -216,7 +244,6 @@ function renderSIDetail() {
   if (si.description) {
     html += '<div class="si-detail-desc"><h4>Description</h4><p>' + escapeSI(si.description) + '</p></div>';
   }
-  // NPI-determined automatic fields
   if (si.config) {
     html += '<div class="si-detail-config"><h4>NPI Configuration (Automatic)</h4>';
     var cfg = si.config;
@@ -239,40 +266,33 @@ function renderSIDetail() {
   bindSIDetailEvents();
 }
 
-// Track whether SI detail events have been bound
 var siDetailEventsBound = false;
 
 function bindSIDetailEvents() {
-  // Use event delegation on the detail container to avoid duplicate listeners
   if (siDetailEventsBound) return;
   siDetailEventsBound = true;
 
   var detailBody = $('#si-detail-body');
   if (!detailBody) return;
 
-  // Single delegated event handler for all detail actions
   detailBody.addEventListener('click', async function(e) {
     var target = e.target;
 
-    // Close button
     if (target.closest('.si-close-detail')) {
       closeSIDetail();
       return;
     }
 
-    // Edit button
     if (target.id === 'si-edit-btn' || target.closest('#si-edit-btn')) {
       if (state.si.selectedSI) openSIEditModal(state.si.selectedSI);
       return;
     }
 
-    // Manage projects button
     if (target.id === 'si-projects-btn' || target.closest('#si-projects-btn')) {
       if (state.si.selectedSI) openSIManageProjectsModal(state.si.selectedSI);
       return;
     }
 
-    // Checklist button
     if (target.id === 'si-checklist-btn' || target.closest('#si-checklist-btn')) {
       if (state.si.selectedSI) {
         var projectId = state.si.selectedSI.primaryProjectId;
@@ -282,7 +302,6 @@ function bindSIDetailEvents() {
       return;
     }
 
-    // Transition buttons
     var transitionBtn = target.closest('.si-transition-btn');
     if (transitionBtn && state.si.selectedSI) {
       var newStatus = transitionBtn.dataset.status;
@@ -309,11 +328,9 @@ function closeSIDetail() {
 }
 
 function bindSIEvents() {
-  // Prevent duplicate event listeners - only bind once
   if (siEventsBound) return;
   siEventsBound = true;
 
-  // Use event delegation for customer list (single listener on container)
   var customerList = $('#si-customer-list');
   if (customerList && !customerListBound) {
     customerListBound = true;
@@ -334,7 +351,6 @@ function bindSIEvents() {
     });
   }
 
-  // Status filter - use { once: false } but check if already bound
   var statusFilter = $('#si-status-filter');
   if (statusFilter) {
     statusFilter.addEventListener('change', async function(e) {
@@ -344,7 +360,6 @@ function bindSIEvents() {
     });
   }
 
-  // Project filter
   var projectFilter = $('#si-project-filter');
   if (projectFilter) {
     projectFilter.addEventListener('change', async function(e) {
@@ -360,7 +375,6 @@ function bindSIEvents() {
     });
   }
 
-  // Refresh button
   var refreshBtn = $('#si-refresh-btn');
   if (refreshBtn) {
     refreshBtn.addEventListener('click', async function() {
@@ -374,19 +388,15 @@ function bindSIEvents() {
     });
   }
 
-  // New SI button
   var newBtn = $('#si-new-btn');
   if (newBtn) newBtn.addEventListener('click', function() { openSICreateModal(); });
 
-  // New Customer button
   var newCustomerBtn = $('#si-new-customer-btn');
   if (newCustomerBtn) newCustomerBtn.addEventListener('click', function() { openSICreateCustomerModal(); });
 
-  // New Project button
   var newProjectBtn = $('#si-new-project-btn');
   if (newProjectBtn) newProjectBtn.addEventListener('click', function() { openSICreateProjectModal(); });
 
-  // Seed button
   var seedBtn = $('#si-seed-btn');
   if (seedBtn) {
     seedBtn.addEventListener('click', async function() {
@@ -400,11 +410,9 @@ function bindSIEvents() {
     });
   }
 
-  // Table event delegation for row clicks and project links
   var table = $('#si-table');
   if (table) {
     table.addEventListener('click', function(e) {
-      // Handle project link clicks
       var projectLink = e.target.closest('.si-project-link');
       if (projectLink) {
         var projectId = projectLink.dataset.projectId;
@@ -415,14 +423,12 @@ function bindSIEvents() {
         }
       }
 
-      // Handle row clicks - view SI detail
       var row = e.target.closest('.si-row-clickable');
       if (row) {
         viewSI(Number(row.dataset.id));
         return;
       }
 
-      // Handle view button clicks (for backward compatibility)
       var viewBtn = e.target.closest('.si-view-btn');
       if (viewBtn) {
         viewSI(Number(viewBtn.dataset.id));
@@ -642,7 +648,6 @@ function updateSINavVisibility() {
   }
 }
 
-// ===== Project Checklist with QR Codes =====
 
 async function openProjectChecklistModal(projectId) {
   var project = state.si.projects.find(function(p) { return p.id === projectId; });
@@ -715,27 +720,22 @@ function renderChecklistModal(project) {
     wide: true
   });
 
-  // Bind events after modal renders
   setTimeout(function() {
     bindChecklistModalEvents(project.id);
   }, 50);
 }
 
 function bindChecklistModalEvents(projectId) {
-  // Use event delegation on the modal body instead of individual button listeners
   var modalBody = $('.modal-body');
   if (!modalBody) return;
 
-  // Remove any existing checklist handler to prevent duplicates
   if (modalBody._checklistHandler) {
     modalBody.removeEventListener('click', modalBody._checklistHandler);
   }
 
-  // Create a single delegated event handler
   modalBody._checklistHandler = async function(e) {
     var target = e.target;
 
-    // Handle add button click
     if (target.id === 'checklist-add-btn' || target.closest('#checklist-add-btn')) {
       var input = $('#checklist-new-label');
       var label = input.value.trim();
@@ -751,7 +751,6 @@ function bindChecklistModalEvents(projectId) {
       return;
     }
 
-    // Handle check button click
     var checkBtn = target.closest('.si-check-btn');
     if (checkBtn) {
       var itemId = checkBtn.dataset.id;
@@ -766,7 +765,6 @@ function bindChecklistModalEvents(projectId) {
       return;
     }
 
-    // Handle uncheck button click
     var uncheckBtn = target.closest('.si-uncheck-btn');
     if (uncheckBtn) {
       var itemId = uncheckBtn.dataset.id;
@@ -781,7 +779,6 @@ function bindChecklistModalEvents(projectId) {
       return;
     }
 
-    // Handle delete button click
     var delBtn = target.closest('.si-del-item-btn');
     if (delBtn) {
       var itemId = delBtn.dataset.id;
@@ -796,7 +793,6 @@ function bindChecklistModalEvents(projectId) {
       return;
     }
 
-    // Handle QR button click
     var qrBtn = target.closest('.si-qr-btn');
     if (qrBtn) {
       showQRCode(qrBtn.dataset.url);
@@ -843,7 +839,6 @@ function generateQRCode(containerId, text) {
   var container = $('#' + containerId);
   if (!container) return;
   container.innerHTML = '';
-  // Use QRCode.js from CDN (loaded in index.html)
   if (typeof QRCode !== 'undefined') {
     new QRCode(container, {
       text: text,
