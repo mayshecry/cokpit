@@ -41,6 +41,10 @@
     sse: null,
     sseOk: false,
     prevNotifIds: new Set(),
+    lastScan: null,
+    ordersRaw: null,
+    attentionRaw: null,
+    lastSseAt: 0,
 
     
     config: {
@@ -68,12 +72,13 @@
   const rolePerms = {
     viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'notifications:read', 'si:list', 'si:view'],
     operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'scan:use', 'pick:use', 'si:list', 'si:view'],
-    qc:       ['orders:list', 'orders:view', 'qc:submit', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'si:list', 'si:view'],
+    qc:       ['orders:list', 'orders:view', 'qc:submit', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'manuals:manage', 'si:list', 'si:view'],
     npi:      ['si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'users:list'],
+    sc:       ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'manuals:manage', 'manuals:approve', 'si:list', 'si:view', 'users:list'],
     admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'users:list', 'manuals:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'config:manage', 'notifications:read', 'si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'si:manage'],
   };
 
-  const ROLES = ['viewer', 'operator', 'qc', 'npi', 'admin'];
+  const ROLES = ['viewer', 'operator', 'qc', 'npi', 'sc', 'admin'];
 
   const SI_STATUSES = [
     { value: 'All', label: 'All' },
@@ -209,6 +214,8 @@
       'shortcut.goOrders': 'Go to orders', 'shortcut.goUsers': 'Go to users',
       'shortcut.goConfig': 'Go to config (admin)', 'shortcut.refresh': 'Refresh data',
       'shortcut.close': 'Close panel / dialog', 'shortcut.cheats': 'This dialog',
+      'shortcut.rowNav': 'Move between order rows', 'shortcut.rowOpen': 'Open focused order',
+      'shortcut.rowSelect': 'Select / deselect focused row',
       'dept.permissions': 'Department permissions',
       'dept.hint': 'Members inherit each granted permission on top of their role. Toggle the table, then save.',
       'dept.save': 'Save permissions',
@@ -218,6 +225,35 @@
       'dept.none': 'No extra permissions — members keep only their role.',
       'orders.customer': 'Customer',
       'orders.assignee': 'Assignee',
+      'info.debit': 'Debit number', 'info.device': 'Device', 'info.asset': 'Asset number',
+      'info.config': 'Configuration', 'info.omni': 'Omnitracker ticket',
+      'work.start': 'Start Work', 'work.resume': 'Resume', 'work.inprogress': 'In progress',
+      'work.busy': 'Another user is clocked in on this order', 'work.title': 'Work session',
+      'work.readySub': 'Clock in to start the guided flow. Every step has manual checks — Next unlocks once everything is ticked off.',
+      'work.step.intake': 'Intake & verify', 'work.step.intaked': 'Confirm the order and the device in front of you match.',
+      'work.step.build': 'Pick & configure', 'work.step.buildd': 'Pick the parts and apply the configuration.',
+      'work.step.test': 'Self-test & hand to QC', 'work.step.testd': 'Test the device, then send it to QC review.',
+      'work.step.wrap': 'Wrap up & complete', 'work.step.wrapd': 'Final checks, then complete the order.',
+      'work.check.c_data': 'Order data complete (customer, debit, ticket)',
+      'work.check.c_device': 'Device present and undamaged',
+      'work.check.c_asset': 'Asset tag matches the order',
+      'work.check.c_config': 'Configuration applied as specified',
+      'work.check.c_firmware': 'Firmware and software up to date',
+      'work.check.c_test': 'Device fully tested and working',
+      'work.check.c_notes': 'Work notes added for QC',
+      'work.check.c_clean': 'Device cleaned and packed',
+      'work.check.c_report': 'Result registered in Omnitracker',
+      'work.picklist': 'Pick list', 'work.pickempty': 'No pick list linked to this order — continue with the checks below.',
+      'work.checksLeft': 'check(s) left', 'work.pickLeft': 'pick(s) left',
+      'work.qcwait': 'Waiting for QC pass — a QC reviewer or admin must pass this order before it can be completed.',
+      'work.qcok': 'QC passed — you can complete this order.',
+      'work.next': 'Next step', 'work.back': 'Back', 'work.complete': 'Complete order',
+      'work.short.intake': 'Intake', 'work.short.build': 'Pick & config', 'work.short.test': 'Self-test & QC', 'work.short.wrap': 'Wrap up',
+      'work.clockout': 'Clock out', 'work.clockedout': 'Clocked out', 'work.elapsed': 'Time on this order',
+      'work.target': 'Target', 'work.doneTitle': 'Order completed', 'work.doneSub': 'All steps ticked off. Session logged.',
+      'work.backToOrders': 'Back to orders', 'work.viewOrder': 'View order', 'work.assignedYou': 'assigned to you',
+      'work.manuals': 'Manuals', 'work.manualLeft': 'manual block(s) left', 'work.exitNow': 'Exit for now',
+      'work.exitToast': 'Session stays open — resume anytime from Start Work.',
       'orders.quick': 'Move →',
       'orders.quickTitle': 'Move this order to the next state',
     },
@@ -272,6 +308,8 @@
     'shortcut.goOrders': 'Ga naar orders', 'shortcut.goUsers': 'Ga naar gebruikers',
     'shortcut.goConfig': 'Ga naar configuratie', 'shortcut.refresh': 'Gegevens verversen',
     'shortcut.close': 'Paneel / dialoog sluiten', 'shortcut.cheats': 'Dit venster',
+    'shortcut.rowNav': 'Tussen orderregels bewegen', 'shortcut.rowOpen': 'Gerichte order openen',
+    'shortcut.rowSelect': 'Gerichte regel (de)selecteren',
     'dept.permissions': 'Afdeling permissies',
     'dept.hint': 'Leden erven elke toegekende permissie bovenop hun rol. Vink aan, sla daarna op.',
     'dept.save': 'Permissies opslaan',
@@ -281,6 +319,35 @@
     'dept.none': 'Geen extra permissies — leden houden alleen hun rol.',
     'orders.customer': 'Klant',
     'orders.assignee': 'Toegewezen aan',
+    'info.debit': 'Debitnummer', 'info.device': 'Apparaat', 'info.asset': 'Assetnummer',
+    'info.config': 'Configuratie', 'info.omni': 'Omnitracker-ticket',
+    'work.start': 'Start werk', 'work.resume': 'Hervat', 'work.inprogress': 'Bezig',
+    'work.busy': 'Een andere gebruiker is ingeklokt op deze order', 'work.title': 'Werksessie',
+    'work.readySub': 'Klok in om de begeleide flow te starten. Elke stap heeft handmatige checks — Volgende gaat open als alles is afgevinkt.',
+    'work.step.intake': 'Intake & controle', 'work.step.intaked': 'Bevestig dat order en apparaat voor je neus overeenkomen.',
+    'work.step.build': 'Picken & configureren', 'work.step.buildd': 'Pick de onderdelen en voer de configuratie toe.',
+    'work.step.test': 'Zelftest & overdracht aan QC', 'work.step.testd': 'Test het apparaat en stuur het naar QC-review.',
+    'work.step.wrap': 'Afronden & voltooien', 'work.step.wrapd': 'Laatste checks, daarna de order voltooien.',
+    'work.check.c_data': 'Orderdata compleet (klant, debit, ticket)',
+    'work.check.c_device': 'Apparaat aanwezig en onbeschadigd',
+    'work.check.c_asset': 'Asset-tag komt overeen met de order',
+    'work.check.c_config': 'Configuratie volgens specificatie toegepast',
+    'work.check.c_firmware': 'Firmware en software up-to-date',
+    'work.check.c_test': 'Apparaat volledig getest en werkend',
+    'work.check.c_notes': 'Werknotities toegevoegd voor QC',
+    'work.check.c_clean': 'Apparaat schoongemaakt en verpakt',
+    'work.check.c_report': 'Resultaat geregistreerd in Omnitracker',
+    'work.picklist': 'Picklijst', 'work.pickempty': 'Geen picklijst gekoppeld aan deze order — ga verder met de checks hieronder.',
+    'work.checksLeft': 'check(s) over', 'work.pickLeft': 'pick(s) over',
+    'work.qcwait': 'Wachten op QC-akkoord — een QC-reviewer of admin moet deze order eerst goedkeuren.',
+    'work.qcok': 'QC akkoord — je kunt de order voltooien.',
+    'work.next': 'Volgende stap', 'work.back': 'Terug', 'work.complete': 'Order voltooien',
+    'work.short.intake': 'Intake', 'work.short.build': 'Pick & config', 'work.short.test': 'Zelftest & QC', 'work.short.wrap': 'Afronden',
+    'work.clockout': 'Uitklokken', 'work.clockedout': 'Uitgeklokt', 'work.elapsed': 'Tijd aan deze order',
+    'work.target': 'Target', 'work.doneTitle': 'Order afgerond', 'work.doneSub': 'Alle stappen afgevinkt. Sessie geregistreerd.',
+    'work.backToOrders': 'Terug naar orders', 'work.viewOrder': 'Bekijk order', 'work.assignedYou': 'aan jou toegewezen',
+    'work.manuals': 'Manuals', 'work.manualLeft': 'manualblok(ken) over', 'work.exitNow': 'Even sluiten',
+    'work.exitToast': 'Sessie blijft open — hervat wanneer je wilt via Start werk.',
     'orders.quick': 'Overzetten →',
     'orders.quickTitle': 'Zet deze order naar de volgende status',
   };
@@ -345,6 +412,8 @@
 
   function updateBadges() {
     const n = state.unread || 0;
+    if (n === updateBadges.last) return;   // no redraw churn on every poll
+    updateBadges.last = n;
     document.title = (n > 0 ? `(${n}) ` : '') + BASE_TITLE;
     drawFaviconBadge(n);
   }
@@ -378,6 +447,17 @@
     return d.toLocaleString(undefined, {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
+  };
+
+  // Compact table variant: drops the year when it matches the current one and
+  // uses 24h time, so date columns stay narrow enough to fit the viewport.
+  const fmtCell = (iso) => {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '—';
+    const opts = { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false };
+    if (d.getFullYear() !== new Date().getFullYear()) opts.year = 'numeric';
+    return d.toLocaleString(undefined, opts);
   };
 
   
@@ -419,12 +499,15 @@
     return 'ON_TIME';
   };
 
+  // Mirrors the backend transition table (pkg/order/status.go). Forward moves
+  // come first: quick actions and the attention cards use next[0] as the
+  // primary move; backward moves stay available in the dropdown and power Undo.
   const nextStates = (st) => {
     if (st.startsWith('Held_') || st === 'Completed') return [];
     switch (st) {
       case 'Received':   return ['Processing', 'QC_Review'];
-      case 'Processing': return ['Received', 'QC_Review'];
-      case 'QC_Review':  return ['Processing', 'Completed'];
+      case 'Processing': return ['QC_Review', 'Received'];
+      case 'QC_Review':  return ['Completed', 'Processing', 'Received'];
       default: return [];
     }
   };

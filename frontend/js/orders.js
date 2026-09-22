@@ -13,9 +13,13 @@
   async function loadAttention(silent) {
     try {
       const d = await api('GET', '/api/v1/attention');
-      state.attention = d.attention;
+      const raw = JSON.stringify(d.attention || null);
       state.lastHomeSync = Date.now();
-      renderAttention();
+      if (raw !== state.attentionRaw) {
+        state.attentionRaw = raw;
+        state.attention = d.attention;
+        renderAttention();
+      }
       const note = $('#home-refresh-text');
       if (note) note.textContent = 'Live · just synced';
     } catch (err) {
@@ -71,14 +75,20 @@
   }
 
   function quickCardActions(c) {
-    if (!can('orders:transition')) return '';
-    const next = nextStates(c.status);
-    if (!next.length) return '';
-    return `<div class="acard-actions">
-      <button type="button" class="btn btn-primary btn-sm" data-quick-next="${c.orderId}" data-status="${esc(next[0])}">
-        ${esc(statusLabel(next[0]))} <span aria-hidden="true">→</span>
-      </button>
-    </div>`;
+    const pseudo = { id: c.orderId, assignee: c.assignee, status: c.status, orderNumber: c.orderNumber };
+    const workBtn = window.WorkFlow ? WorkFlow.buttonFor(pseudo, 'sm') : '';
+    let transBtn = '';
+    if (can('orders:transition')) {
+      const next = nextStates(c.status);
+      if (next.length) {
+        transBtn = `<button type="button" class="btn btn-secondary btn-sm" data-quick-next="${c.orderId}" data-status="${esc(next[0])}">
+          ${esc(statusLabel(next[0]))} <span aria-hidden="true">→</span>
+        </button>`;
+      }
+    }
+    if (!workBtn && !transBtn) return '';
+    const workSlot = workBtn ? `<span data-work-slot="${c.orderId}" data-work-size="sm">${workBtn}</span>` : '';
+    return `<div class="acard-actions">${workSlot}${transBtn}</div>`;
   }
 
   function bindAttentionCards() {
@@ -86,6 +96,12 @@
     if (!grid || grid._boundAttention) return;
     grid._boundAttention = true;
     grid.addEventListener('click', async (e) => {
+      const workBtn = e.target.closest('[data-work-open]');
+      if (workBtn) {
+        e.stopPropagation();
+        if (window.WorkFlow) WorkFlow.open(Number(workBtn.dataset.workOpen));
+        return;
+      }
       const nextBtn = e.target.closest('[data-quick-next]');
       if (nextBtn) {
         e.stopPropagation();
@@ -108,12 +124,16 @@
 
   async function doQuickTransition(id, status) {
     const cur = state.orders.find((o) => o.id === id) || state.detail;
+    const prevStatus = cur ? cur.status : null;
     const body = { status };
     if (cur && cur.updatedAt) body.expectedUpdatedAt = cur.updatedAt;
+    // Offer a one-click undo whenever the reverse transition is legal.
+    const undoable = prevStatus && prevStatus !== status && nextStates(status).includes(prevStatus);
     await act('POST', `/api/v1/orders/${id}/transition`, body, t('toast.moved'), {
       orderId: id,
       applyLocal: { status, updatedAt: new Date().toISOString() },
       revertLocal: cur ? { status: cur.status, updatedAt: cur.updatedAt } : undefined,
+      toastAction: undoable ? { label: t('btn.undo'), fn: () => doQuickTransition(id, prevStatus) } : undefined,
     });
   }
 
@@ -129,11 +149,13 @@
     feedbackEl.className = 'scan-feedback';
     try {
       const d = await api('POST', '/api/v1/scan', { code });
-      feedbackEl.textContent = `Matched ${d.order.orderNumber}`;
+      state.lastScan = { code, id: d.order.id };
+      feedbackEl.textContent = `Matched ${d.order.orderNumber} — press Enter to open`;
       feedbackEl.className = 'scan-feedback ok';
       if (onHit) onHit(d);
       return d;
     } catch (err) {
+      state.lastScan = null;
       feedbackEl.textContent = err.status === 404 ? `No order matches “${code}”` : err.message;
       feedbackEl.className = 'scan-feedback bad';
       return null;
@@ -169,12 +191,19 @@
 
   
 
-  async function loadOrders(silent) {
+  async function loadOrders(silent, force) {
     try {
       const d = await api('GET', '/api/v1/orders?limit=2000');
+      const raw = JSON.stringify(d.orders || []);
+      state.lastSync = Date.now();
+      // Skip the whole DOM rebuild when the payload did not actually change:
+      // no flicker, no lost scroll position, no clobbered focus.
+      if (!force && raw === state.ordersRaw) { updateSyncLabel(); return; }
+      state.ordersRaw = raw;
       state.orders = d.orders || [];
       state.loadingOrders = false;
-      state.lastSync = Date.now();
+      detectAssignments(state.orders);
+      if (window.WorkFlow) WorkFlow.refreshMine();
       renderStats();
       renderStatusChips();
       renderTable();
@@ -184,6 +213,22 @@
       renderTable();
       if (!silent) toast(err.message, true);
     }
+  }
+
+  // Toast with a Start Work action when an order gets assigned to me.
+  function detectAssignments(list) {
+    const seen = state.assigneeSeen || (state.assigneeSeen = {});
+    (list || []).forEach((o) => {
+      const prev = seen[o.id];
+      const now = o.assignee || '';
+      seen[o.id] = now;
+      if (prev !== undefined && prev !== now && now === (state.user || {}).username && o.status !== 'Completed') {
+        toast(`${o.orderNumber} ${t('work.assignedYou')}`, false, {
+          label: t('work.start'),
+          fn: () => window.WorkFlow && WorkFlow.open(o.id),
+        });
+      }
+    });
   }
 
   function updateSyncLabel() {
@@ -219,17 +264,17 @@
       else if (s === 'WARNING') warning++;
       else onTime++;
     }
-    const card = (num, cls, lbl) =>
-      `<div class="stat ${cls}"><span class="num">${num}</span><span class="lbl">${lbl}</span></div>`;
+    const card = (num, cls, lbl, filter) =>
+      `<div class="stat ${cls}"${filter ? ` data-filter="${filter}" role="button" tabindex="0" title="Filter: ${esc(lbl)}"` : ''}><span class="num">${num}</span><span class="lbl">${lbl}</span></div>`;
 
     $('#stats').innerHTML = [
       `<div class="stat-divider">${esc(t('stat.pipeline'))}</div>`,
-      card(c.All, 'accent', t('stat.total')),
-      card(c.Received, 'info', t('chip.received')),
-      card(c.Processing, 'warn', t('chip.processing')),
-      card(c.QC_Review, 'accent', t('chip.qc')),
-      card(c.Completed, 'good', t('chip.completed')),
-      card(c.On_Hold, 'hold', t('chip.hold')),
+      card(c.All, 'accent', t('stat.total'), 'All'),
+      card(c.Received, 'info', t('chip.received'), 'Received'),
+      card(c.Processing, 'warn', t('chip.processing'), 'Processing'),
+      card(c.QC_Review, 'accent', t('chip.qc'), 'QC_Review'),
+      card(c.Completed, 'good', t('chip.completed'), 'Completed'),
+      card(c.On_Hold, 'hold', t('chip.hold'), 'On_Hold'),
       `<div class="stat-divider">${esc(t('stat.service'))}</div>`,
       card(onTime, 'good', t('stat.onTime')),
       card(warning, 'warn', t('stat.risk')),
@@ -313,6 +358,11 @@
   function renderTable() {
     const tbody = $('#orders-table tbody');
     const countEl = $('#row-count');
+    const scroller = $('#orders-table').closest('.table-scroll');
+    const keepScroll = scroller ? scroller.scrollTop : 0;
+    const activeRow = document.activeElement && document.activeElement.closest
+      ? document.activeElement.closest('tr.row') : null;
+    const keepFocusId = activeRow ? activeRow.dataset.id : null;
     const showQuick = can('orders:transition');
     const qHead = $('#orders-table th.quick-col');
     if (qHead) qHead.classList.toggle('hidden', !showQuick);
@@ -361,12 +411,18 @@
         <td>${badge('status-' + esc(statusClass(o.status)), statusLabel(o.status))}</td>
         <td class="clip">${esc(o.customerName || '—')}</td>
         <td>${o.assignee ? '@' + esc(o.assignee) : '<span class="muted">—</span>'}</td>
-        <td class="time">${fmtTime(o.targetCompletionAt)}<span class="rel">${esc(relTime(o.targetCompletionAt))}</span></td>
+        <td class="time">${fmtCell(o.targetCompletionAt)}<span class="rel">${esc(relTime(o.targetCompletionAt))}</span></td>
         <td>${badge('sla-' + sla, sla.replace('_', ' '))}</td>
-        <td class="time">${fmtTime(o.createdAt)}</td>
+        <td class="time">${fmtCell(o.createdAt)}</td>
         <td class="quick-cell">${quickSelectHtml(o)}</td>
       </tr>`;
     }).join('');
+
+    if (scroller) scroller.scrollTop = keepScroll;
+    if (keepFocusId) {
+      const el = tbody.querySelector(`tr.row[data-id="${keepFocusId}"]`);
+      if (el) el.focus({ preventScroll: true });
+    }
 
     countEl.textContent = all.length === state.orders.length
       ? t(all.length === 1 ? 'orders.total1' : 'orders.total', { n: all.length })
@@ -386,7 +442,7 @@
   
 
   async function act(method, path, body, okMsg, opts = {}) {
-    const { orderId, applyLocal, revertLocal, quiet } = opts;
+    const { orderId, applyLocal, revertLocal, quiet, toastAction } = opts;
     
     if (orderId && applyLocal) {
       const row = state.orders.find((o) => o.id === orderId);
@@ -397,7 +453,7 @@
     }
     try {
       await api(method, path, body);
-      if (!quiet) toast(okMsg || 'Done');
+      if (!quiet) toast(okMsg || 'Done', false, toastAction);
       await loadOrders(true);
       if (state.selectedId) await openDetail(state.selectedId);
       return true;
@@ -420,13 +476,24 @@
       title: 'Create order',
       description: 'Add a new order to the pipeline.',
       confirmLabel: 'Create order',
+      wide: true,
       fields: [
-        { name: 'orderNumber', label: 'Order number', placeholder: 'e.g. ORD-10432', required: true, autofocus: true },
-        { name: 'target', label: 'Target completion', type: 'datetime-local', value: now.toISOString().slice(0, 16), hint: 'Drives the SLA state. Leave blank to use the server default.' },
+        { name: 'orderNumber', label: 'Order number', placeholder: 'e.g. ORD-10432', required: true, autofocus: true, half: true },
+        { name: 'target', label: 'Target completion', type: 'datetime-local', value: now.toISOString().slice(0, 16), hint: 'Drives the SLA state. Leave blank to use the server default.', half: true },
+        { name: 'customerName', label: t('orders.customer'), placeholder: 'Acme BV', half: true },
+        { name: 'debitNumber', label: t('info.debit'), placeholder: 'DEB-0000', half: true },
+        { name: 'device', label: t('info.device'), placeholder: 'ThinkCentre M90q', half: true },
+        { name: 'assetNumber', label: t('info.asset'), placeholder: 'ASSET-00000', half: true },
+        { name: 'configuration', label: t('info.config'), placeholder: 'i5/16GB/512GB SSD', half: true },
+        { name: 'omnitrackerTicket', label: t('info.omni'), placeholder: 'OT-00000', half: true },
       ],
     });
     if (!res) return;
     const body = { orderNumber: res.orderNumber.trim() };
+    ['customerName', 'debitNumber', 'device', 'assetNumber', 'configuration', 'omnitrackerTicket'].forEach((k) => {
+      const v = (res[k] || '').trim();
+      if (v) body[k] = v;
+    });
     if (res.target) {
       const dt = new Date(res.target);
       if (!Number.isNaN(dt.getTime())) body.targetCompletionAt = dt.toISOString();

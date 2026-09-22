@@ -74,10 +74,11 @@ const (
 	RoleOperator Role = "operator"
 	RoleQC       Role = "qc"
 	RoleNPI      Role = "npi"
+	RoleSC       Role = "sc"
 	RoleAdmin    Role = "admin"
 )
 
-var ValidRoles = []Role{RoleViewer, RoleOperator, RoleQC, RoleNPI, RoleAdmin}
+var ValidRoles = []Role{RoleViewer, RoleOperator, RoleQC, RoleNPI, RoleSC, RoleAdmin}
 
 func IsValidRole(r Role) bool {
 	for _, v := range ValidRoles {
@@ -107,6 +108,8 @@ const (
 	PermCommentPost     Permission = "comments:post"
 	PermNotifyRead      Permission = "notifications:read"
 	PermManualManage    Permission = "manuals:manage"
+	PermManualsApprove  Permission = "manuals:approve"
+	PermCustomersManage Permission = "customers:manage"
 	PermSIList          Permission = "si:list"
 	PermSIView          Permission = "si:view"
 	PermSICreate        Permission = "si:create"
@@ -139,6 +142,7 @@ var rolePermissions = map[Role][]Permission{
 	RoleQC: {
 		PermOrderList, PermOrderView, PermAuditView, PermQCSubmit,
 		PermCommentRead, PermCommentPost, PermNotifyRead,
+		PermManualManage,
 		PermSIList, PermSIView,
 		PermProcessView, PermProcessEscalate,
 	},
@@ -146,6 +150,13 @@ var rolePermissions = map[Role][]Permission{
 		PermSIList, PermSIView, PermSICreate, PermSIUpdate, PermSITransition, PermSIProjects,
 		PermUsersList,
 		PermProcessView, PermProcessManage, PermIntegrationsManage,
+	},
+	RoleSC: {
+		PermOrderList, PermOrderView, PermAuditView,
+		PermCommentRead, PermCommentPost, PermNotifyRead,
+		PermManualManage, PermManualsApprove,
+		PermSIList, PermSIView, PermUsersList,
+		PermProcessView,
 	},
 	RoleAdmin: {
 		PermOrderList, PermOrderView, PermAuditView,

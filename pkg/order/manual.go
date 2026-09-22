@@ -8,6 +8,9 @@ type Product struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
 	BlockCount  int       `json:"blockCount"`
+	Department  string    `json:"department,omitempty"`
+	ApprovedBy  string    `json:"approvedBy,omitempty"`
+	ApprovedAt  *time.Time `json:"approvedAt,omitempty"`
 	CreatedBy   string    `json:"createdBy,omitempty"`
 	CreatedAt   time.Time `json:"createdAt"`
 	UpdatedAt   time.Time `json:"updatedAt"`
@@ -98,12 +101,24 @@ type CreateProductRequest struct {
 	Code        string `json:"code"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Department  string `json:"department"`
 }
 
 type UpdateProductRequest struct {
 	Code        *string `json:"code,omitempty"`
 	Name        *string `json:"name,omitempty"`
 	Description *string `json:"description,omitempty"`
+}
+
+type QuickManualRequest struct {
+	Code       string   `json:"code"`
+	Name       string   `json:"name"`
+	Department string   `json:"department"`
+	Steps      []string `json:"steps"`
+}
+
+type ProductDepartmentRequest struct {
+	Department string `json:"department"`
 }
 
 type ManualBlockRequest struct {

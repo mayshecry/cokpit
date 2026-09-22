@@ -22,6 +22,20 @@ func (s *Server) handleInstantiateManual(w http.ResponseWriter, r *http.Request)
 		s.writeError(w, http.StatusBadRequest, "bad_request", "productId is required")
 		return
 	}
+	prod, _, perr := s.store.ProductByID(r.Context(), req.ProductID)
+	if perr != nil {
+		status, code, msg := s.classifyError(perr)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	if prod.ApprovedBy == "" {
+		s.writeError(w, http.StatusConflict, "manual_not_approved", "this manual is not approved yet — an SC must approve it first")
+		return
+	}
+	if !s.productDeptAllowed(r, prod) {
+		s.writeError(w, http.StatusForbidden, "department_required", "this manual belongs to department "+prod.Department)
+		return
+	}
 	manual, err := s.store.InstantiateManual(r.Context(), id, req.ProductID, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
@@ -66,6 +80,12 @@ func (s *Server) handleAnswerManualBlock(w http.ResponseWriter, r *http.Request)
 	if !order.IsValidManualAnswer(req.Answer) {
 		s.writeError(w, http.StatusBadRequest, "bad_request", "answer must be YES, NO or CLEAR")
 		return
+	}
+	if man, merr := s.store.OrderManual(r.Context(), manualID); merr == nil {
+		if prod, _, perr := s.store.ProductByID(r.Context(), man.ProductID); perr == nil && !s.productDeptAllowed(r, prod) {
+			s.writeError(w, http.StatusForbidden, "department_required", "this manual belongs to department "+prod.Department)
+			return
+		}
 	}
 	block, err := s.store.AnswerManualBlock(r.Context(), manualID, blockID, req.Answer, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {

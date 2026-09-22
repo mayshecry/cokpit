@@ -61,6 +61,23 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.publishOrder(created.ID, s.currentUser(r).Username)
+
+	// Store optional order data provided at creation time.
+	info := order.OmnitrackerInfoRequest{
+		DebitNumber:       cleanString(req.DebitNumber),
+		CustomerName:      cleanString(req.CustomerName),
+		OmnitrackerTicket: cleanString(req.OmnitrackerTicket),
+		Device:            cleanString(req.Device),
+		AssetNumber:       cleanString(req.AssetNumber),
+		Configuration:     cleanString(req.Configuration),
+	}
+	if info.DebitNumber != "" || info.CustomerName != "" || info.OmnitrackerTicket != "" ||
+		info.Device != "" || info.AssetNumber != "" || info.Configuration != "" {
+		if updated, err := s.store.UpdateOmnitrackerInfo(r.Context(), created.ID, info, s.now().UTC()); err == nil {
+			created = updated
+			s.publishOrder(created.ID, s.currentUser(r).Username)
+		}
+	}
 	s.writeJSON(w, http.StatusCreated, map[string]order.Order{"order": created})
 }
 
@@ -184,7 +201,7 @@ func (s *Server) handleTransition(w http.ResponseWriter, r *http.Request) {
 	}
 	if !validCommandStatus(req.Status) {
 		s.writeError(w, http.StatusBadRequest, "invalid_status",
-			"status must be one of Processing, QC_Review, Completed")
+			"status must be one of Received, Processing, QC_Review, Completed")
 		return
 	}
 

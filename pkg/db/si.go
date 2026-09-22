@@ -21,6 +21,14 @@ var (
 	ErrCrossCustomerLink       = errors.New("all linked projects must belong to the same customer as the primary project")
 )
 
+// SetCustomerCoordinator assigns (or clears with "") the SC responsible for a customer.
+func (s *Store) SetCustomerCoordinator(ctx context.Context, id int64, username string) (si.Customer, error) {
+	if _, err := s.db.ExecContext(ctx, `UPDATE customers SET assigned_to = ? WHERE id = ?`, username, id); err != nil {
+		return si.Customer{}, fmt.Errorf("set customer coordinator: %w", err)
+	}
+	return s.CustomerByID(ctx, id)
+}
+
 func (s *Store) CreateCustomer(ctx context.Context, number, name string, now time.Time) (si.Customer, error) {
 	name = strings.TrimSpace(name)
 	if number == "" || name == "" {
@@ -47,7 +55,7 @@ func (s *Store) CreateCustomer(ctx context.Context, number, name string, now tim
 func (s *Store) CustomerByNumber(ctx context.Context, number string) (si.Customer, error) {
 	var c si.Customer
 	var created int64
-	err := s.db.QueryRowContext(ctx, `SELECT id, number, name, created_at FROM customers WHERE number = ?`, number).Scan(&c.ID, &c.Number, &c.Name, &created)
+	err := s.db.QueryRowContext(ctx, `SELECT id, number, name, assigned_to, created_at FROM customers WHERE number = ?`, number).Scan(&c.ID, &c.Number, &c.Name, &c.AssignedTo, &created)
 	if errors.Is(err, sql.ErrNoRows) {
 		return si.Customer{}, ErrNotFound
 	}
@@ -61,7 +69,7 @@ func (s *Store) CustomerByNumber(ctx context.Context, number string) (si.Custome
 func (s *Store) CustomerByID(ctx context.Context, id int64) (si.Customer, error) {
 	var c si.Customer
 	var created int64
-	err := s.db.QueryRowContext(ctx, `SELECT id, number, name, created_at FROM customers WHERE id = ?`, id).Scan(&c.ID, &c.Number, &c.Name, &created)
+	err := s.db.QueryRowContext(ctx, `SELECT id, number, name, assigned_to, created_at FROM customers WHERE id = ?`, id).Scan(&c.ID, &c.Number, &c.Name, &c.AssignedTo, &created)
 	if errors.Is(err, sql.ErrNoRows) {
 		return si.Customer{}, ErrNotFound
 	}
@@ -73,7 +81,7 @@ func (s *Store) CustomerByID(ctx context.Context, id int64) (si.Customer, error)
 }
 
 func (s *Store) ListCustomers(ctx context.Context) ([]si.Customer, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id, number, name, created_at FROM customers ORDER BY number ASC, id ASC`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id, number, name, assigned_to, created_at FROM customers ORDER BY number ASC, id ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("list customers: %w", err)
 	}
@@ -82,7 +90,7 @@ func (s *Store) ListCustomers(ctx context.Context) ([]si.Customer, error) {
 	for rows.Next() {
 		var c si.Customer
 		var created int64
-		if err := rows.Scan(&c.ID, &c.Number, &c.Name, &created); err != nil {
+		if err := rows.Scan(&c.ID, &c.Number, &c.Name, &c.AssignedTo, &created); err != nil {
 			return nil, fmt.Errorf("scan customer: %w", err)
 		}
 		c.CreatedAt = fromMillis(created)

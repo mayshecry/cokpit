@@ -133,10 +133,11 @@ func DetermineTransition(src, dst Status) (Status, error) {
 }
 
 type Customer struct {
-	ID        int64     `json:"id"`
-	Number    string    `json:"number"`
-	Name      string    `json:"name"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID         int64     `json:"id"`
+	Number     string    `json:"number"`
+	Name       string    `json:"name"`
+	AssignedTo string    `json:"assignedTo,omitempty"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 type SIConfig struct {

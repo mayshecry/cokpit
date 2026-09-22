@@ -27,20 +27,26 @@ var (
 	ErrManualEdge = errors.New("block is already at that end of the manual")
 )
 
-const productCols = `p.id, p.code, p.name, p.description, p.created_by, p.created_at, p.updated_at`
+const productCols = `p.id, p.code, p.name, p.description, p.created_by, p.created_at, p.updated_at, p.department, p.approved_by, p.approved_at`
 
 func scanProduct(row interface{ Scan(...any) error }) (order.Product, error) {
 	var p order.Product
 	var created, updated int64
-	if err := row.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.CreatedBy, &created, &updated); err != nil {
+	var approvedAt sql.NullInt64
+	if err := row.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.CreatedBy, &created, &updated,
+		&p.Department, &p.ApprovedBy, &approvedAt); err != nil {
 		return order.Product{}, err
 	}
 	p.CreatedAt = fromMillis(created)
 	p.UpdatedAt = fromMillis(updated)
+	if approvedAt.Valid {
+		v := fromMillis(approvedAt.Int64)
+		p.ApprovedAt = &v
+	}
 	return p, nil
 }
 
-func (s *Store) CreateProduct(ctx context.Context, code, name, description, createdBy string, now time.Time) (order.Product, error) {
+func (s *Store) CreateProduct(ctx context.Context, code, name, description, department, createdBy string, now time.Time) (order.Product, error) {
 	code, name = strings.TrimSpace(code), strings.TrimSpace(name)
 	if code == "" || name == "" {
 		return order.Product{}, errors.New("code and name are required")
@@ -56,14 +62,34 @@ func (s *Store) CreateProduct(ctx context.Context, code, name, description, crea
 		createdBy = "system"
 	}
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO products (code, name, description, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		code, name, strings.TrimSpace(description), createdBy, millis(now), millis(now))
+		`INSERT INTO products (code, name, description, created_by, created_at, updated_at, department) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		code, name, strings.TrimSpace(description), createdBy, millis(now), millis(now), strings.TrimSpace(department))
 	if err != nil {
 		return order.Product{}, fmt.Errorf("insert product: %w", err)
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
 		return order.Product{}, fmt.Errorf("last insert id: %w", err)
+	}
+	return s.getProductRow(ctx, id)
+}
+
+// ApproveProduct marks a product (manual template) as approved by the given user.
+func (s *Store) ApproveProduct(ctx context.Context, id int64, by string, now time.Time) (order.Product, error) {
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE products SET approved_by = ?, approved_at = ?, updated_at = ? WHERE id = ?`,
+		by, millis(now), millis(now), id); err != nil {
+		return order.Product{}, fmt.Errorf("approve product: %w", err)
+	}
+	return s.getProductRow(ctx, id)
+}
+
+// SetProductDepartment moves a product to another owning department.
+func (s *Store) SetProductDepartment(ctx context.Context, id int64, department string, now time.Time) (order.Product, error) {
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE products SET department = ?, updated_at = ? WHERE id = ?`,
+		strings.TrimSpace(department), millis(now), id); err != nil {
+		return order.Product{}, fmt.Errorf("set product department: %w", err)
 	}
 	return s.getProductRow(ctx, id)
 }
@@ -81,11 +107,17 @@ FROM products p ORDER BY p.code ASC, p.id ASC`)
 	for rows.Next() {
 		var p order.Product
 		var created, updated, blockCount int64
-		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.CreatedBy, &created, &updated, &blockCount); err != nil {
+		var approvedAt sql.NullInt64
+		if err := rows.Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.CreatedBy, &created, &updated,
+			&p.Department, &p.ApprovedBy, &approvedAt, &blockCount); err != nil {
 			return nil, fmt.Errorf("scan product: %w", err)
 		}
 		p.CreatedAt = fromMillis(created)
 		p.UpdatedAt = fromMillis(updated)
+		if approvedAt.Valid {
+			v := fromMillis(approvedAt.Int64)
+			p.ApprovedAt = &v
+		}
 		p.BlockCount = int(blockCount)
 		out = append(out, p)
 	}
@@ -95,10 +127,12 @@ FROM products p ORDER BY p.code ASC, p.id ASC`)
 func (s *Store) getProductRow(ctx context.Context, id int64) (order.Product, error) {
 	var p order.Product
 	var created, updated, blockCount int64
+	var approvedAt sql.NullInt64
 	err := s.db.QueryRowContext(ctx,
 		`SELECT `+productCols+`, (SELECT COUNT(*) FROM manual_blocks b WHERE b.product_id = p.id) AS block_count
 		 FROM products p WHERE p.id = ?`, id).
-		Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.CreatedBy, &created, &updated, &blockCount)
+		Scan(&p.ID, &p.Code, &p.Name, &p.Description, &p.CreatedBy, &created, &updated,
+			&p.Department, &p.ApprovedBy, &approvedAt, &blockCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return order.Product{}, ErrNotFound
 	}
@@ -107,6 +141,10 @@ func (s *Store) getProductRow(ctx context.Context, id int64) (order.Product, err
 	}
 	p.CreatedAt = fromMillis(created)
 	p.UpdatedAt = fromMillis(updated)
+	if approvedAt.Valid {
+		v := fromMillis(approvedAt.Int64)
+		p.ApprovedAt = &v
+	}
 	p.BlockCount = int(blockCount)
 	return p, nil
 }

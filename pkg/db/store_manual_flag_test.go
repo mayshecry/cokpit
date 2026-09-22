@@ -15,7 +15,7 @@ func seedFlagManual(t *testing.T, s *Store, ctx context.Context, now time.Time) 
 	if err != nil {
 		t.Fatalf("create order: %v", err)
 	}
-	p, err := s.CreateProduct(ctx, "PROD-FLAG", "Prod", "", "admin", now)
+	p, err := s.CreateProduct(ctx, "PROD-FLAG", "Prod", "", "", "admin", now)
 	if err != nil {
 		t.Fatalf("create product: %v", err)
 	}
@@ -128,7 +128,7 @@ func TestFlagUnansweredBlockStore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p, _ := s.CreateProduct(ctx, "PROD-F2", "P2", "", "admin", now)
+	p, _ := s.CreateProduct(ctx, "PROD-F2", "P2", "", "", "admin", now)
 	_, err = s.AddManualBlock(ctx, p.ID, "Step", "", "", now)
 	if err != nil {
 		t.Fatal(err)

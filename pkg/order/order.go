@@ -133,6 +133,14 @@ type CreateOrderRequest struct {
 	OrderNumber string `json:"orderNumber"`
 
 	TargetCompletion *time.Time `json:"targetCompletionAt"`
+
+	// Optional order data captured at creation time.
+	CustomerName      string `json:"customerName"`
+	DebitNumber       string `json:"debitNumber"`
+	OmnitrackerTicket string `json:"omnitrackerTicket"`
+	Device            string `json:"device"`
+	AssetNumber       string `json:"assetNumber"`
+	Configuration     string `json:"configuration"`
 }
 
 type TransitionRequest struct {

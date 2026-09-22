@@ -22,12 +22,13 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
 		return
 	}
-	product, err := s.store.CreateProduct(r.Context(), req.Code, req.Name, req.Description, s.currentUser(r).Username, s.now().UTC())
+	product, err := s.store.CreateProduct(r.Context(), req.Code, req.Name, req.Description, cleanString(req.Department), s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
 		s.writeError(w, status, code, msg)
 		return
 	}
+	product = s.autoApprove(r, product)
 	s.writeJSON(w, http.StatusCreated, map[string]order.Product{"product": product})
 }
 

@@ -135,13 +135,40 @@ function renderSICustomerList() {
     root.innerHTML = '<p class="muted si-empty">No customers yet.</p>';
     return;
   }
+  var canAssign = can('customers:manage');
+  var scs = (state.userBriefs || []).filter(function(u) { return u.role === 'sc'; });
   root.innerHTML = state.si.customers.map(function(c) {
     var active = state.si.selectedCustomer && state.si.selectedCustomer.id === c.id ? ' active' : '';
+    var coord = canAssign
+      ? '<span class="si-coord" data-stop><select data-coord="' + c.id + '" aria-label="Service coordinator">' +
+          '<option value="">— no SC —</option>' +
+          scs.map(function(u) {
+            return '<option value="' + escapeSI(u.username) + '"' + (c.assignedTo === u.username ? ' selected' : '') + '>' +
+              escapeSI(u.displayName || u.username) + '</option>';
+          }).join('') +
+        '</select></span>'
+      : (c.assignedTo ? '<span class="si-coord muted">SC: @' + escapeSI(c.assignedTo) + '</span>' : '');
     return '<div class="si-customer-item' + active + '" data-id="' + c.id + '" data-number="' + escapeSI(c.number) + '">' +
       '<strong>' + escapeSI(c.number) + '</strong>' +
       '<span class="muted">' + escapeSI(c.name) + '</span>' +
+      coord +
       '</div>';
   }).join('');
+  if (canAssign && !root._coordBound) {
+    root._coordBound = true;
+    root.addEventListener('click', function(e) {
+      if (e.target.closest('[data-stop]')) e.stopPropagation();
+    });
+    root.addEventListener('change', async function(e) {
+      var sel = e.target.closest('[data-coord]');
+      if (!sel) return;
+      try {
+        await api('POST', '/api/v1/si/customers/' + sel.dataset.coord + '/coordinator', { username: sel.value });
+        toast(sel.value ? 'Customer assigned to @' + sel.value : 'Coordinator cleared');
+        await loadSICustomers();
+      } catch (err) { toast(err.message, true); }
+    });
+  }
 }
 
 function renderSIFilters() {

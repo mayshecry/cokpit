@@ -134,6 +134,19 @@ CREATE TABLE IF NOT EXISTS scan_events (
 CREATE INDEX IF NOT EXISTS idx_scan_events_order ON scan_events(order_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_scan_events_code ON scan_events(code);
 
+CREATE TABLE IF NOT EXISTS work_sessions (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    username    TEXT    NOT NULL,
+    started_at  BIGINT  NOT NULL,
+    ended_at    BIGINT,
+    step        INTEGER NOT NULL DEFAULT 0,
+    checks      TEXT    NOT NULL DEFAULT '{}',
+    completed   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_sessions_order ON work_sessions(order_id, id);
+
 CREATE TABLE IF NOT EXISTS checklist_items (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -156,7 +169,10 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT    NOT NULL DEFAULT '',
     created_by  TEXT    NOT NULL DEFAULT '',
     created_at  BIGINT  NOT NULL,
-    updated_at  BIGINT  NOT NULL
+    updated_at  BIGINT  NOT NULL,
+    department  TEXT    NOT NULL DEFAULT '',
+    approved_by TEXT    NOT NULL DEFAULT '',
+    approved_at BIGINT
 );
 
 CREATE TABLE IF NOT EXISTS manual_blocks (
@@ -449,6 +465,34 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		}
 		if _, err := conn.ExecContext(ctx, ddl); err != nil {
 			return fmt.Errorf("add column %s: %w", name, err)
+		}
+	}
+
+	prodCols, err := tableColumns(ctx, conn, "products")
+	if err != nil {
+		return err
+	}
+	prodDDL := map[string]string{
+		"department":  `ALTER TABLE products ADD COLUMN department TEXT NOT NULL DEFAULT ''`,
+		"approved_by": `ALTER TABLE products ADD COLUMN approved_by TEXT NOT NULL DEFAULT ''`,
+		"approved_at": `ALTER TABLE products ADD COLUMN approved_at BIGINT`,
+	}
+	for name, ddl := range prodDDL {
+		if prodCols[name] {
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("add column %s: %w", name, err)
+		}
+	}
+
+	custCols, err := tableColumns(ctx, conn, "customers")
+	if err != nil {
+		return err
+	}
+	if !custCols["assigned_to"] {
+		if _, err := conn.ExecContext(ctx, `ALTER TABLE customers ADD COLUMN assigned_to TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("add column assigned_to: %w", err)
 		}
 	}
 

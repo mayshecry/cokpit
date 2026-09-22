@@ -169,10 +169,11 @@ func (s *Server) handleListUsersBrief(w http.ResponseWriter, r *http.Request) {
 	type brief struct {
 		Username    string `json:"username"`
 		DisplayName string `json:"displayName"`
+		Role        string `json:"role"`
 	}
 	out := make([]brief, 0, len(users))
 	for _, u := range users {
-		out = append(out, brief{Username: u.Username, DisplayName: u.DisplayName})
+		out = append(out, brief{Username: u.Username, DisplayName: u.DisplayName, Role: string(u.Role)})
 	}
 	s.writeJSON(w, http.StatusOK, map[string][]brief{"users": out})
 }

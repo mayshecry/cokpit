@@ -61,18 +61,36 @@
     if (('#' + location.hash.replace(/^#/, '')) !== target) {
       history.replaceState(null, '', target);
     }
+    persistViewPrefs();
+  }
+
+  // Remember the working set (filter/search/sort/mine) so a reload or a fresh
+  // #/orders visit resumes exactly where the operator left off.
+  function persistViewPrefs() {
+    try {
+      localStorage.setItem('cockpit_view', JSON.stringify({
+        filter: state.filter, search: state.search, sort: state.sort, mine: state.mine,
+      }));
+    } catch {  }
+  }
+
+  function savedViewPrefs() {
+    try { return JSON.parse(localStorage.getItem('cockpit_view') || 'null'); } catch { return null; }
   }
 
   function applyURLToState(params) {
     applyingFromURL = true;
     try {
-      const status = params.get('status');
+      const hasParams = ['status', 'q', 'sort', 'dir', 'mine'].some((k) => params.has(k));
+      const saved = hasParams ? null : savedViewPrefs();
+      const status = params.get('status') || (saved && saved.filter) || '';
       state.filter = status && STATUS_FILTERS.some((f) => f.value === status) ? status : 'All';
-      state.search = params.get('q') || '';
-      const sortKey = params.get('sort');
-      const dir = params.get('dir') === 'asc' ? 'asc' : 'desc';
+      state.search = params.get('q') || (saved && saved.search) || '';
+      const sortKey = params.get('sort') || (saved && saved.sort && saved.sort.key) || '';
+      const dirRaw = params.get('dir') || (saved && saved.sort && saved.sort.dir) || '';
+      const dir = dirRaw === 'asc' ? 'asc' : 'desc';
       state.sort = sortKey ? { key: sortKey, dir } : { key: 'id', dir: 'desc' };
-      state.mine = params.get('mine') === '1';
+      state.mine = params.get('mine') === '1' || (!params.has('mine') && !!(saved && saved.mine));
       const searchInput = $('#search-input');
       if (searchInput && searchInput.value !== state.search) searchInput.value = state.search;
       const mineChip = $('#mine-chip');
@@ -161,11 +179,12 @@
     try {
       const es = new EventSource('/api/v1/events?token=' + encodeURIComponent(state.token));
       state.sse = es;
-      es.onopen = () => { state.sseOk = true; updateSyncLabel(); };
+      es.onopen = () => { state.sseOk = true; state.lastSseAt = Date.now(); updateSyncLabel(); };
       es.onerror = () => { state.sseOk = false; updateSyncLabel(); };
       es.addEventListener('orders', async (e) => {
         let msg = {};
         try { msg = JSON.parse(e.data); } catch {  }
+        state.lastSseAt = Date.now();
         await loadOrders(true);
         if (location.hash.startsWith('#/home')) loadAttention(true);
         if (msg.orderId && state.selectedId === msg.orderId && !drawerInputActive()) {
@@ -322,6 +341,26 @@
     syncURL();
   });
 
+  // Pipeline stat cards act as filters — one click from "12 Processing" to the list.
+  function applyStatFilter(el) {
+    const f = el.dataset.filter;
+    if (!f) return;
+    state.filter = f;
+    state.rowLimit = 100;
+    renderStatusChips();
+    renderTable();
+    syncURL();
+  }
+  $('#stats').addEventListener('click', (e) => {
+    const st = e.target.closest('.stat[data-filter]');
+    if (st) applyStatFilter(st);
+  });
+  $('#stats').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const st = e.target.closest('.stat[data-filter]');
+    if (st) { e.preventDefault(); applyStatFilter(st); }
+  });
+
   let searchTimer = null;
   $('#search-input').addEventListener('input', (e) => {
     const v = e.target.value;
@@ -424,6 +463,8 @@
     if (e.target.id === 'transition-form') {
       const target = $('#transition-target').value;
       const cur = state.orders.find((o) => o.id === id);
+      const prevStatus = cur ? cur.status : null;
+      const undoable = prevStatus && prevStatus !== target && nextStates(target).includes(prevStatus);
       await act('POST', `/api/v1/orders/${id}/transition`, {
         status: target,
         expectedUpdatedAt: cur ? cur.updatedAt : undefined,
@@ -431,6 +472,7 @@
         orderId: id,
         applyLocal: { status: target, updatedAt: new Date().toISOString() },
         revertLocal: cur ? { status: cur.status === target ? undefined : cur.status } : undefined,
+        toastAction: undoable ? { label: t('btn.undo'), fn: () => doQuickTransition(id, prevStatus) } : undefined,
       });
     } else if (e.target.id === 'hold-form') {
       const reason = $('#hold-reason').value.trim();
@@ -538,6 +580,8 @@
   
 
   $('#new-product-btn').addEventListener('click', openCreateProduct);
+  const quickManualBtn = $('#quick-manual-btn');
+  if (quickManualBtn) quickManualBtn.addEventListener('click', openQuickManual);
 
   $('#products-table tbody').addEventListener('click', (e) => {
     const tr = e.target.closest('tr[data-product]');
@@ -599,6 +643,37 @@
       } catch (err) {
         toast(err.message, true);
       }
+      return;
+    }
+    if (act === 'product-approve') {
+      try {
+        await api('POST', `/api/v1/products/${pid}/approve`, {});
+        toast('Manual approved');
+        await loadProducts(true);
+        renderProductPanel();
+      } catch (err) { toast(err.message, true); }
+      return;
+    }
+    if (act === 'product-dept') {
+      const p = state.products.find((x) => x.id === pid);
+      const depts = state.departments || [];
+      const res = await modal({
+        title: 'Move manual to department',
+        description: 'Only members of the owning department can use this manual on orders. Admins always can.',
+        confirmLabel: 'Move',
+        fields: [{
+          name: 'department', label: 'Department', type: 'select',
+          options: [{ value: '', label: 'No department — everyone' }, ...depts.map((d) => ({ value: d.name, label: d.name }))],
+          value: p ? (p.department || '') : '',
+        }],
+      });
+      if (!res) return;
+      try {
+        await api('POST', `/api/v1/products/${pid}/department`, { department: res.department });
+        toast('Department updated');
+        await loadProducts(true);
+        renderProductPanel();
+      } catch (err) { toast(err.message, true); }
       return;
     }
     if (act === 'product-del') {
@@ -771,10 +846,16 @@
     e.preventDefault();
     const input = $('#scan-input');
     const code = input.value.trim();
-    if (code) doScan(code);
+    // Second Enter on an unchanged match opens the order — scanner guns keep flowing.
+    if (code && state.lastScan && code.toLowerCase() === String(state.lastScan.code).toLowerCase()) {
+      goToOrder(state.lastScan.id);
+    } else if (code) {
+      doScan(code);
+    }
     input.focus();
     input.select();
   });
+  $('#scan-input').addEventListener('input', () => { state.lastScan = null; });
 
   $('#attention-cards').addEventListener('click', (e) => {
     const card = e.target.closest('.acard[data-id]');
@@ -845,6 +926,29 @@
 
     if (typing || modalOpen || !state.token) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    // Vim-style row navigation on the orders table: j/k move, x selects, Enter opens.
+    if (location.hash.startsWith('#/orders') && (e.key === 'j' || e.key === 'k' || e.key === 'x')) {
+      const rows = $$('#orders-table tbody tr.row');
+      if (!rows.length) return;
+      const activeRow = document.activeElement && document.activeElement.closest
+        ? document.activeElement.closest('tr.row') : null;
+      let idx = activeRow ? rows.indexOf(activeRow) : -1;
+      if (e.key === 'j' || e.key === 'k') {
+        e.preventDefault();
+        if (e.key === 'j') idx = idx < 0 ? 0 : Math.min(idx + 1, rows.length - 1);
+        else idx = idx < 0 ? rows.length - 1 : Math.max(idx - 1, 0);
+        rows[idx].focus();
+        rows[idx].scrollIntoView({ block: 'nearest' });
+        return;
+      }
+      if (e.key === 'x') {
+        const row = idx >= 0 ? activeRow : rows[0];
+        const chk = row.querySelector('input[data-sel]');
+        if (chk) { e.preventDefault(); chk.click(); row.focus(); }
+        return;
+      }
+    }
 
     if (gPending) {
       gPending = false;

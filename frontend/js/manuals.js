@@ -201,7 +201,7 @@
         name: 'productId', label: 'Product', type: 'select', required: true,
         options: sorted.map((p) => ({
           value: String(p.id),
-          label: `${p.code} — ${p.name}${existing.has(p.code) ? ' (already attached)' : ''}${artikels.has(normCode(p.code)) ? ' ★' : ''}`,
+          label: `${p.code} — ${p.name}${existing.has(p.code) ? ' (already attached)' : ''}${artikels.has(normCode(p.code)) ? ' ★' : ''}${!p.approvedBy ? ' — pending approval' : ''}${p.department ? ` [${p.department}]` : ''}`,
         })),
       }],
     });
@@ -219,6 +219,9 @@
 
   async function loadProducts(silent) {
     try {
+      if (!state.departments && can('users:list')) {
+        try { const dd = await api('GET', '/api/v1/departments'); state.departments = dd.departments || []; } catch { state.departments = []; }
+      }
       const d = await api('GET', '/api/v1/products');
       state.products = d.products || [];
       if (state.productSelId && !state.products.some((p) => p.id === state.productSelId)) {
@@ -246,6 +249,8 @@
         <td class="mono">${esc(p.code)}</td>
         <td>${esc(p.name)}</td>
         <td class="muted">${esc(p.description || '')}</td>
+        <td>${p.department ? `<span class="badge dept">${esc(p.department)}</span>` : '<span class="muted">—</span>'}</td>
+        <td>${p.approvedBy ? `<span class="badge appr-ok" title="Approved by ${esc(p.approvedBy)}">✓ approved</span>` : '<span class="badge appr-pend">pending</span>'}</td>
         <td class="num">${p.blockCount}</td>
       </tr>`).join('');
     const count = $('#product-row-count');
@@ -326,12 +331,19 @@
         <div class="detail-head-text">
           <div class="eyebrow">Product manual</div>
           <h2 class="mono">${esc(p.code)}</h2>
-          <div class="detail-badges">${badge('status-Completed', p.name)}</div>
+          <div class="detail-badges">
+            ${badge('status-Completed', p.name)}
+            ${p.department ? `<span class="badge dept">${esc(p.department)}</span>` : ''}
+            ${p.approvedBy ? `<span class="badge appr-ok" title="Approved by ${esc(p.approvedBy)}">✓ approved</span>` : '<span class="badge appr-pend">pending SC approval</span>'}
+          </div>
         </div>
-        ${admin ? `
+        ${admin || can('manuals:approve') ? `
         <div class="detail-head-actions">
+          ${!p.approvedBy && can('manuals:approve') ? `<button type="button" class="btn btn-primary btn-sm" data-act="product-approve" data-id="${p.id}" title="Approve this manual for use">✓ Approve</button>` : ''}
+          ${admin ? `<button type="button" class="btn btn-secondary btn-sm" data-act="product-dept" data-id="${p.id}" title="Move to another department">⇄ Department</button>` : ''}
+          ${admin ? `
           <button type="button" class="icon-btn" data-act="product-edit" title="Edit product" aria-label="Edit product">✎</button>
-          <button type="button" class="icon-btn" data-act="product-del" title="Delete product" aria-label="Delete product">✕</button>
+          <button type="button" class="icon-btn" data-act="product-del" title="Delete product" aria-label="Delete product">✕</button>` : ''}
         </div>` : ''}
       </div>
       <div class="detail-scroll">
@@ -347,6 +359,35 @@
     if (split) split.classList.remove('no-detail');
   }
 
+  function deptOptions(current) {
+    return [{ value: '', label: 'No department — everyone' },
+      ...(state.departments || []).map((d) => ({ value: d.name, label: d.name }))];
+  }
+
+  async function openQuickManual() {
+    const res = await modal({
+      title: 'Quick manual',
+      description: 'One step per line — the manual and its blocks are created in one go.',
+      confirmLabel: 'Create manual',
+      wide: true,
+      fields: [
+        { name: 'code', label: 'Code', placeholder: 'e.g. PRD-LAPTOP', required: true, half: true },
+        { name: 'department', label: 'Department', type: 'select', options: deptOptions(), half: true },
+        { name: 'name', label: 'Name', placeholder: 'e.g. Laptop refurbish flow', required: true },
+        { name: 'steps', label: 'Steps (one per line)', type: 'textarea', placeholder: 'Unbox and inspect\nApply configuration\nRun diagnostics\nPack and label', required: true },
+      ],
+    });
+    if (!res) return;
+    const steps = String(res.steps || '').split('\n').map((x) => x.trim()).filter(Boolean);
+    try {
+      await api('POST', '/api/v1/products/quick', {
+        code: res.code.trim(), name: res.name.trim(), department: res.department || '', steps,
+      });
+      toast('Manual created');
+      await loadProducts(true);
+    } catch (err) { toast(err.message, true); }
+  }
+
   async function openCreateProduct() {
     const res = await modal({
       title: 'New product',
@@ -356,12 +397,13 @@
         { name: 'code', label: 'Code (artikel)', required: true, autofocus: true, placeholder: 'e.g. PC-DEL-3020' },
         { name: 'name', label: 'Name', required: true, placeholder: 'e.g. Dell Latitude 3020' },
         { name: 'description', label: 'Description', type: 'textarea' },
+        { name: 'department', label: 'Department', type: 'select', options: deptOptions() },
       ],
     });
     if (!res) return;
     try {
       const d = await api('POST', '/api/v1/products', {
-        code: res.code.trim(), name: res.name.trim(), description: res.description || '',
+        code: res.code.trim(), name: res.name.trim(), description: res.description || '', department: res.department || '',
       });
       toast('Product created');
       await loadProducts(true);
@@ -591,6 +633,7 @@
           </div>
         </div>
         <div class="detail-head-actions">
+          ${window.WorkFlow ? `<span data-work-slot="${o.id}">${WorkFlow.buttonFor(o)}</span>` : ''}
           <button type="button" class="icon-btn" id="copy-link-btn" aria-label="Copy link" title="Copy link to this order">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           </button>
@@ -606,6 +649,14 @@
           <div class="item"><span class="k">${esc(t('meta.created'))}</span><span class="v">${fmtTime(o.createdAt)}<span class="sub">${esc(relTime(o.createdAt))}</span></span></div>
           <div class="item"><span class="k">${esc(t('meta.updated'))}</span><span class="v">${fmtTime(o.updatedAt)}<span class="sub">${esc(relTime(o.updatedAt))}</span></span></div>
           <div class="item"><span class="k">${esc(t('meta.holds'))}</span><span class="v">${holds.length ? holds.length + esc(t('meta.active')) : esc(t('meta.none'))}</span></div>
+        </div>
+        <div class="meta order-info-meta">
+          <div class="item"><span class="k">${esc(t('orders.customer'))}</span><span class="v">${esc(o.customerName || '—')}</span></div>
+          <div class="item"><span class="k">${esc(t('info.debit'))}</span><span class="v mono">${esc(o.debitNumber || '—')}</span></div>
+          <div class="item"><span class="k">${esc(t('info.device'))}</span><span class="v">${esc(o.device || '—')}</span></div>
+          <div class="item"><span class="k">${esc(t('info.asset'))}</span><span class="v mono">${esc(o.assetNumber || '—')}</span></div>
+          <div class="item"><span class="k">${esc(t('info.config'))}</span><span class="v">${esc(o.configuration || '—')}</span></div>
+          <div class="item"><span class="k">${esc(t('info.omni'))}</span><span class="v mono">${esc(o.omnitrackerTicket || '—')}</span></div>
         </div>
         ${actions.length ? `<section class="detail-section"><h3>${esc(t('detail.actions'))}</h3>${actions.join('')}</section>` : ''}
         <section class="detail-section"><h3>${esc(t('detail.holds'))} ${holds.length ? `<span class="count">${holds.length}</span>` : ''}</h3>${holdsHtml}</section>

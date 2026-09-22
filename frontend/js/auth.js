@@ -3,12 +3,14 @@
   
 
   function showLogin() {
+    document.body.classList.remove('app-shell');
     $('#view-app').classList.add('hidden');
     $('#view-login').classList.remove('hidden');
     $('#login-username').focus();
   }
 
   async function enterApp() {
+    document.body.classList.add('app-shell');
     $('#view-login').classList.add('hidden');
     $('#view-app').classList.remove('hidden');
     const u = state.user || {};
@@ -26,7 +28,7 @@
     $$('[data-perm]').forEach((el) => el.classList.toggle('hidden', !can(el.dataset.perm)));
     applyPrefs();
     loadConfig();
-    await probeerAutomatischeConfigJSON();
+    probeerAutomatischeConfigJSON();
     if (can('orders:list')) loadUserBriefs();
     initSettingsPop();
     renderStatusChips();
@@ -34,6 +36,7 @@
     if (can('orders:list')) {
       loadOrders();
       connectEvents();
+      if (window.WorkFlow) WorkFlow.refreshMine();
     }
     updateBadges();
 
@@ -46,7 +49,9 @@
       else if (location.hash.startsWith('#/manuals')) loadManualsView(true);
       else if (location.hash.startsWith('#/si')) {  }
       else if (location.hash.startsWith('#/home')) { if (can('orders:list')) loadAttention(true); loadNotifications(true); }
-      else if (can('orders:list')) loadOrders(true);
+      // SSE already pushes order changes; only poll as a safety net when the
+      // event stream is down or silent, so the table never rebuilds for nothing.
+      else if (can('orders:list') && (!state.sseOk || Date.now() - (state.lastSseAt || 0) > 120000)) loadOrders(true);
     }, 20000);
 
     clearInterval(window.__bell);

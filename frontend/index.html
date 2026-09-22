@@ -378,6 +378,7 @@
           <p class="muted">Per product een handleiding van blokken — admin bouwt en schuift ze op volgorde, wijst stappen direct toe; op orders wordt per blok aangekruist wie wat deed.</p>
         </div>
         <div class="page-head-actions">
+          <button type="button" class="btn btn-secondary hidden" id="quick-manual-btn" data-perm="manuals:manage" title="Create a manual from a pasted step list">⚡ Quick manual</button>
           <button type="button" class="btn btn-primary hidden" id="new-product-btn" data-perm="manuals:manage"><span aria-hidden="true">+</span> New product</button>
         </div>
       </header>
@@ -399,6 +400,8 @@
                   <th>Code</th>
                   <th>Name</th>
                   <th>Description</th>
+                  <th>Department</th>
+                  <th>Approval</th>
                   <th class="num" style="width:84px">Blocks</th>
                 </tr>
               </thead>
@@ -534,7 +537,7 @@
       <header class="page-head">
         <div>
           <h1>Users &amp; permissions</h1>
-          <p class="muted">Roles: <strong>viewer</strong> read-only · <strong>operator</strong> orders &amp; holds · <strong>qc</strong> QC checks · <strong>npi</strong> SI management · <strong>admin</strong> everything.</p>
+          <p class="muted">Roles: <strong>viewer</strong> read-only · <strong>operator</strong> orders &amp; holds · <strong>qc</strong> QC checks &amp; manuals · <strong>npi</strong> SI management · <strong>sc</strong> service coordination, manual approval &amp; customers · <strong>admin</strong> everything.</p>
         </div>
         <div class="page-head-actions">
           <button type="button" class="btn btn-ghost" id="backup-btn" title="Download a consistent snapshot of the database">⬇ Backup</button>
@@ -605,6 +608,7 @@
   <script src="js/detail.js"></script>
   <script src="js/checklists.js"></script>
   <script src="js/manuals.js"></script>
+  <script src="js/work.js"></script>
   <script src="js/si.js"></script>
   <script src="js/users.js"></script>
   <script src="js/config.js"></script>

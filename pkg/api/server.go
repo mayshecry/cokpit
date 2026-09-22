@@ -87,6 +87,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/orders/bulk-transition", s.requireAuth(s.requirePerm(auth.PermOrderTransition, s.handleBulkTransition)))
 	mux.HandleFunc("POST /api/v1/holds/bulk-resolve", s.requireAuth(s.requirePerm(auth.PermHoldResolve, s.handleBulkResolve)))
 	mux.HandleFunc("GET /api/v1/orders/{id}/checklist", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleGetChecklist)))
+	mux.HandleFunc("GET /api/v1/work/mine", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleListMyWork)))
+	mux.HandleFunc("GET /api/v1/orders/{id}/work", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleGetWork)))
+	mux.HandleFunc("POST /api/v1/orders/{id}/work/start", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleStartWork)))
+	mux.HandleFunc("POST /api/v1/orders/{id}/work/update", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleUpdateWork)))
+	mux.HandleFunc("POST /api/v1/orders/{id}/work/end", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleEndWork)))
 	mux.HandleFunc("POST /api/v1/orders/{id}/checklist", s.requireAuth(s.requirePerm(auth.PermPickUse, s.handleSetChecklist)))
 	mux.HandleFunc("POST /api/v1/checklist/{id}/tick", s.requireAuth(s.requirePerm(auth.PermPickUse, s.handleTickChecklistItem)))
 	mux.HandleFunc("POST /api/v1/checklist/{id}/untick", s.requireAuth(s.requirePerm(auth.PermPickUse, s.handleUntickChecklistItem)))
@@ -97,6 +102,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/products/{id}", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleGetProduct)))
 	mux.HandleFunc("POST /api/v1/products/{id}", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleUpdateProduct)))
 	mux.HandleFunc("DELETE /api/v1/products/{id}", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleDeleteProduct)))
+	mux.HandleFunc("POST /api/v1/products/quick", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleQuickManual)))
+	mux.HandleFunc("POST /api/v1/products/{id}/approve", s.requireAuth(s.requirePerm(auth.PermManualsApprove, s.handleApproveProduct)))
+	mux.HandleFunc("POST /api/v1/products/{id}/department", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleSetProductDepartment)))
+	mux.HandleFunc("POST /api/v1/si/customers/{id}/coordinator", s.requireAuth(s.requirePerm(auth.PermCustomersManage, s.handleSetCustomerCoordinator)))
 	mux.HandleFunc("POST /api/v1/products/{id}/blocks", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleAddManualBlock)))
 	mux.HandleFunc("POST /api/v1/products/{pid}/blocks/{bid}", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleUpdateManualBlock)))
 	mux.HandleFunc("POST /api/v1/products/{pid}/blocks/{bid}/move", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleMoveManualBlock)))
@@ -275,9 +284,14 @@ func (s *Server) classifyError(err error) (int, string, string) {
 	}
 }
 
+// validCommandStatus reports whether a status may be used as the *target* of a
+// transition command. Received is included because the state machine explicitly
+// allows sending an order back to intake (Processing -> Received,
+// QC_Review -> Received, see pkg/order transitionTable and its tests); whether
+// a concrete move is legal is still decided by DetermineTransition.
 func validCommandStatus(status order.Status) bool {
 	switch status {
-	case order.StatusProcessing, order.StatusQCReview, order.StatusCompleted:
+	case order.StatusReceived, order.StatusProcessing, order.StatusQCReview, order.StatusCompleted:
 		return true
 	default:
 		return false

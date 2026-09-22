@@ -11,15 +11,12 @@ no dependencies, no framework), same `/api/v1` contract, same feature set.
 | `styles.css` | Full rewrite: light enterprise theme, design tokens |
 | `js/*.js` | Rewritten SPA split across modules (`core.js` first, `app.js` last) — same API contract. **Every `fetch` path, method and payload is unchanged.** |
 | `fonts/` | Self-hosted Archivo + Noto Sans, subsetted (96 KB total) |
-| `cockpit-standalone.html` | Optional. Everything inlined into one file — previews, single-file handoff |
-| `build.py` | Regenerates the standalone file from the sources |
+| `scan.html` + `js/scan.js` | Public read-only page behind order QR codes (`/scan.html?code=…`) |
+| `checkin.html` | Self-contained SI checklist check-in page behind project QR codes |
 
-Three files, drop-in. Serve them from the same origin as your API and they work — the
+Drop-in static files. Serve them from the same origin as your API and they work — the
 frontend makes same-origin relative requests to `/api/v1/...`, exactly as the original did.
-
-`cockpit-standalone.html` is a convenience build with zero external references, for
-contexts that won't fetch sibling files (sandboxed iframe previews, `file://`
-double-click, emailing someone a copy). Edit the three sources, then `python3 build.py`.
+The Go server does this for you: it mounts this directory at `/`.
 
 ## API contract — unchanged
 

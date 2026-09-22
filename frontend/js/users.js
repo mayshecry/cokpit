@@ -3,7 +3,8 @@
   
 
   function renderRoleLegend() {
-    const byRole = { viewer: 0, operator: 0, qc: 0, npi: 0, admin: 0 };
+    const byRole = {};
+    ROLES.forEach((r) => { byRole[r] = 0; });
     for (const u of state.users) if (byRole[u.role] !== undefined) byRole[u.role]++;
     const extras = (state.user && state.user.permissions && state.user.permissions.length) || 0;
     const extraNote = extras
