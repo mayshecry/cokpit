@@ -134,6 +134,24 @@ CREATE TABLE IF NOT EXISTS scan_events (
 CREATE INDEX IF NOT EXISTS idx_scan_events_order ON scan_events(order_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_scan_events_code ON scan_events(code);
 
+CREATE TABLE IF NOT EXISTS app_settings (
+    key        TEXT PRIMARY KEY,
+    value      TEXT NOT NULL,
+    updated_at BIGINT NOT NULL,
+    updated_by TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS day_goals (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    day        TEXT    NOT NULL,
+    username   TEXT    NOT NULL,
+    goal       TEXT    NOT NULL DEFAULT '',
+    updated_by TEXT    NOT NULL DEFAULT '',
+    updated_at BIGINT  NOT NULL,
+    sent_at    BIGINT,
+    UNIQUE(day, username)
+);
+
 CREATE TABLE IF NOT EXISTS work_sessions (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -453,6 +471,23 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	qcCols, err := tableColumns(ctx, conn, "qc_checks")
+	if err != nil {
+		return err
+	}
+	qcDDL := map[string]string{
+		"fail_reason": `ALTER TABLE qc_checks ADD COLUMN fail_reason TEXT NOT NULL DEFAULT ''`,
+		"tech":        `ALTER TABLE qc_checks ADD COLUMN tech TEXT NOT NULL DEFAULT ''`,
+	}
+	for name, ddl := range qcDDL {
+		if qcCols[name] {
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("add column %s: %w", name, err)
+		}
+	}
+
 	blockDDL := map[string]string{
 		"flagged":     `ALTER TABLE order_manual_blocks ADD COLUMN flagged INTEGER NOT NULL DEFAULT 0`,
 		"flagged_by":  `ALTER TABLE order_manual_blocks ADD COLUMN flagged_by TEXT NOT NULL DEFAULT ''`,

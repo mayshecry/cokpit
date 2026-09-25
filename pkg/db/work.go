@@ -187,3 +187,24 @@ func (s *Store) EndWorkSession(ctx context.Context, orderID int64, username stri
 	active.Completed = completed
 	return active, nil
 }
+
+// ActiveSessionsAll returns every open work session, newest first.
+func (s *Store) ActiveSessionsAll(ctx context.Context) ([]*WorkSession, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+workSessionCols+` FROM work_sessions
+		 WHERE ended_at IS NULL
+		 ORDER BY started_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []*WorkSession{}
+	for rows.Next() {
+		ws, err := scanWorkSession(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, ws)
+	}
+	return out, rows.Err()
+}

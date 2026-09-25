@@ -77,8 +77,13 @@ func (s *Server) handleSubmitQC(w http.ResponseWriter, r *http.Request) {
 	if inspector == "" {
 		inspector = s.currentUser(r).Username
 	}
+	failReason := cleanString(req.FailReason)
+	if req.Status == order.QCFail && failReason == "" {
+		s.writeError(w, http.StatusBadRequest, "reason_required", "a FAIL check needs a fail reason")
+		return
+	}
 
-	check, err := s.store.SubmitQC(r.Context(), id, req.Status, inspector, req.Notes, s.currentUser(r).Username, s.now().UTC())
+	check, err := s.store.SubmitQC(r.Context(), id, req.Status, inspector, req.Notes, failReason, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
 		s.writeError(w, status, code, msg)

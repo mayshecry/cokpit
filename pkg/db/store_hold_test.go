@@ -63,12 +63,12 @@ func TestQCGating(t *testing.T) {
 	o, _ := s.CreateOrder(ctx, "ORD-5", now.Add(24*time.Hour), now, "alice")
 	_, _ = s.TransitionOrder(ctx, o.ID, string(order.StatusQCReview), "alice", now)
 
-	_, _ = s.SubmitQC(ctx, o.ID, order.QCFail, "insp", "bad", "insp", now)
+	_, _ = s.SubmitQC(ctx, o.ID, order.QCFail, "insp", "bad", "Cable seating out of spec", "insp", now)
 	if _, err := s.TransitionOrder(ctx, o.ID, string(order.StatusCompleted), "alice", now); !errors.Is(err, ErrNoQCPass) {
 		t.Errorf("complete after FAIL = %v, want ErrNoQCPass", err)
 	}
 
-	_, _ = s.SubmitQC(ctx, o.ID, order.QCPass, "insp", "good", "insp", now)
+	_, _ = s.SubmitQC(ctx, o.ID, order.QCPass, "insp", "good", "", "insp", now)
 	if _, err := s.TransitionOrder(ctx, o.ID, string(order.StatusCompleted), "alice", now); err != nil {
 		t.Errorf("complete after PASS = %v", err)
 	}
@@ -77,7 +77,7 @@ func TestQCGating(t *testing.T) {
 func TestInvalidQC(t *testing.T) {
 	s := newTestStore(t)
 	o, _ := s.CreateOrder(context.Background(), "ORD-6", fixedNow().Add(24*time.Hour), fixedNow(), "alice")
-	if _, err := s.SubmitQC(context.Background(), o.ID, order.QCStatus("MAYBE"), "insp", "", "insp", fixedNow()); err == nil {
+	if _, err := s.SubmitQC(context.Background(), o.ID, order.QCStatus("MAYBE"), "insp", "", "", "insp", fixedNow()); err == nil {
 		t.Error("invalid QC status must be rejected")
 	}
 }

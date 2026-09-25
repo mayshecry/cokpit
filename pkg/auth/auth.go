@@ -141,6 +141,7 @@ var rolePermissions = map[Role][]Permission{
 	},
 	RoleQC: {
 		PermOrderList, PermOrderView, PermAuditView, PermQCSubmit,
+		PermOrderTransition,
 		PermCommentRead, PermCommentPost, PermNotifyRead,
 		PermManualManage,
 		PermSIList, PermSIView,

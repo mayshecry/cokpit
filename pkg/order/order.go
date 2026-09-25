@@ -182,6 +182,7 @@ type QCRequest struct {
 	Status      QCStatus `json:"status"`
 	InspectorID string   `json:"inspectorId"`
 	Notes       string   `json:"notes"`
+	FailReason  string   `json:"failReason"`
 }
 
 type OmnitrackerInfoRequest struct {

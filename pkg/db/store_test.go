@@ -82,7 +82,7 @@ func TestTransitionValidation(t *testing.T) {
 	s2 := newTestStore(t)
 	o2, _ := s2.CreateOrder(ctx, "ORD-3", now.Add(24*time.Hour), now, "alice")
 	_, _ = s2.TransitionOrder(ctx, o2.ID, string(order.StatusQCReview), "alice", now)
-	if _, err := s2.SubmitQC(ctx, o2.ID, order.QCPass, "insp", "", "insp", now); err != nil {
+	if _, err := s2.SubmitQC(ctx, o2.ID, order.QCPass, "insp", "", "", "insp", now); err != nil {
 		t.Fatalf("qc: %v", err)
 	}
 	if _, err := s2.TransitionOrder(ctx, o2.ID, string(order.StatusCompleted), "alice", now); err != nil {

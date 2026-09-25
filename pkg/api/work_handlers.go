@@ -4,7 +4,9 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"cockpit/pkg/auth"
 	"cockpit/pkg/db"
@@ -150,6 +152,127 @@ func (s *Server) handleEndWork(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListMyWork(w http.ResponseWriter, r *http.Request) {
 	me := s.currentUser(r)
 	sessions, err := s.store.ActiveSessionsFor(r.Context(), me.Username)
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"sessions": sessions})
+}
+
+/* ---- configurable work flow ---- */
+
+type wfCheck struct {
+	Key   string `json:"key"`
+	Label string `json:"label"`
+}
+
+type wfStep struct {
+	Key    string    `json:"key"`
+	Title  string    `json:"title"`
+	Desc   string    `json:"desc"`
+	Checks []wfCheck `json:"checks"`
+	Next   *string   `json:"next"`
+	Pick   bool      `json:"pick"`
+	QcGate bool      `json:"qcGate"`
+}
+
+var wfNextAllowed = map[string]bool{"Received": true, "Processing": true, "QC_Review": true, "Completed": true}
+
+func validateWorkFlow(raw json.RawMessage) ([]wfStep, error) {
+	trimmed := strings.TrimSpace(string(raw))
+	if trimmed == "" || trimmed == "null" {
+		return nil, nil
+	}
+	var steps []wfStep
+	if err := json.Unmarshal([]byte(trimmed), &steps); err != nil {
+		return nil, errors.New("steps must be an array")
+	}
+	if len(steps) < 1 || len(steps) > 8 {
+		return nil, errors.New("a work flow needs between 1 and 8 steps")
+	}
+	seen := map[string]bool{}
+	keyOk := func(k string) bool {
+		if k == "" || len(k) > 24 {
+			return false
+		}
+		for _, c := range k {
+			if !(c == '_' || c == '-' || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+				return false
+			}
+		}
+		return true
+	}
+	for i, st := range steps {
+		if !keyOk(st.Key) || seen[st.Key] {
+			return nil, errors.New("every step needs a unique key (a-z, 0-9, - or _)")
+		}
+		seen[st.Key] = true
+		if len(st.Title) > 60 || len(st.Desc) > 200 {
+			return nil, errors.New("step title/description too long")
+		}
+		if len(st.Checks) > 12 {
+			return nil, errors.New("max 12 checks per step")
+		}
+		cseen := map[string]bool{}
+		for _, c := range st.Checks {
+			if !keyOk(c.Key) || cseen[c.Key] {
+				return nil, errors.New("check keys must be unique per step")
+			}
+			cseen[c.Key] = true
+			if len(c.Label) > 120 || strings.TrimSpace(c.Label) == "" {
+				return nil, errors.New("every check needs a short label")
+			}
+		}
+		if st.Next != nil && !wfNextAllowed[*st.Next] {
+			return nil, errors.New("unknown transition target on step " + fmt.Sprint(i+1))
+		}
+	}
+	return steps, nil
+}
+
+func (s *Server) handleGetWorkflow(w http.ResponseWriter, r *http.Request) {
+	value, err := s.store.GetSetting(r.Context(), "work_flow")
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		return
+	}
+	resp := map[string]any{"steps": nil}
+	if value != "" {
+		var steps any
+		if err := json.Unmarshal([]byte(value), &steps); err == nil {
+			resp["steps"] = steps
+		}
+	}
+	s.writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handlePutWorkflow(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Steps json.RawMessage `json:"steps"`
+	}
+	if err := s.decodeJSON(w, r, &req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
+		return
+	}
+	steps, err := validateWorkFlow(req.Steps)
+	if err != nil {
+		s.writeError(w, http.StatusBadRequest, "bad_request", err.Error())
+		return
+	}
+	value := ""
+	if steps != nil {
+		value = string(req.Steps)
+	}
+	me := s.currentUser(r)
+	if err := s.store.SetSetting(r.Context(), "work_flow", value, me.Username, s.now().UTC()); err != nil {
+		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"steps": steps})
+}
+
+func (s *Server) handleListAllWork(w http.ResponseWriter, r *http.Request) {
+	sessions, err := s.store.ActiveSessionsAll(r.Context())
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 		return

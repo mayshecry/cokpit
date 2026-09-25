@@ -269,19 +269,19 @@ func (s *Store) PlaceHoldGuarded(ctx context.Context, id int64, reason, createdB
 	}
 
 	return order.Hold{
-		ID:        holdID,
-		OrderID:   id,
-		Reason:    reason,
-		CreatedBy: createdBy,
-		CreatedAt: now.UTC(),
-	}, order.Order{
-		ID:               current.ID,
-		OrderNumber:      current.OrderNumber,
-		Status:           held,
-		TargetCompletion: current.TargetCompletion,
-		CreatedAt:        current.CreatedAt,
-		UpdatedAt:        now.UTC(),
-	}, nil
+			ID:        holdID,
+			OrderID:   id,
+			Reason:    reason,
+			CreatedBy: createdBy,
+			CreatedAt: now.UTC(),
+		}, order.Order{
+			ID:               current.ID,
+			OrderNumber:      current.OrderNumber,
+			Status:           held,
+			TargetCompletion: current.TargetCompletion,
+			CreatedAt:        current.CreatedAt,
+			UpdatedAt:        now.UTC(),
+		}, nil
 }
 
 func (s *Store) ResolveHold(ctx context.Context, holdID int64, resolvedBy string, now time.Time) (order.Hold, order.Order, error) {
@@ -359,7 +359,7 @@ func (s *Store) ResolveHold(ctx context.Context, holdID int64, resolvedBy string
 	}, restored, nil
 }
 
-func (s *Store) SubmitQC(ctx context.Context, id int64, status order.QCStatus, inspector, notes, performedBy string, now time.Time) (order.QCCheck, error) {
+func (s *Store) SubmitQC(ctx context.Context, id int64, status order.QCStatus, inspector, notes, failReason, performedBy string, now time.Time) (order.QCCheck, error) {
 	if performedBy == "" {
 		performedBy = inspector
 	}
@@ -371,8 +371,9 @@ func (s *Store) SubmitQC(ctx context.Context, id int64, status order.QCStatus, i
 	defer tx.Rollback()
 
 	var currentStatus order.Status
+	var tech string
 	err = tx.QueryRowContext(ctx,
-		`SELECT status FROM orders WHERE id = ?`, id).Scan(&currentStatus)
+		`SELECT status, assigned_to FROM orders WHERE id = ?`, id).Scan(&currentStatus, &tech)
 	if errors.Is(err, sql.ErrNoRows) {
 		return order.QCCheck{}, ErrNotFound
 	}
@@ -384,9 +385,9 @@ func (s *Store) SubmitQC(ctx context.Context, id int64, status order.QCStatus, i
 	}
 
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO qc_checks (order_id, status, inspector_id, notes, created_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		id, string(status), inspector, notes, millis(now))
+		`INSERT INTO qc_checks (order_id, status, inspector_id, notes, created_at, tech, fail_reason)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		id, string(status), inspector, notes, millis(now), tech, failReason)
 	if err != nil {
 		return order.QCCheck{}, fmt.Errorf("insert qc: %w", err)
 	}
