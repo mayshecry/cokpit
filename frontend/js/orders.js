@@ -355,6 +355,70 @@
     </select>`;
   }
 
+  /* Quick assign: popover on the assignee cell, with Undo in the toast. */
+  async function assignOrder(id, user) {
+    const o = (state.orders || []).find((x) => x.id === id);
+    const prev = o ? (o.assignee || '') : '';
+    try {
+      await api('POST', `/api/v1/orders/${id}/assign`, { assignee: user });
+      if (o) o.assignee = user;
+      if (state.detail && state.detail.id === id) {
+        state.detail.assignee = user;
+        if (typeof renderDetail === 'function' && !drawerInputActive()) renderDetail();
+      }
+      renderTable();
+      if (window.WorkFlow) WorkFlow.refreshMine();
+      if (window.Workload && !$('#view-workload').classList.contains('hidden')) Workload.load(true);
+      const label = o ? o.orderNumber : '#' + id;
+      toast(user ? `${label} → @${user}` : `${label} unassigned`, false,
+        { label: 'Undo', fn: () => assignOrder(id, prev) });
+    } catch (err) { toast(err.message, true); }
+  }
+
+  function assignPop() {
+    let pop = $('#assign-pop');
+    if (pop) return pop;
+    pop = document.createElement('div');
+    pop.id = 'assign-pop';
+    pop.className = 'assign-pop hidden';
+    pop.setAttribute('role', 'menu');
+    document.body.appendChild(pop);
+    pop.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-user]');
+      if (!b) return;
+      const id = Number(pop.dataset.order);
+      pop.classList.add('hidden');
+      assignOrder(id, b.dataset.user);
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#assign-pop') && !e.target.closest('[data-assign]')) pop.classList.add('hidden');
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') pop.classList.add('hidden');
+    });
+    return pop;
+  }
+
+  async function openAssignPop(btn) {
+    const id = Number(btn.dataset.assign);
+    const pop = assignPop();
+    pop.dataset.order = id;
+    if (!state.userBriefs || !state.userBriefs.length) {
+      try {
+        const d = await api('GET', '/api/v1/users/brief');
+        state.userBriefs = d.users || [];
+      } catch (err) { toast(err.message, true); return; }
+    }
+    const cur = ((state.orders || []).find((o) => o.id === id) || {}).assignee || '';
+    const users = state.userBriefs.filter((u) => ['operator', 'qc', 'sc', 'admin'].includes(u.role));
+    pop.innerHTML = `<button type="button" role="menuitem" data-user="" class="${cur ? '' : 'cur'}">Unassigned</button>` +
+      users.map((u) => `<button type="button" role="menuitem" data-user="${esc(u.username)}" class="${u.username === cur ? 'cur' : ''}">${esc(u.displayName || u.username)}</button>`).join('');
+    const r = btn.getBoundingClientRect();
+    pop.style.top = Math.min(r.bottom + 6, window.innerHeight - 260) + 'px';
+    pop.style.left = Math.max(8, Math.min(r.left - 4, window.innerWidth - 200)) + 'px';
+    pop.classList.remove('hidden');
+  }
+
   function renderTable() {
     const tbody = $('#orders-table tbody');
     const countEl = $('#row-count');
@@ -410,7 +474,9 @@
         <td class="strong">${esc(o.orderNumber)}</td>
         <td>${badge('status-' + esc(statusClass(o.status)), statusLabel(o.status))}</td>
         <td class="clip">${esc(o.customerName || '—')}</td>
-        <td>${o.assignee ? '@' + esc(o.assignee) : '<span class="muted">—</span>'}</td>
+        <td>${can('orders:transition')
+          ? `<button type="button" class="assignee-btn${o.assignee ? '' : ' none'}" data-assign="${o.id}" title="Assign…">${o.assignee ? '@' + esc(o.assignee) : '—'}</button>`
+          : (o.assignee ? '@' + esc(o.assignee) : '<span class="muted">—</span>')}</td>
         <td class="time">${fmtCell(o.targetCompletionAt)}<span class="rel">${esc(relTime(o.targetCompletionAt))}</span></td>
         <td>${badge('sla-' + sla, sla.replace('_', ' '))}</td>
         <td class="time">${fmtCell(o.createdAt)}</td>

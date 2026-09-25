@@ -78,6 +78,7 @@
       [t('shortcut.new'), ['n']],
       [t('shortcut.export'), ['e']],
       [t('shortcut.goto'), ['g', 'h']],
+      [t('shortcut.goWork'), ['g', 'w']],
       [t('shortcut.goOrders'), ['g', 'o']],
       [t('shortcut.goUsers'), ['g', 'u']],
       [t('shortcut.goConfig'), ['g', 'c']],
@@ -423,6 +424,130 @@
     </div>`;
   }
 
+  /* ---- guided work flow editor (admin) ---- */
+  let wfDraft = null;
+
+  function wfDefaultDraft() {
+    return DEFAULT_WORK_STEPS.map((st) => ({
+      key: st.key,
+      title: t('work.step.' + st.key),
+      desc: t('work.step.' + st.key + 'd'),
+      checks: st.checks.map((c) => ({ key: c, label: t('work.check.' + c) })),
+      next: typeof st.next === 'function'
+        ? (st.next({ status: 'Received' }) || st.next({ status: 'Processing' }) || st.next({ status: 'QC_Review' }) || '')
+        : (st.next || ''),
+      pick: !!st.pick,
+      qcGate: !!st.qcGate,
+    }));
+  }
+
+  async function loadWorkflowEditor() {
+    try {
+      const d = await api('GET', '/api/v1/workflow');
+      wfDraft = d.steps
+        ? d.steps.map((st) => ({ key: st.key, title: st.title || '', desc: st.desc || '', checks: (st.checks || []).map((c) => ({ key: c.key, label: c.label })), next: st.next || '', pick: !!st.pick, qcGate: !!st.qcGate }))
+        : wfDefaultDraft();
+    } catch { wfDraft = wfDefaultDraft(); }
+    renderWorkflowEditor();
+  }
+
+  function renderWorkflowEditor() {
+    const host = $('#wf-steps');
+    if (!host || !wfDraft) return;
+    host.innerHTML = wfDraft.map((st, i) => `
+      <div class="wf-step" data-i="${i}">
+        <div class="wf-step-head">
+          <span class="wf-n">${i + 1}</span>
+          <input data-f="title" value="${esc(st.title)}" placeholder="Step title" maxlength="60">
+          <select data-f="next" title="Status move on Next">
+            <option value="">no status change</option>
+            ${['Received', 'Processing', 'QC_Review', 'Completed'].map((v) => `<option value="${v}"${st.next === v ? ' selected' : ''}>→ ${v.replace('_', ' ')}</option>`).join('')}
+          </select>
+          <label class="wf-flag"><input type="checkbox" data-f="pick" ${st.pick ? 'checked' : ''}> pick list</label>
+          <label class="wf-flag"><input type="checkbox" data-f="qcGate" ${st.qcGate ? 'checked' : ''}> QC gate</label>
+          <span class="wf-ops">
+            <button type="button" class="icon-btn" data-op="up" ${i === 0 ? 'disabled' : ''} title="Move up">↑</button>
+            <button type="button" class="icon-btn" data-op="down" ${i === wfDraft.length - 1 ? 'disabled' : ''} title="Move down">↓</button>
+            <button type="button" class="icon-btn" data-op="del" title="Delete step">✕</button>
+          </span>
+        </div>
+        <input data-f="desc" class="wf-desc" value="${esc(st.desc)}" placeholder="Short description shown under the title" maxlength="200">
+        <div class="wf-checks">
+          ${st.checks.map((c, ci) => `
+            <span class="wf-checkrow">
+              <input data-f="check" data-ci="${ci}" value="${esc(c.label)}" placeholder="Check label" maxlength="120">
+              <button type="button" class="icon-btn" data-op="delcheck" data-ci="${ci}" title="Remove check">✕</button>
+            </span>`).join('')}
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" data-op="addcheck">+ manual check</button>
+      </div>`).join('');
+  }
+
+  function wfCollect() {
+    return wfDraft.map((st, i) => ({
+      key: st.key || ('step' + (i + 1)),
+      title: st.title, desc: st.desc,
+      checks: st.checks.map((c, ci) => ({ key: c.key || ('k' + (ci + 1)), label: c.label })),
+      next: st.next || null, pick: st.pick, qcGate: st.qcGate,
+    }));
+  }
+
+  function bindWorkflowEditor(root) {
+    if (!root || root._wfBound) return;
+    root._wfBound = true;
+    const stepsHost = $('#wf-steps', root);
+    stepsHost.addEventListener('input', (e) => {
+      const stepEl = e.target.closest('.wf-step');
+      if (!stepEl) return;
+      const st = wfDraft[Number(stepEl.dataset.i)];
+      const f = e.target.dataset.f;
+      if (f === 'title') st.title = e.target.value;
+      if (f === 'desc') st.desc = e.target.value;
+      if (f === 'check') st.checks[Number(e.target.dataset.ci)].label = e.target.value;
+    });
+    stepsHost.addEventListener('change', (e) => {
+      const stepEl = e.target.closest('.wf-step');
+      if (!stepEl) return;
+      const st = wfDraft[Number(stepEl.dataset.i)];
+      if (e.target.dataset.f === 'next') st.next = e.target.value;
+      if (e.target.dataset.f === 'pick') st.pick = e.target.checked;
+      if (e.target.dataset.f === 'qcGate') st.qcGate = e.target.checked;
+    });
+    stepsHost.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-op]');
+      if (!btn) return;
+      const stepEl = btn.closest('.wf-step');
+      const i = Number(stepEl.dataset.i);
+      const op = btn.dataset.op;
+      if (op === 'up' && i > 0) { [wfDraft[i - 1], wfDraft[i]] = [wfDraft[i], wfDraft[i - 1]]; }
+      if (op === 'down' && i < wfDraft.length - 1) { [wfDraft[i + 1], wfDraft[i]] = [wfDraft[i], wfDraft[i + 1]]; }
+      if (op === 'del') { wfDraft.splice(i, 1); }
+      if (op === 'delcheck') { wfDraft[i].checks.splice(Number(btn.dataset.ci), 1); }
+      if (op === 'addcheck') { wfDraft[i].checks.push({ key: '', label: '' }); }
+      renderWorkflowEditor();
+    });
+    $('#wf-add-step', root).addEventListener('click', () => {
+      wfDraft.push({ key: '', title: '', desc: '', checks: [{ key: '', label: '' }], next: '', pick: false, qcGate: false });
+      renderWorkflowEditor();
+    });
+    $('#wf-save', root).addEventListener('click', async () => {
+      try {
+        await api('PUT', '/api/v1/workflow', { steps: wfCollect() });
+        toast('Work flow saved — everyone uses it now');
+        if (window.WorkFlow) WorkFlow.loadFlow(true);
+      } catch (err) { toast(err.message, true); }
+    });
+    $('#wf-reset', root).addEventListener('click', async () => {
+      try {
+        await api('PUT', '/api/v1/workflow', { steps: null });
+        wfDraft = wfDefaultDraft();
+        renderWorkflowEditor();
+        if (window.WorkFlow) WorkFlow.loadFlow(true);
+        toast('Work flow reset to the built-in default');
+      } catch (err) { toast(err.message, true); }
+    });
+  }
+
   function renderConfig() {
     const m = state.config.meta || {};
     const sources = [
@@ -485,7 +610,20 @@
         : '<p class="muted config-meta">Nog geen picklijst geimporteerd. Upload het dagelijkse bestand om checklists te genereren.</p>'}
     </div>`;
 
-    $('#config-content').innerHTML = html;
+    $('#config-content').innerHTML = html + `
+      <section class="card wf-editor" id="wf-editor">
+        <div class="wf-head">
+          <div><h3>Guided work flow</h3><p class="muted">The steps, manual checks and status moves behind every Start Work session — saved on the server for the whole team.</p></div>
+          <div class="wf-head-actions">
+            <button type="button" class="btn btn-ghost btn-sm" id="wf-reset">Reset to default</button>
+            <button type="button" class="btn btn-primary btn-sm" id="wf-save">Save flow</button>
+          </div>
+        </div>
+        <div id="wf-steps"></div>
+        <button type="button" class="btn btn-secondary btn-sm" id="wf-add-step">+ Add step</button>
+      </section>`;
+    bindWorkflowEditor($('#config-content'));
+    loadWorkflowEditor();
 
     const downloadBtn = $('#cfg-download');
     if (downloadBtn) downloadBtn.addEventListener('click', downloadConfigJSON);

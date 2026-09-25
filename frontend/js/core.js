@@ -72,7 +72,7 @@
   const rolePerms = {
     viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'notifications:read', 'si:list', 'si:view'],
     operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'scan:use', 'pick:use', 'si:list', 'si:view'],
-    qc:       ['orders:list', 'orders:view', 'qc:submit', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'manuals:manage', 'si:list', 'si:view'],
+    qc:       ['orders:list', 'orders:view', 'orders:transition', 'qc:submit', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'manuals:manage', 'si:list', 'si:view'],
     npi:      ['si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'users:list'],
     sc:       ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'manuals:manage', 'manuals:approve', 'si:list', 'si:view', 'users:list'],
     admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'users:list', 'manuals:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'config:manage', 'notifications:read', 'si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'si:manage'],
@@ -211,6 +211,7 @@
       'shortcut.myWork': 'My Work', 'shortcut.search': 'Focus search',
       'shortcut.new': 'New order', 'shortcut.export': 'Export CSV',
       'shortcut.palette': 'Command palette', 'shortcut.goto': 'Go to My Work',
+      'shortcut.goWork': 'Workload board',
       'shortcut.goOrders': 'Go to orders', 'shortcut.goUsers': 'Go to users',
       'shortcut.goConfig': 'Go to config (admin)', 'shortcut.refresh': 'Refresh data',
       'shortcut.close': 'Close panel / dialog', 'shortcut.cheats': 'This dialog',
@@ -305,7 +306,8 @@
     'shortcut.myWork': 'Mijn werk', 'shortcut.search': 'Zoeken',
     'shortcut.new': 'Nieuwe order', 'shortcut.export': 'Export CSV',
     'shortcut.palette': 'Commandopalet', 'shortcut.goto': 'Ga naar Mijn werk',
-    'shortcut.goOrders': 'Ga naar orders', 'shortcut.goUsers': 'Ga naar gebruikers',
+    'shortcut.goWork': 'Werklastbord',
+      'shortcut.goOrders': 'Ga naar orders', 'shortcut.goUsers': 'Ga naar gebruikers',
     'shortcut.goConfig': 'Ga naar configuratie', 'shortcut.refresh': 'Gegevens verversen',
     'shortcut.close': 'Paneel / dialoog sluiten', 'shortcut.cheats': 'Dit venster',
     'shortcut.rowNav': 'Tussen orderregels bewegen', 'shortcut.rowOpen': 'Gerichte order openen',
@@ -512,6 +514,25 @@
     }
   };
 
+  /* Click-to-copy: any element with data-copy="value" copies on click. */
+  async function copyText(v) {
+    try { await navigator.clipboard.writeText(v); return true; } catch { /* fall through */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = v; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand('copy');
+      ta.remove();
+      return ok;
+    } catch { return false; }
+  }
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-copy]');
+    if (!el) return;
+    e.preventDefault(); e.stopPropagation();
+    copyText(el.dataset.copy).then((ok) => toast(ok ? 'Copied ' + el.dataset.copy : 'Copy failed', !ok));
+  });
+
   const badge = (cls, text) => `<span class="badge ${cls}"><span class="dot"></span>${esc(text)}</span>`;
 
   const ICON_OK  = '<svg class="t-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
@@ -674,3 +695,37 @@
     return data;
   }
 
+
+/* ---------- motion helpers: eased count-up for KPI numerals ---------- */
+window.countUp = function (el, to, opts) {
+  const o = opts || {};
+  const dec = o.decimals || 0;
+  const suf = o.suffix || '';
+  const dur = o.duration || 620;
+  const fmt = (v) => v.toFixed(dec) + suf;
+  if (window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    el.textContent = fmt(to);
+    return;
+  }
+  const from = o.from || 0;
+  const t0 = performance.now();
+  const step = (t) => {
+    const p = Math.min(1, (t - t0) / dur);
+    const e = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(from + (to - from) * e);
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+};
+
+window.hydrateCounts = function (root) {
+  (root || document).querySelectorAll('[data-count]').forEach((el, i) => {
+    const to = parseFloat(el.dataset.count);
+    const dec = parseInt(el.dataset.dec || '0', 10);
+    const suf = el.dataset.suffix || '';
+    const cur = parseFloat((el.textContent || '').replace(/[^0-9.-]/g, ''));
+    const from = Number.isFinite(cur) ? cur : 0;
+    if (from !== to) el.textContent = from.toFixed(dec) + suf;
+    setTimeout(() => window.countUp(el, to, { decimals: dec, suffix: suf, from }), 50 + i * 35);
+  });
+};

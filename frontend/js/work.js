@@ -3,7 +3,7 @@
 /* WorkFlow — guided "Start Work" sessions: clock in on an order assigned to
    you, tick off steps with manual checks, Next → Next → done. */
 
-const WORK_STEPS = [
+const DEFAULT_WORK_STEPS = [
   {
     key: 'intake',
     checks: ['c_data', 'c_device', 'c_asset'],
@@ -30,6 +30,7 @@ const WORK_STEPS = [
 
 const WorkFlow = {
   session: null,      // active session inside the workbench
+  flowLoaded: false,
   order: null,        // order object inside the workbench
   step: 0,
   checks: {},         // {stepKey: {checkKey: true}}
@@ -39,6 +40,34 @@ const WorkFlow = {
   tickHandle: null,
 
   /* ---------- helpers ---------- */
+
+  steps() {
+    const src = (state.workFlow && state.workFlow.length) ? state.workFlow : DEFAULT_WORK_STEPS;
+    return src.map((st) => ({
+      ...st,
+      checks: (st.checks || []).map((c) => (typeof c === 'string' ? { key: c } : c)),
+    }));
+  },
+
+  async loadFlow(force) {
+    if (WorkFlow.flowLoaded && !force) return;
+    try {
+      const d = await api('GET', '/api/v1/workflow');
+      state.workFlow = d.steps || null;
+      WorkFlow.flowLoaded = true;
+    } catch { /* keep default */ }
+  },
+
+  stepTitle(st) { return st.title || t('work.step.' + st.key); },
+  stepDesc(st) { return st.desc || t('work.step.' + st.key + 'd'); },
+  checkLabel(c) { return c.label || t('work.check.' + c.key); },
+
+  // Where should Next move the order? Functions (default flow) or a configured target.
+  stepTarget(step, o) {
+    let target = typeof step.next === 'function' ? step.next(o) : (step.next || null);
+    if (!target || target === o.status) return null;
+    return (typeof nextStates === 'function' && !nextStates(o.status).includes(target)) ? null : target;
+  },
 
   mine(o) {
     return state.user && o && o.assignee === state.user.username;
@@ -123,6 +152,10 @@ const WorkFlow = {
       document.body.appendChild(root);
       root.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !root.classList.contains('hidden')) WorkFlow.close();
+        if (e.key === 'Enter' && !e.target.closest('input, textarea, select')) {
+          const next = root.querySelector('#wb-next');
+          if (next && !next.disabled) { e.preventDefault(); next.click(); }
+        }
       });
     }
     return root;
@@ -138,6 +171,7 @@ const WorkFlow = {
   },
 
   async open(orderId) {
+    await WorkFlow.loadFlow();
     const o = (state.orders || []).find((x) => x.id === orderId) || (await api('GET', `/api/v1/orders/${orderId}`)).order;
     WorkFlow.order = o;
     const root = WorkFlow.ensureRoot();
@@ -171,7 +205,7 @@ const WorkFlow = {
         <div class="wb-ready">
           <p>${esc(t('work.readySub'))}</p>
           <ol class="wb-steplist">
-            ${WORK_STEPS.map((s, i) => `<li><span class="wb-n">${i + 1}</span><div><strong>${esc(t('work.step.' + s.key))}</strong><span>${esc(t('work.step.' + s.key + 'd'))}</span></div></li>`).join('')}
+            ${WorkFlow.steps().map((s, i) => `<li><span class="wb-n">${i + 1}</span><div><strong>${esc(WorkFlow.stepTitle(s))}</strong><span>${esc(WorkFlow.stepDesc(s))}</span></div></li>`).join('')}
           </ol>
           <div class="wb-ready-foot">
             <span class="rel">${esc(t('work.target'))} ${fmtTime(o.targetCompletionAt)} <span class="sub">${esc(relTime(o.targetCompletionAt))}</span></span>
@@ -204,7 +238,7 @@ const WorkFlow = {
 
   async loadStepData() {
     const o = WorkFlow.order;
-    const step = WORK_STEPS[WorkFlow.step];
+    const step = WorkFlow.steps()[WorkFlow.step];
     if (step.pick && WorkFlow.pick === null) {
       try {
         const d = await api('GET', `/api/v1/orders/${o.id}/checklist`);
@@ -227,13 +261,13 @@ const WorkFlow = {
   },
 
   checksDone(stepKey) {
-    const step = WORK_STEPS.find((s) => s.key === stepKey);
+    const step = WorkFlow.steps().find((s) => s.key === stepKey);
     const mine = WorkFlow.checks[stepKey] || {};
-    return step.checks.every((c) => mine[c]);
+    return step.checks.every((c) => mine[c.key]);
   },
 
   gateOk() {
-    const step = WORK_STEPS[WorkFlow.step];
+    const step = WorkFlow.steps()[WorkFlow.step];
     if (!WorkFlow.checksDone(step.key)) return false;
     if (step.pick && WorkFlow.pick && WorkFlow.pick.length && !WorkFlow.pick.every((i) => i.checkedBy)) return false;
     if (step.pick && !WorkFlow.manualsDone()) return false;
@@ -242,11 +276,11 @@ const WorkFlow = {
   },
 
   gateHint() {
-    const step = WORK_STEPS[WorkFlow.step];
+    const step = WorkFlow.steps()[WorkFlow.step];
     if (step.qcGate && !WorkFlow.qcPassed) return t('work.qcwait');
     const left = [];
     const mine = WorkFlow.checks[step.key] || {};
-    const n = step.checks.filter((c) => !mine[c]).length;
+    const n = step.checks.filter((c) => !mine[c.key]).length;
     if (n) left.push(`${n} ${t('work.checksLeft')}`);
     if (step.pick && WorkFlow.pick && WorkFlow.pick.length) {
       const p = WorkFlow.pick.filter((i) => !i.checkedBy).length;
@@ -295,9 +329,10 @@ const WorkFlow = {
     const o = WorkFlow.order;
     const s = WorkFlow.session;
     const root = WorkFlow.ensureRoot();
-    const step = WORK_STEPS[WorkFlow.step];
+    const step = WorkFlow.steps()[WorkFlow.step];
     const mine = WorkFlow.checks[step.key] || {};
-    const last = WorkFlow.step === WORK_STEPS.length - 1;
+    const all = WorkFlow.steps();
+    const last = WorkFlow.step === all.length - 1;
 
     root.innerHTML = `
       <div class="wb-backdrop"></div>
@@ -321,28 +356,28 @@ const WorkFlow = {
         </div>
 
         <ol class="wb-steps">
-          ${WORK_STEPS.map((st, i) => `
+          ${all.map((st, i) => `
             <li class="${i < WorkFlow.step ? 'done' : i === WorkFlow.step ? 'current' : 'todo'}">
               <span class="wb-dot">${i < WorkFlow.step
                 ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'
                 : i + 1}</span>
-              <span class="wb-lbl">${esc(t('work.short.' + st.key))}</span>
+              <span class="wb-lbl">${esc(st.title || t('work.short.' + st.key))}</span>
             </li>`).join('')}
         </ol>
 
         <div class="wb-body">
-          <h3>${esc(t('work.step.' + step.key))}</h3>
-          <p class="wb-desc">${esc(t('work.step.' + step.key + 'd'))}</p>
+          <h3>${esc(WorkFlow.stepTitle(step))}</h3>
+          <p class="wb-desc">${esc(WorkFlow.stepDesc(step))}</p>
 
           ${step.pick ? WorkFlow.pickHtml() : ''}
           ${step.pick ? WorkFlow.manualsHtml() : ''}
 
           <div class="wb-checks">
             ${step.checks.map((c) => `
-              <label class="wb-check${mine[c] ? ' on' : ''}">
-                <input type="checkbox" data-wb-check="${c}" ${mine[c] ? 'checked' : ''}>
+              <label class="wb-check${mine[c.key] ? ' on' : ''}">
+                <input type="checkbox" data-wb-check="${c.key}" ${mine[c.key] ? 'checked' : ''}>
                 <span class="wb-box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
-                <span class="wb-ctext">${esc(t('work.check.' + c))}</span>
+                <span class="wb-ctext">${esc(WorkFlow.checkLabel(c))}</span>
               </label>`).join('')}
           </div>
 
@@ -392,7 +427,7 @@ const WorkFlow = {
 
     root.querySelectorAll('[data-wb-check]').forEach((inp) => {
       inp.addEventListener('change', () => {
-        const key = WORK_STEPS[WorkFlow.step].key;
+        const key = WorkFlow.steps()[WorkFlow.step].key;
         WorkFlow.checks[key] = WorkFlow.checks[key] || {};
         if (inp.checked) WorkFlow.checks[key][inp.dataset.wbCheck] = true;
         else delete WorkFlow.checks[key][inp.dataset.wbCheck];
@@ -461,7 +496,7 @@ const WorkFlow = {
 
     root.querySelector('#wb-next').addEventListener('click', async () => {
       const btn = root.querySelector('#wb-next');
-      const step = WORK_STEPS[WorkFlow.step];
+      const step = WorkFlow.steps()[WorkFlow.step];
       const target = step.next(WorkFlow.order);
       if (target) {
         btn.disabled = true;
@@ -469,7 +504,7 @@ const WorkFlow = {
         if (!ok) { btn.disabled = false; return; }
         WorkFlow.order.status = target;
       }
-      if (WorkFlow.step === WORK_STEPS.length - 1) {
+      if (WorkFlow.step === WorkFlow.steps().length - 1) {
         const d = await api('POST', `/api/v1/orders/${WorkFlow.order.id}/work/end`, { completed: true });
         if (d.error) { toast(d.error.message || d.error.code, true); btn.disabled = false; return; }
         WorkFlow.renderDone();

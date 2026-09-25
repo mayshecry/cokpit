@@ -608,6 +608,7 @@
           <span class="label">${esc(t('detail.qc'))}</span>
           <div class="action-row">
             <select id="qc-status" aria-label="QC result" style="flex:0 0 96px"><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select>
+            <select id="qc-reason" class="hidden" aria-label="Fail reason" style="flex:1 1 150px"></select>
             <input id="qc-notes" placeholder="Notes (optional)" autocomplete="off">
             <button type="submit" class="btn btn-secondary btn-sm">${esc(t('btn.submit'))}</button>
           </div>
@@ -626,7 +627,7 @@
       <div class="detail-head">
         <div class="detail-head-text">
           <div class="eyebrow">Order #${o.id}</div>
-          <h2>${esc(o.orderNumber)}</h2>
+          <h2 class="copyable" data-copy="${esc(o.orderNumber)}" title="Click to copy">${esc(o.orderNumber)}</h2>
           <div class="detail-badges">
             ${badge('status-' + esc(statusClass(o.status)), statusLabel(o.status))}
             ${badge('sla-' + esc(sla.status), String(sla.status).replace('_', ' '))}
@@ -652,11 +653,11 @@
         </div>
         <div class="meta order-info-meta">
           <div class="item"><span class="k">${esc(t('orders.customer'))}</span><span class="v">${esc(o.customerName || '—')}</span></div>
-          <div class="item"><span class="k">${esc(t('info.debit'))}</span><span class="v mono">${esc(o.debitNumber || '—')}</span></div>
+          <div class="item"><span class="k">${esc(t('info.debit'))}</span><span class="v mono copyable" data-copy="${esc(o.debitNumber)}" title="Click to copy">${esc(o.debitNumber || '—')}</span></div>
           <div class="item"><span class="k">${esc(t('info.device'))}</span><span class="v">${esc(o.device || '—')}</span></div>
-          <div class="item"><span class="k">${esc(t('info.asset'))}</span><span class="v mono">${esc(o.assetNumber || '—')}</span></div>
+          <div class="item"><span class="k">${esc(t('info.asset'))}</span><span class="v mono copyable" data-copy="${esc(o.assetNumber)}" title="Click to copy">${esc(o.assetNumber || '—')}</span></div>
           <div class="item"><span class="k">${esc(t('info.config'))}</span><span class="v">${esc(o.configuration || '—')}</span></div>
-          <div class="item"><span class="k">${esc(t('info.omni'))}</span><span class="v mono">${esc(o.omnitrackerTicket || '—')}</span></div>
+          <div class="item"><span class="k">${esc(t('info.omni'))}</span><span class="v mono copyable" data-copy="${esc(o.omnitrackerTicket)}" title="Click to copy">${esc(o.omnitrackerTicket || '—')}</span></div>
         </div>
         ${actions.length ? `<section class="detail-section"><h3>${esc(t('detail.actions'))}</h3>${actions.join('')}</section>` : ''}
         <section class="detail-section"><h3>${esc(t('detail.holds'))} ${holds.length ? `<span class="count">${holds.length}</span>` : ''}</h3>${holdsHtml}</section>
@@ -667,6 +668,7 @@
         ${can('scan:use') ? `<section class="detail-section"><h3>${esc(t('detail.scan'))}</h3>${scanHtml}</section>` : ''}
         <section class="detail-section"><h3>${esc(t('detail.audit'))} ${state.audit.length ? `<span class="count">${state.audit.length}</span>` : ''}</h3>${auditHtml}</section>
       </div>`;
+  populateQCReasons();
 
     panel.classList.remove('hidden');
     $('#orders-split').classList.remove('no-detail');
@@ -690,3 +692,19 @@
     }
   }
 
+
+/* fail-reason picker for the drawer QC form */
+async function populateQCReasons() {
+  const sel = $('#qc-reason');
+  if (!sel || sel.options.length) return;
+  try {
+    const d = await api('GET', '/api/v1/qc/reasons');
+    sel.innerHTML = '<option value="">reason…</option>' + (d.reasons || []).map((r) => `<option>${esc(r)}</option>`).join('');
+  } catch (err) { /* bench will surface errors */ }
+}
+document.addEventListener('change', (e) => {
+  if (e.target.id === 'qc-status') {
+    const r = $('#qc-reason');
+    if (r) r.classList.toggle('hidden', e.target.value !== 'FAIL');
+  }
+});

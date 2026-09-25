@@ -8,9 +8,21 @@
     $('#view-users').classList.toggle('hidden', name !== 'users');
     $('#view-config').classList.toggle('hidden', name !== 'config');
     $('#view-checklists').classList.toggle('hidden', name !== 'checklists');
+    const qPane = $('#view-quality');
+    if (qPane) qPane.classList.toggle('hidden', name !== 'quality');
+    const bPane = $('#view-qcbench');
+    if (bPane) bPane.classList.toggle('hidden', name !== 'qcbench');
+    const wlPane = $('#view-workload');
+    if (wlPane) wlPane.classList.toggle('hidden', name !== 'workload');
     $('#view-products').classList.toggle('hidden', name !== 'products');
     $('#view-manuals').classList.toggle('hidden', name !== 'manuals');
     $('#view-si').classList.toggle('hidden', name !== 'si');
+    const shown = $('#view-' + name);
+    if (shown) {
+      shown.classList.remove('entering');
+      void shown.offsetWidth;
+      shown.classList.add('entering');
+    }
     $$('.nav-link').forEach((a) => {
       const active = a.dataset.nav === name;
       a.classList.toggle('active', active);
@@ -110,6 +122,9 @@
   function route() {
     if (!state.token) return showLogin();
     let { page, orderId, params } = parseHash();
+    if (state.token && state.user) {
+      localStorage.setItem('cockpit_last_hash:' + state.user.username, location.hash && location.hash !== '#' ? location.hash : '#/home');
+    }
 
     if (!can('orders:list') && (page === 'orders' || page === 'home' ||
         location.hash === '' || location.hash === '#' || location.hash === '#/')) {
@@ -128,6 +143,22 @@
     if (can('config:manage') && page === 'config') {
       showPane('config');
       renderConfig();
+      return;
+    }
+    if (can('orders:transition') && page === 'workload') {
+      showPane('workload');
+      if (window.Workload) Workload.load();
+      if (window.Dayplan) Dayplan.load();
+      return;
+    }
+    if (can('qc:submit') && page === 'quality') {
+      showPane('quality');
+      if (window.Quality) Quality.load();
+      return;
+    }
+    if (can('qc:submit') && page === 'qcbench') {
+      showPane('qcbench');
+      if (window.QCBench) QCBench.load();
       return;
     }
     if (page === 'checklists') {
@@ -168,6 +199,7 @@
     }
     showPane('home');
     if (can('orders:list')) loadAttention(true);
+    if (window.Dashboard) Dashboard.load();
     loadNotifications(true);
   }
 
@@ -186,7 +218,11 @@
         try { msg = JSON.parse(e.data); } catch {  }
         state.lastSseAt = Date.now();
         await loadOrders(true);
-        if (location.hash.startsWith('#/home')) loadAttention(true);
+        if (window.Workload && !$('#view-workload').classList.contains('hidden')) Workload.load(true);
+        if (location.hash.startsWith('#/home')) {
+          loadAttention(true);
+          if (window.Dashboard) Dashboard.load();
+        }
         if (msg.orderId && state.selectedId === msg.orderId && !drawerInputActive()) {
           await openDetail(msg.orderId);
         }
@@ -379,6 +415,12 @@
   });
 
   $('#orders-table tbody').addEventListener('click', (e) => {
+    const assignBtn = e.target.closest('[data-assign]');
+    if (assignBtn) {
+      e.stopPropagation();
+      openAssignPop(assignBtn);
+      return;
+    }
     if (e.target.closest('#clear-filters')) {
       state.filter = 'All';
       state.search = '';
@@ -486,9 +528,14 @@
         applyLocal: { status: 'Held_' + String(cur ? cur.status : '').replace('Held_', ''), updatedAt: new Date().toISOString() },
       });
     } else if (e.target.id === 'qc-form') {
+      const qcStatus = $('#qc-status').value;
+      const reasonSel = $('#qc-reason');
+      const failReason = qcStatus === 'FAIL' && reasonSel ? reasonSel.value : '';
+      if (qcStatus === 'FAIL' && !failReason) { toast('Pick a fail reason first', true); return; }
       await act('POST', `/api/v1/orders/${id}/qc`, {
-        status: $('#qc-status').value,
+        status: qcStatus,
         notes: $('#qc-notes').value,
+        failReason,
       }, t('toast.qc'));
     } else if (e.target.id === 'comment-form') {
       const ta = $('#comment-input');
@@ -957,14 +1004,22 @@
       if (e.key === 'u' && can('users:list')) { location.hash = '#/users'; return; }
       if (e.key === 'c' && can('config:manage')) { location.hash = '#/config'; return; }
       if (e.key === 'p') { location.hash = '#/checklists'; return; }
+      if (e.key === 'w' && can('orders:transition')) { location.hash = '#/workload'; return; }
       if (e.key === 's' && can('si:list')) { location.hash = '#/si'; return; }
     }
 
     switch (e.key) {
-      case '/':
+      case '/': {
         e.preventDefault();
-        $('#search-input').focus();
+        const ordersPane = $('#view-orders');
+        if (ordersPane && ordersPane.classList.contains('hidden')) {
+          location.hash = '#/orders';
+          setTimeout(() => { const i = $('#search-input'); if (i) i.focus(); }, 140);
+        } else {
+          $('#search-input').focus();
+        }
         break;
+      }
       case 'h':
         e.preventDefault();
         location.hash = '#/home';

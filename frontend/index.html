@@ -97,29 +97,30 @@
 
 <section id="view-app" class="app hidden">
 
-  <aside class="sidebar">
-    <div class="brand brand-sm sidebar-brand brand-lockup">
-      <svg class="mark" viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#ff8200" d="m138.91,137.39c16.77-9.68,27.09-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c17.33,10,17.33,35.02,0,45.04L0,225.25l20.77,34.18,81.26-46.94c10.65-6.16,23.99,1.54,23.99,13.86v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-17.33-10-17.33-35.02,0-45.04v.04Z"/></svg>
+  <header class="topbar">
+    <div class="tb-brand">
+      <svg class="mark" viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="m138.91,137.39,16.77-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c10,5.78,10,20.02,0,25.8L0,225.25l20.77,34.18,81.26-46.94c6.16-3.56,13.99,1.54,13.99,8.66v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-15.13-8.74-15.13-30.42,0-39.16v.04Z"/></svg>
       <span class="product-name">Cockpit</span>
     </div>
-
-    <div class="bell-row">
-      <button type="button" id="bell-btn" class="bell-btn" aria-label="Notifications" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
-        </svg>
-        <span id="bell-badge" class="bell-badge hidden" aria-hidden="true"></span>
-      </button>
-      <span class="bell-label">Notifications</span>
-    </div>
-
-    <nav class="nav" aria-label="Main">
+    <nav class="nav tb-nav" aria-label="Main">
       <a href="#/home" class="nav-link" data-nav="home" id="nav-home">
         <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path>
         </svg>
         <span>My Work</span>
       </a>
+      <a href="#/workload" class="nav-link" data-nav="workload" id="nav-workload">
+        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>
+        <span>Workload</span>
+      </a>
+      <a href="#/quality" class="nav-link" data-nav="quality" id="nav-quality">
+        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span>Quality</span>
+      </a>
+    <a href="#/qcbench" class="nav-link" data-nav="qcbench" id="nav-qcbench">
+      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6v3H9z"/><path d="M10 6H7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3"/><path d="M9 13l2 2 4-4"/></svg>
+      <span>QC bench</span>
+    </a>
       <a href="#/orders" class="nav-link" data-nav="orders" id="nav-orders">
         <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18"></path><path d="M8 14h8"></path>
@@ -171,16 +172,23 @@
         <span>SI Management</span>
       </a>
     </nav>
-
-    <div class="sidebar-foot">
-      <button type="button" class="shortcut-hint" id="palette-btn" title="Command palette">
-        <span>Command palette</span><kbd>Ctrl K</kbd>
+    <div class="tb-right">
+      <button type="button" id="palette-btn" class="tb-cmd" title="Command palette">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <span>Search or jump to…</span>
+        <kbd>Ctrl K</kbd>
       </button>
-      <button type="button" class="shortcut-hint" id="settings-btn" title="Preferences">
-        <span>Preferences</span><kbd>⚙</kbd>
+      <button type="button" id="bell-btn" class="bell-btn" aria-label="Notifications" aria-expanded="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+        </svg>
+        <span id="bell-badge" class="bell-badge hidden" aria-hidden="true"></span>
       </button>
-      <button type="button" class="shortcut-hint" id="shortcuts-btn">
-        <span>Keyboard shortcuts</span><kbd>?</kbd>
+      <button type="button" class="icon-btn tb-icon" id="shortcuts-btn" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M7 10h.01M11 10h.01M15 10h.01M17 14H7"/></svg>
+      </button>
+      <button type="button" class="icon-btn tb-icon" id="settings-btn" title="Preferences" aria-label="Preferences">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
       </button>
       <div class="user-chip">
         <span class="avatar" id="user-avatar" aria-hidden="true"></span>
@@ -189,13 +197,13 @@
           <span id="user-role" class="muted"></span>
         </span>
         <button id="logout-btn" type="button" class="icon-btn" title="Sign out" aria-label="Sign out">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
             <path d="M15 17l5-5-5-5"></path><path d="M20 12H9"></path><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"></path>
           </svg>
         </button>
       </div>
     </div>
-  </aside>
+  </header>
 
   <div class="main">
 
@@ -215,6 +223,8 @@
           </span>
         </div>
       </header>
+
+      <section class="dash" id="dash" aria-label="Operations dashboard"></section>
 
       <div class="attention-summary" id="attention-summary"></div>
 
@@ -315,6 +325,50 @@
     </main>
 
     
+    <main id="view-workload" class="pane hidden">
+      <header class="page-head">
+        <div>
+          <h1>Workload</h1>
+          <p>Drag orders between people to balance the load — dropping assigns instantly. Clocked-in sessions tick live.</p>
+        </div>
+        <div class="page-head-actions">
+          <span class="refresh-note"><span id="workload-text"></span></span>
+          <button type="button" class="btn btn-ghost" id="workload-refresh">Refresh</button>
+        </div>
+      </header>
+      <section class="card dayplan" id="dayplan" aria-label="Day plan"></section>
+      <div id="workload-board" class="wl-board"></div>
+    </main>
+
+    <main id="view-quality" class="pane hidden">
+      <header class="page-head">
+        <div>
+          <h1>Quality</h1>
+          <p>QC results for the month — pass rate, rework and who needs a hand.</p>
+        </div>
+        <div class="page-head-actions">
+          <button type="button" class="btn btn-ghost" id="qc-prev" aria-label="Previous month">‹</button>
+          <span class="qc-month mono" id="qc-month"></span>
+          <button type="button" class="btn btn-ghost" id="qc-next" aria-label="Next month">›</button>
+        </div>
+      </header>
+      <div id="quality-content"></div>
+    </main>
+
+    <main id="view-qcbench" class="pane hidden">
+      <header class="page-head">
+        <div>
+          <h1>QC bench</h1>
+          <p>Work the review queue in one flow — tick the process, call the verdict, next order slides in.</p>
+        </div>
+        <div class="page-head-actions">
+          <span class="qcb-sit mono" id="qcb-sit" title="This sitting">0 checks</span>
+          <button type="button" class="btn btn-ghost" id="qcb-refresh" aria-label="Refresh queue">⟳</button>
+        </div>
+      </header>
+      <div id="qcbench-content" class="qcb-content"></div>
+    </main>
+
     <main id="view-checklists" class="pane hidden">
       <header class="page-head">
         <div>
@@ -609,6 +663,11 @@
   <script src="js/checklists.js"></script>
   <script src="js/manuals.js"></script>
   <script src="js/work.js"></script>
+  <script src="js/workload.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/dayplan.js"></script>
+  <script src="js/quality.js"></script>
+  <script src="js/qcbench.js"></script>
   <script src="js/si.js"></script>
   <script src="js/users.js"></script>
   <script src="js/config.js"></script>

@@ -22,6 +22,12 @@
     $('#nav-users').classList.toggle('hidden', !can('users:list'));
     $('#nav-config').classList.toggle('hidden', !can('config:manage'));
     $('#nav-checklists').classList.toggle('hidden', !can('orders:view'));
+    const navWorkload = $('#nav-workload');
+    if (navWorkload) navWorkload.classList.toggle('hidden', !can('orders:transition'));
+    const navQuality = $('#nav-quality');
+    if (navQuality) navQuality.classList.toggle('hidden', !can('qc:submit'));
+  const navBench = $('#nav-qcbench');
+  if (navBench) navBench.classList.toggle('hidden', !can('qc:submit'));
     $('#nav-products').classList.toggle('hidden', !can('orders:view'));
     $('#nav-manuals').classList.toggle('hidden', !can('orders:view'));
     updateSINavVisibility();
@@ -32,6 +38,8 @@
     if (can('orders:list')) loadUserBriefs();
     initSettingsPop();
     renderStatusChips();
+    const savedHash = localStorage.getItem('cockpit_last_hash:' + ((state.user || {}).username || ''));
+    if (savedHash && (!location.hash || location.hash === '#' || location.hash === '#/')) location.hash = savedHash;
     route();
     if (can('orders:list')) {
       loadOrders();

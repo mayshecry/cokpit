@@ -30,7 +30,7 @@
     list.innerHTML = notes.length
       ? notes.map((n) => `
           <div class="notif-item${n.readAt ? '' : ' unread'}${n.kind === 'flag' ? ' is-flag' : ''}" data-id="${n.orderId}" tabindex="0" role="button">
-            <div class="notif-title">${n.kind === 'flag' ? '<span class="flag-ico" aria-hidden="true">⚑</span> ' : ''}${esc(n.body || n.kind)}</div>
+            <div class="notif-title">${n.kind === 'flag' ? '<span class="flag-ico" aria-hidden="true">⚑</span> ' : n.kind === 'goal' ? '<span class="goal-ico" aria-hidden="true">🎯</span> ' : ''}${esc(n.body || n.kind)}</div>
             <div class="notif-meta">${esc(n.orderNumber)} · ${esc(relTime(n.createdAt))}${n.readAt ? '' : ' · <strong>new</strong>'}</div>
           </div>`).join('')
       : '<p class="empty-inline">Nothing here yet. Mentions of your username and flagged steps will show up.</p>';
