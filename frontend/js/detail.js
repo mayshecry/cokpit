@@ -11,6 +11,8 @@
     stopChecklistPolling();
     $('#detail-panel').classList.add('hidden');
     $('#orders-split').classList.add('no-detail');
+    $('#view-orders').classList.remove('order-open');
+    document.body.classList.remove('order-workspace');
     syncURL(); 
     renderTable();
   }
@@ -268,3 +270,9 @@
     }
   }
 
+
+/* clicking the scrim behind the centered order workspace closes it */
+(function () {
+  const scrim = document.querySelector('#view-orders .detail-scrim');
+  if (scrim) scrim.addEventListener('click', () => closeDetail());
+})();

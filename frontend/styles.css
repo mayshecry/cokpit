@@ -2645,7 +2645,7 @@ html[data-density='compact'] .detail-section { padding: 10px 0; }
 html[data-density='compact'] .page-head h1 { font-size: 20px; }
 html[data-density='compact'] .page-head { padding-top: 12px; padding-bottom: 9px; margin-bottom: 16px; }
 html[data-density='compact'] .pane { padding-top: 0; }
-html[data-density='compact'] .detail-card { top: 74px; max-height: calc(100vh - 96px); }
+html[data-density='compact'] .detail-card:not(#detail-panel) { top: 74px; max-height: calc(100vh - 96px); }
 
 
 #orders-table .quick-col { width: 102px; text-align: center; }
@@ -2780,12 +2780,12 @@ body.app-shell #view-orders .table-scroll {
   overflow-y: auto; overscroll-behavior: contain;
 }
 body.app-shell #view-orders .table-foot { flex: none; }
-body.app-shell #view-orders .detail-card {
+body.app-shell #view-orders .detail-card:not(#detail-panel) {
   position: sticky; top: 8px;
   max-height: calc(100% - 8px);
 }
 @media (max-width: 1080px) {
-  body.app-shell #view-orders .detail-card { position: static; max-height: none; }
+  body.app-shell #view-orders .detail-card:not(#detail-panel) { position: static; max-height: none; }
 }
 @media (max-width: 860px) {
   body.app-shell #view-orders { display: block; overflow: visible; }
@@ -3649,8 +3649,8 @@ html[data-theme='dark'] .wf-n { color: var(--brand-bright); }
 #view-orders.order-open > .controls { display: flex !important; }
 #view-orders.order-open > .bulk-bar:not(.hidden) { display: flex !important; }
 #view-orders.order-open .table-card { display: flex !important; }
-body.app-shell .detail-card,
-.detail-card {
+body.app-shell .detail-card:not(#detail-panel),
+.detail-card:not(#detail-panel) {
   position: fixed !important;
   top: 72px; right: 16px; bottom: 16px; left: auto;
   width: min(560px, calc(100vw - 32px));
@@ -4074,3 +4074,137 @@ html[data-theme='dark'] #view-orders .chipbar .chip.active { background: #eceef0
   #view-orders #orders-table tbody tr, #view-orders #orders-table .badge.sla-BREACHED { animation: none !important; }
 }
 #view-orders #orders-table tbody tr { cursor: pointer; }
+
+/* ============================================================
+   Order detail: centered full-cover workspace (was right drawer)
+   ============================================================ */
+.detail-scrim {
+  position: fixed; inset: 0; z-index: 76;
+  background: var(--scrim);
+  backdrop-filter: blur(9px) saturate(.92);
+  -webkit-backdrop-filter: blur(9px) saturate(.92);
+  opacity: 0; pointer-events: none;
+  transition: opacity .24s ease;
+}
+#view-orders.order-open .detail-scrim { opacity: 1; pointer-events: auto; }
+/* the scrim must never inherit the pane entrance stagger (qcRise fills opacity:1) */
+.pane.entering > .detail-scrim { animation: none; }
+
+#order-modal-wrap {
+  position: fixed; inset: 0; z-index: 80;
+  display: none; align-items: center; justify-content: center;
+  padding: 20px; pointer-events: none;
+}
+#view-orders.order-open #order-modal-wrap { display: flex; }
+/* safety: never show scrim/wrap when the panel itself is hidden */
+#view-orders.order-open:has(#detail-panel.hidden) .detail-scrim { opacity: 0; pointer-events: none; }
+#view-orders.order-open:has(#detail-panel.hidden) #order-modal-wrap { display: none; }
+#order-modal-wrap #detail-panel {
+  position: relative !important;
+  top: auto !important; right: auto !important; bottom: auto !important; left: auto !important;
+  transform: none;
+  width: min(1120px, 100%);
+  height: auto !important;
+  min-height: min(420px, calc(100vh - 40px)) !important;
+  max-height: calc(100vh - 40px) !important;
+  margin-bottom: 7vh; /* sit a touch above true center */
+  display: flex; flex-direction: column;
+  border: 1px solid var(--border-strong); border-radius: 22px;
+  background: var(--surface);
+  box-shadow: var(--shadow-lg), 0 48px 140px -48px rgba(0, 0, 0, .6);
+  overflow: hidden;
+  pointer-events: auto;
+  animation: detailPop .28s cubic-bezier(.2, .9, .3, 1.02);
+}
+#view-orders .detail-card.hidden { display: none; }
+@keyframes detailPop {
+  from { opacity: 0; transform: translateY(10px) scale(.965); }
+  to { opacity: 1; transform: none; }
+}
+@media (max-width: 760px) {
+  #order-modal-wrap { padding: 8px; }
+  #order-modal-wrap #detail-panel { max-height: calc(100vh - 16px) !important; border-radius: 16px; margin-bottom: 4vh; }
+}
+
+/* head: calm banner with actions pinned right */
+#view-orders .detail-head {
+  flex: 0 0 auto;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 16px;
+  padding: 18px 24px 14px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 88%, var(--brand-soft)), var(--surface));
+}
+#view-orders .detail-head h2 { font: 700 24px/1.15 var(--font-head); letter-spacing: -.015em; }
+#view-orders .detail-head-actions { display: flex; gap: 6px; align-items: center; }
+
+/* tab rail: pills, scrollable, never clipped mid-word */
+#view-orders .order-tabs {
+  flex: 0 0 auto;
+  display: flex; gap: 4px; align-items: center;
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-sunk);
+  overflow-x: auto; scrollbar-width: thin;
+}
+#view-orders .order-tab {
+  flex: 0 0 auto;
+  border: 0; background: transparent; border-radius: var(--radius-pill);
+  padding: 7px 14px; font: 600 12.5px var(--font-body); color: var(--muted);
+  transition: color .15s ease, background .15s ease, box-shadow .15s ease;
+  white-space: nowrap;
+}
+#view-orders .order-tab:hover { color: var(--text-2); background: var(--surface-hover); }
+#view-orders .order-tab[aria-selected="true"], #view-orders .order-tab.active {
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow-xs);
+}
+html[data-theme='dark'] #view-orders .order-tab[aria-selected="true"],
+html[data-theme='dark'] #view-orders .order-tab.active { background: #eceef0; color: #101114; }
+
+/* scroll body: airy, chunked, readable */
+#view-orders .detail-scroll:empty { display: none; }
+#view-orders .order-pages {
+  flex: 1 1 auto; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 20px 24px 28px;
+  font-size: 13.5px; line-height: 1.55; color: var(--text-2);
+}
+#view-orders .order-pager-foot {
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 10px 18px; border-top: 1px solid var(--border); background: var(--surface-sunk);
+}
+#view-orders .order-pager-foot button {
+  border: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-pill);
+  padding: 6px 13px; font: 600 12px var(--font-body); color: var(--muted);
+  transition: color .15s ease, border-color .15s ease;
+}
+#view-orders .order-pager-foot button:hover { color: var(--text); border-color: var(--border-strong); }
+#view-orders .order-page > * + * { margin-top: 18px; }
+#view-orders .order-pages .meta {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px 12px; margin: 0;
+}
+#view-orders .order-pages .meta .item {
+  background: var(--surface-sunk); border: 1px solid var(--border); border-radius: 12px;
+  padding: 10px 13px; display: flex; flex-direction: column; gap: 3px; min-width: 0;
+}
+#view-orders .order-pages .meta .k {
+  font: 700 9.5px var(--font-body); letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+#view-orders .order-pages .meta .v { font-size: 13.5px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+#view-orders .order-pages .meta .v .sub { display: block; font: 500 10.5px var(--font-mono); font-weight: 500; color: var(--muted); margin-top: 1px; }
+#view-orders .order-pages h3, #view-orders .order-pages .label, #view-orders .order-pages .detail-section > .title {
+  font: 700 10px var(--font-body); letter-spacing: .11em; text-transform: uppercase; color: var(--muted);
+}
+#view-orders .order-pages .action-block {
+  border: 1px solid var(--border); border-radius: 14px; padding: 13px 14px;
+  background: var(--surface-sunk);
+}
+#view-orders .order-pages .action-row { gap: 8px; }
+#view-orders .order-pages .detail-section > * + * { margin-top: 12px; }
+
+/* background list dims slightly while the workspace is open */
+
+@media (prefers-reduced-motion: reduce) {
+  #view-orders .detail-card { animation: none !important; }
+  .detail-scrim { transition: none; }
+}

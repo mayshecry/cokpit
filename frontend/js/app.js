@@ -68,7 +68,7 @@
     const cur = parseHash();
     const page = cur.page === 'orders' || cur.page === 'users' || cur.page === 'config' || cur.page === 'checklists' || cur.page === 'products' || cur.page === 'manuals' || cur.page === 'si' ? cur.page : 'home';
     const target = page === 'orders'
-      ? hashFor('orders', cur.orderId, stateParams())
+      ? hashFor('orders', state.selectedId || cur.orderId, stateParams())
       : hashFor(page, null, null);
     if (('#' + location.hash.replace(/^#/, '')) !== target) {
       history.replaceState(null, '', target);
