@@ -582,6 +582,17 @@
           control = `<label class="checkbox-label"><input id="${id}" name="${f.name}" type="checkbox"${f.checked ? ' checked' : ''}> ${esc(f.label)}</label>`;
         } else if (f.type === 'textarea') {
           control = `<textarea id="${id}" name="${f.name}" rows="3" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`;
+        } else if (f.type === 'combobox') {
+          const listId = `${id}-list`;
+          control = `<input id="${id}" name="${f.name}" type="text" value="${esc(f.value || '')}"
+            placeholder="${esc(f.placeholder || '')}"${f.required ? ' required' : ''}
+            list="${listId}" autocomplete="off" spellcheck="false">
+          <datalist id="${listId}">${
+            (f.options || []).map((o) => {
+              const val = typeof o === 'string' ? o : o.value;
+              return `<option value="${esc(val)}"></option>`;
+            }).join('')
+          }</datalist>`;
         } else {
           control = `<input id="${id}" name="${f.name}" type="${f.type || 'text'}" value="${esc(f.value || '')}"
             placeholder="${esc(f.placeholder || '')}"${f.required ? ' required' : ''}

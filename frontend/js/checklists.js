@@ -20,9 +20,7 @@
       if (state.checklistSelId && !state.checklists.some((c) => c.orderId === state.checklistSelId)) {
         state.checklistSelId = null;
       }
-      if (!state.checklistSelId && state.checklists.length) {
-        state.checklistSelId = state.checklists[0].orderId;
-      }
+      /* no auto-select: the pick list now opens as a centered workspace on row click */
       renderChecklistsList();
       renderChecklistPanel();
       
@@ -91,6 +89,11 @@
           <div class="detail-badges">
             ${badge('status-' + esc(statusClass(sel.status)), statusLabel(sel.status))}
           </div>
+        </div>
+        <div class="detail-head-actions">
+          <button type="button" class="icon-btn" data-act="cl-close" aria-label="Close pick list">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          </button>
         </div>
       </div>
       <div class="cl-panel-progress">

@@ -5,9 +5,17 @@
    structured fail reasons, then the next order slides in. Built for volume:
    keyboard-first (P/F verdict, Enter submit, arrows walk the queue). */
 
+function qcbLoadFilters() {
+  try {
+    const f = JSON.parse(localStorage.getItem('cockpit_qcb_filters') || '{}');
+    return { product: f.product || '', customer: f.customer || '' };
+  } catch (e) { return { product: '', customer: '' }; }
+}
+
 const QCBench = {
   queue: [],
   reasons: [],
+  /* filters initialised once below the object literal */
   idx: 0,
   step: 0,
   checks: {},          // key -> bool for the current order
@@ -16,6 +24,9 @@ const QCBench = {
   note: '',
   sit: { n: 0, pass: 0, fail: 0, streak: 0, best: 0, startedAt: Date.now() },
   poll: null,
+  list: [],            // queue after product/customer filters
+  filters: { product: '', customer: '' },
+  ctxFor: 0,
 
   STEPS: [
     {
@@ -50,6 +61,7 @@ const QCBench = {
 
   async load() {
     const box = $('#qcbench-content');
+    QCBench.filters = qcbLoadFilters();
     if (!QCBench.reasons.length) {
       try { QCBench.reasons = (await api('GET', '/api/v1/qc/reasons')).reasons || []; } catch (e) { QCBench.reasons = []; }
     }
@@ -66,14 +78,9 @@ const QCBench = {
   async refresh(quiet) {
     try {
       const d = await api('GET', '/api/v1/qc/queue');
-      const prevId = QCBench.queue[QCBench.idx] && QCBench.queue[QCBench.idx].id;
+      const prevId = (QCBench.list[QCBench.idx] || QCBench.cur() || {}).id;
       QCBench.queue = d.queue || [];
-      if (prevId != null) {
-        const at = QCBench.queue.findIndex((q) => q.id === prevId);
-        QCBench.idx = at >= 0 ? at : Math.min(QCBench.idx, Math.max(0, QCBench.queue.length - 1));
-      } else {
-        QCBench.idx = Math.min(QCBench.idx, Math.max(0, QCBench.queue.length - 1));
-      }
+      QCBench.applyFilter(prevId);
       QCBench.render();
     } catch (err) {
       if (!quiet) $('#qcbench-content').innerHTML = `<p class="muted">Queue unavailable: ${esc(err.message)}</p>`;
@@ -88,7 +95,43 @@ const QCBench = {
     QCBench.note = '';
   },
 
-  cur() { return QCBench.queue[QCBench.idx] || null; },
+  cur() { return QCBench.list[QCBench.idx] || null; },
+
+  applyFilter(prevId) {
+    const f = QCBench.filters;
+    QCBench.list = QCBench.queue.filter((it) =>
+      (!f.product || (it.productCode || '').split(' + ').includes(f.product)) &&
+      (!f.customer || (it.customer || '') === f.customer));
+    // a filter that hid everything is worse than no filter: say so, keep list
+    if (prevId != null) {
+      const at = QCBench.list.findIndex((q) => q.id === prevId);
+      QCBench.idx = at >= 0 ? at : Math.min(QCBench.idx, Math.max(0, QCBench.list.length - 1));
+    } else {
+      QCBench.idx = Math.min(QCBench.idx, Math.max(0, QCBench.list.length - 1));
+    }
+  },
+
+  setFilter(key, val) {
+    QCBench.filters[key] = val;
+    localStorage.setItem('cockpit_qcb_filters', JSON.stringify(QCBench.filters));
+    const keep = QCBench.cur() && QCBench.cur().id;
+    QCBench.applyFilter(keep);
+    if (!QCBench.cur() && QCBench.list.length) QCBench.idx = 0;
+    QCBench.resetOrderState();
+    QCBench.render();
+  },
+
+  filterOptions(key) {
+    const counts = new Map();
+    for (const it of QCBench.queue) {
+      const vals = key === 'product' ? (it.productCode || '').split(' + ').filter(Boolean) : [it.customer || ''];
+      for (const v of vals) {
+        if (!v) continue;
+        counts.set(v, (counts.get(v) || 0) + 1);
+      }
+    }
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  },
 
   sitLabel() {
     const s = QCBench.sit;
@@ -120,12 +163,32 @@ const QCBench = {
       <div class="qcb-wrap">
         <aside class="qcb-rail">
           <header class="qcb-rail-head">
-            <span>Queue</span><strong class="mono">${QCBench.queue.length} waiting</strong>
+            <div class="qcb-rail-title">
+              <span>Queue</span>
+              <strong class="mono">${QCBench.filters.product || QCBench.filters.customer
+                ? QCBench.list.length + ' of ' + QCBench.queue.length + ' waiting'
+                : QCBench.queue.length + ' waiting'}</strong>
+            </div>
+            <div class="qcb-filters">
+              <label class="qcb-f"><span>Product</span>
+                <select id="qcb-f-product">
+                  <option value="">All products</option>
+                  ${QCBench.filterOptions('product').map(([v, n]) => `<option value="${esc(v)}" ${QCBench.filters.product === v ? 'selected' : ''}>${esc(v)} · ${n}</option>`).join('')}
+                </select>
+              </label>
+              <label class="qcb-f"><span>Customer</span>
+                <select id="qcb-f-customer">
+                  <option value="">All customers</option>
+                  ${QCBench.filterOptions('customer').map(([v, n]) => `<option value="${esc(v)}" ${QCBench.filters.customer === v ? 'selected' : ''}>${esc(v)} · ${n}</option>`).join('')}
+                </select>
+              </label>
+            </div>
           </header>
           <ul class="qcb-list">
-            ${QCBench.queue.map((it, i) => `
+            ${QCBench.list.map((it, i) => `
               <li class="qcb-item ${i === QCBench.idx ? 'active' : ''} ${it.targetAt < Date.now() ? 'breached' : ''}" data-i="${i}">
                 <span class="mono qcb-item-num">${esc(it.orderNumber)}</span>
+                ${it.productCode ? `<span class="qcb-pchip mono">${esc(it.productCode)}</span>` : ''}
                 <span class="qcb-item-meta">${esc(it.customer || '—')} · ${esc(it.device || '—')}</span>
                 <span class="qcb-item-foot mono">${it.tech ? '@' + esc(it.tech) : 'unassigned'} · ${waitLabel(it.updatedAt)} in queue</span>
               </li>`).join('')}
@@ -135,11 +198,11 @@ const QCBench = {
           <header class="qcb-head">
             <div>
               <div class="qcb-ord mono">${esc(q.orderNumber)}</div>
-              <div class="qcb-meta">${esc(q.customer || '—')} · ${esc(q.device || '—')} · tech ${q.tech ? '@' + esc(q.tech) : '—'}</div>
+              <div class="qcb-meta">${q.productCode ? `<span class="qcb-pchip mono">${esc(q.productCode)}</span>` : ''}${esc(q.customer || '—')} · ${esc(q.device || '—')} · tech ${q.tech ? '@' + esc(q.tech) : '—'}</div>
             </div>
             <div class="qcb-head-right">
               <span class="qcb-wait mono ${breach ? 'bad-t' : ''}">${waitLabel(q.updatedAt)} in queue${breach ? ' · past target' : ''}</span>
-              <span class="qcb-pos mono">${QCBench.idx + 1} / ${QCBench.queue.length}</span>
+              <span class="qcb-pos mono">${QCBench.idx + 1} / ${QCBench.list.length}</span>
             </div>
           </header>
           <ol class="qcb-steps">
@@ -151,25 +214,91 @@ const QCBench = {
           <div class="qcb-panel">
             ${QCBench.step < 3 ? `
               <h3>${esc(QCBench.STEPS[QCBench.step].title)}</h3>
-              <p class="muted qcb-hint">Tick everything before moving on — untick to flag a problem.</p>
+              <p class="muted qcb-hint">Tick everything before moving on — keys 1-3 toggle, Enter continues.</p>
               <ul class="qcb-checks">
-                ${QCBench.STEPS[QCBench.step].checks.map(([k, label]) => `
+                ${QCBench.STEPS[QCBench.step].checks.map(([k, label], i) => `
                   <li><label class="qcb-check ${QCBench.checks[k] ? 'on' : ''}">
                     <input type="checkbox" data-k="${k}" ${QCBench.checks[k] ? 'checked' : ''}>
-                    <span class="qcb-box" aria-hidden="true"></span>
-                    <span>${esc(label)}</span>
+                    <span class="qcb-box" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+                    <span class="qcb-keycap mono" aria-hidden="true">${i + 1}</span>
+                    <span class="qcb-check-t">${esc(label)}</span>
                   </label></li>`).join('')}
               </ul>` : QCBench.verdictHtml()}
           </div>
           <footer class="qcb-foot">
             <button type="button" class="btn btn-ghost" id="qcb-back" ${QCBench.step === 0 ? 'disabled' : ''}>← Back</button>
-            <span class="qcb-keys muted">P pass · F fail · Enter submit · ↑/↓ queue</span>
+            <span class="qcb-keys muted">1-3 tick · P pass · F fail · Enter submit · ↑/↓ queue</span>
             ${QCBench.step < 3
               ? `<button type="button" class="btn btn-primary" id="qcb-next" ${QCBench.stepDone() ? '' : 'disabled'}>Next step →</button>`
               : `<button type="button" class="btn btn-primary" id="qcb-submit" ${QCBench.canSubmit() ? '' : 'disabled'}>Submit & next →</button>`}
           </footer>
         </section>
+        <aside class="qcb-ctx">
+          <div class="qcb-ctx-card">
+            <header>Order context</header>
+            <dl>
+              <div><dt>Customer</dt><dd>${esc(q.customer || '—')}</dd></div>
+              <div><dt>Device</dt><dd>${esc(q.device || '—')}</dd></div>
+              <div><dt>Tech</dt><dd>${q.tech ? '@' + esc(q.tech) : 'unassigned'}</dd></div>
+              <div><dt>In queue</dt><dd class="mono">${waitLabel(q.updatedAt)}</dd></div>
+              <div><dt>Target</dt><dd class="mono ${breach ? 'bad-t' : ''}">${targetLabel(q.targetAt)}</dd></div>
+              <div><dt>Product</dt><dd class="mono">${esc(q.productCode || '—')}${q.productName ? ' · ' + esc(q.productName) : ''}</dd></div>
+              <div><dt>Position</dt><dd class="mono">${QCBench.idx + 1} of ${QCBench.list.length}</dd></div>
+            </dl>
+          </div>
+          <div class="qcb-ctx-card">
+            <header>History · same customer / product</header>
+            <div class="qcb-hist" id="qcb-hist"><span class="muted">Loading…</span></div>
+          </div>
+          <div class="qcb-ctx-card">
+            <header>This sitting</header>
+            <div class="qcb-sitrow mono"><span>${QCBench.sit.n} checked</span><span>${QCBench.sit.n ? ((QCBench.sit.pass / QCBench.sit.n) * 100).toFixed(0) + '% pass' : '—'}</span></div>
+            <div class="qcb-sitbar" aria-hidden="true"><i style="width:${QCBench.sit.n ? (QCBench.sit.pass / QCBench.sit.n) * 100 : 0}%"></i></div>
+            <div class="qcb-sitrow mono"><span>streak ${QCBench.sit.streak}</span><span>best ${QCBench.sit.best}</span></div>
+          </div>
+        </aside>
       </div>`;
+    QCBench.loadContext(q.id);
+  },
+
+  async loadContext(id) {
+    QCBench.ctxFor = id;
+    const box = $('#qcb-hist');
+    const q = QCBench.cur();
+    if (!box) return;
+    if (!q || (!(q.customer || '') && !(q.productCode || ''))) {
+      box.innerHTML = '<span class="muted">No customer or product linked to this order.</span>';
+      return;
+    }
+    try {
+      const d = await api('GET', '/api/v1/qc/context/' + id);
+      if (QCBench.ctxFor !== id) return;
+      const rows = d.recent || [];
+      if (!rows.length) {
+        box.innerHTML = '<span class="muted">First QC for this customer / product.</span>';
+        return;
+      }
+      const fails = rows.filter((r) => r.status === 'FAIL').length;
+      box.innerHTML = `
+        <div class="qcb-hist-sum mono"><span>${rows.length} recent</span><span class="${fails ? 'bad-t' : 'good-t'}">${fails} failed</span></div>
+        ${rows.map((r) => `
+          <div class="qcb-hist-row" title="${esc(r.notes || r.status)}">
+            <span class="qcb-dot ${r.status === 'PASS' ? 'pass' : 'fail'}" aria-hidden="true"></span>
+            <span class="mono">${esc(r.orderNumber)}</span>
+            <span class="qcb-hist-why">${esc(r.notes || (r.status === 'PASS' ? 'passed' : 'failed'))}</span>
+            ${r.sameProduct ? '<span class="qcb-pchip mono">product</span>' : ''}
+            <span class="mono muted">${waitLabel(r.at)}</span>
+          </div>`).join('')}`;
+    } catch (e) {
+      if (QCBench.ctxFor === id) box.innerHTML = '<span class="muted">History unavailable.</span>';
+    }
+  },
+
+  doneUpto(k) {
+    for (let i = 0; i < k && i < 3; i++) {
+      if (!QCBench.STEPS[i].checks.every(([ck]) => QCBench.checks[ck])) return false;
+    }
+    return true;
   },
 
   stepDone() {
@@ -187,13 +316,19 @@ const QCBench = {
       <h3>Call it</h3>
       <p class="muted qcb-hint">Pass closes the order. Fail sends it back to the tech with your reason.</p>
       <div class="qcb-verdicts">
-        <button type="button" class="qcb-v pass ${v === 'PASS' ? 'sel' : ''}" data-v="PASS">✓ Pass<span>order completes</span></button>
-        <button type="button" class="qcb-v fail ${v === 'FAIL' ? 'sel' : ''}" data-v="FAIL">✕ Fail<span>back to rework</span></button>
+        <button type="button" class="qcb-v pass ${v === 'PASS' ? 'sel' : ''}" data-v="PASS">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+          <span class="qcb-v-t">Pass</span><span class="qcb-v-s">order completes</span><span class="qcb-keycap mono" aria-hidden="true">P</span>
+        </button>
+        <button type="button" class="qcb-v fail ${v === 'FAIL' ? 'sel' : ''}" data-v="FAIL">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <span class="qcb-v-t">Fail</span><span class="qcb-v-s">back to rework</span><span class="qcb-keycap mono" aria-hidden="true">F</span>
+        </button>
       </div>
       ${v === 'FAIL' ? `
         <div class="qcb-reasons" role="radiogroup" aria-label="Fail reason">
           ${QCBench.reasons.map((r, i) => `
-            <button type="button" class="chip qcb-reason ${QCBench.reason === r ? 'active' : ''}" data-r="${esc(r)}" title="key ${i + 1}">${esc(r)}</button>`).join('')}
+            <button type="button" class="chip qcb-reason ${QCBench.reason === r ? 'active' : ''}" data-r="${esc(r)}" title="key ${i + 1}"><span class="qcb-keycap mono" aria-hidden="true">${i + 1}</span>${esc(r)}</button>`).join('')}
         </div>
         <textarea class="qcb-note" id="qcb-note" rows="2" placeholder="Extra note for the tech (optional) — what exactly was wrong?">${esc(QCBench.note)}</textarea>` : ''}
       ${v === 'PASS' ? `<textarea class="qcb-note" id="qcb-note" rows="2" placeholder="Note (optional) — anything worth remembering?">${esc(QCBench.note)}</textarea>` : ''}`;
@@ -214,7 +349,7 @@ const QCBench = {
       const step = e.target.closest('.qcb-step');
       if (step) {
         const k = Number(step.dataset.step);
-        if (k <= QCBench.step) { QCBench.step = k; QCBench.render(); }
+        if (k <= QCBench.step || QCBench.doneUpto(k)) { QCBench.step = k; QCBench.render(); }
         return;
       }
       const v = e.target.closest('.qcb-v');
@@ -238,6 +373,8 @@ const QCBench = {
       if (e.target.closest('#qcb-again')) { QCBench.refresh(false); return; }
     });
     box.addEventListener('change', (e) => {
+      if (e.target.id === 'qcb-f-product') { QCBench.setFilter('product', e.target.value); return; }
+      if (e.target.id === 'qcb-f-customer') { QCBench.setFilter('customer', e.target.value); return; }
       if (!e.target.matches('.qcb-checks input')) return;
       QCBench.checks[e.target.dataset.k] = e.target.checked;
       e.target.closest('.qcb-check').classList.toggle('on', e.target.checked);
@@ -290,8 +427,10 @@ const QCBench = {
     if (bench) bench.classList.add('qcb-out');
     setTimeout(async () => {
       QCBench.resetOrderState();
-      QCBench.queue.splice(QCBench.idx, 1);
-      if (QCBench.idx >= QCBench.queue.length) QCBench.idx = 0;
+      const gone = QCBench.list[QCBench.idx];
+      if (gone) QCBench.queue = QCBench.queue.filter((x) => x.id !== gone.id);
+      QCBench.applyFilter(null);
+      if (QCBench.idx >= QCBench.list.length) QCBench.idx = 0;
       QCBench.render();
       const nb = $('#qcbench-content .qcb-bench');
       if (nb) nb.classList.add('qcb-in');
@@ -299,6 +438,12 @@ const QCBench = {
     }, 240);
   },
 };
+
+function targetLabel(ms) {
+  const d = ms - Date.now();
+  if (d < 0) return 'past by ' + waitLabel(ms);
+  return 'due in ' + waitLabel(Date.now() - d);
+}
 
 function waitLabel(ms) {
   const h = (Date.now() - ms) / 3600000;
@@ -324,6 +469,15 @@ document.addEventListener('keydown', (e) => {
     else if (QCBench.canSubmit()) QCBench.submit();
     e.preventDefault();
   } else if (e.key >= '1' && e.key <= '9') {
+    if (QCBench.step < 3 && e.key <= '3') {
+      const ck = QCBench.STEPS[QCBench.step].checks[Number(e.key) - 1];
+      if (ck) {
+        QCBench.checks[ck[0]] = !QCBench.checks[ck[0]];
+        QCBench.render();
+        e.preventDefault();
+      }
+      return;
+    }
     if (QCBench.verdict === 'FAIL') {
       const r = QCBench.reasons[Number(e.key) - 1];
       if (r) {
@@ -334,8 +488,8 @@ document.addEventListener('keydown', (e) => {
       }
     }
   } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    if (!QCBench.queue.length) return;
-    QCBench.idx = (QCBench.idx + (e.key === 'ArrowDown' ? 1 : -1) + QCBench.queue.length) % QCBench.queue.length;
+    if (!QCBench.list.length) return;
+    QCBench.idx = (QCBench.idx + (e.key === 'ArrowDown' ? 1 : -1) + QCBench.list.length) % QCBench.list.length;
     QCBench.resetOrderState();
     QCBench.render();
     e.preventDefault();

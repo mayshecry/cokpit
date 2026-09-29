@@ -396,6 +396,18 @@
         </div>
       </div>
 
+      <div class="detail-scrim" aria-hidden="true"></div>
+      <div id="checklist-modal-wrap">
+        <aside id="checklist-panel" class="card detail-card hidden" aria-label="Pick list">
+          <form id="pick-scan-form" class="pick-scan" autocomplete="off">
+            <input id="pick-scan-input" placeholder="Scan barcode → artikel, locatie of ordernummer" spellcheck="false" aria-label="Scan barcode voor pickregel">
+            <div id="pick-scan-feedback" class="scan-feedback" aria-live="polite"></div>
+            <p class="scan-hint">artikel → vinkt de regel af · locatie → highlight · ordernummer → wissel van picklijst</p>
+          </form>
+          <div id="checklist-panel-body"></div>
+        </aside>
+      </div>
+
       <div class="split" id="checklists-split">
         <div class="card table-card">
           <div class="table-scroll">
@@ -417,14 +429,6 @@
           </div>
         </div>
 
-        <aside id="checklist-panel" class="card detail-card hidden" aria-label="Pick list">
-          <form id="pick-scan-form" class="pick-scan" autocomplete="off">
-            <input id="pick-scan-input" placeholder="Scan barcode → artikel, locatie of ordernummer" spellcheck="false" aria-label="Scan barcode voor pickregel">
-            <div id="pick-scan-feedback" class="scan-feedback" aria-live="polite"></div>
-            <p class="scan-hint">artikel → vinkt de regel af · locatie → highlight · ordernummer → wissel van picklijst</p>
-          </form>
-          <div id="checklist-panel-body"></div>
-        </aside>
       </div>
     </main>
 
@@ -449,6 +453,13 @@
         </div>
       </div>
 
+      <div class="detail-scrim" aria-hidden="true"></div>
+      <div class="detail-modal-wrap">
+        <aside id="product-panel" class="card detail-card hidden" aria-label="Manual editor">
+          <div id="product-panel-body"></div>
+        </aside>
+      </div>
+
       <div class="split" id="products-split">
         <div class="card table-card">
           <div class="table-scroll">
@@ -471,9 +482,6 @@
           </div>
         </div>
 
-        <aside id="product-panel" class="card detail-card hidden" aria-label="Manual editor">
-          <div id="product-panel-body"></div>
-        </aside>
       </div>
     </main>
 
@@ -499,6 +507,13 @@
         </div>
       </div>
 
+      <div class="detail-scrim" aria-hidden="true"></div>
+      <div class="detail-modal-wrap">
+        <aside id="manual-panel" class="card detail-card hidden" aria-label="Manual">
+          <div id="manual-panel-body"></div>
+        </aside>
+      </div>
+
       <div class="split" id="manuals-split">
         <div class="card table-card">
           <div class="table-scroll">
@@ -522,9 +537,6 @@
           </div>
         </div>
 
-        <aside id="manual-panel" class="card detail-card hidden" aria-label="Manual">
-          <div id="manual-panel-body"></div>
-        </aside>
       </div>
     </main>
 
@@ -542,6 +554,13 @@
           <button type="button" class="btn btn-primary" id="si-new-btn" data-perm="si:create"><span aria-hidden="true">+</span> New SI</button>
         </div>
       </header>
+
+      <div class="detail-scrim" aria-hidden="true"></div>
+      <div class="detail-modal-wrap">
+        <aside id="si-detail" class="card detail-card hidden" aria-label="SI Detail">
+          <div id="si-detail-body"></div>
+        </aside>
+      </div>
 
       <div class="si-layout">
         <div class="card si-sidebar">
@@ -585,9 +604,6 @@
           </div>
         </div>
 
-        <aside id="si-detail" class="card detail-card hidden" aria-label="SI Detail">
-          <div id="si-detail-body"></div>
-        </aside>
       </div>
     </main>
 
@@ -603,16 +619,21 @@
         </div>
       </header>
 
-      <div class="role-legend" id="role-legend"></div>
-
-      <div class="card table-card">
-        <div class="table-scroll">
+      <section class="card ud-card">
+        <div class="cfg-sec-head">
+          <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.4 19.2a5.6 5.6 0 0 1 11.2 0"/><circle cx="17" cy="9.4" r="2.5"/><path d="M15.4 14.2a5 5 0 0 1 5.3 4.6"/></svg></div>
+          <div class="cfg-sec-txt"><h3>Users</h3><p class="muted">Accounts, roles and department membership. Hover a row to manage it.</p></div>
+          <div class="cfg-sec-acts">
+            <span class="cfg-pill neutral" id="user-count"></span>
+            <input id="user-filter" class="cfg-search" type="search" placeholder="Filter users&hellip;" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="table-scroll ud-scroll">
           <table id="users-table">
             <thead>
               <tr>
-                <th class="num" style="width:76px">ID</th>
-                <th>Username</th>
-                <th>Display name</th>
+                <th class="ud-id">ID</th>
+                <th>User</th>
                 <th>Role</th>
                 <th>Departments</th>
                 <th>Created</th>
@@ -622,10 +643,17 @@
             <tbody></tbody>
           </table>
         </div>
-        <div class="table-foot"><span id="user-count" class="muted"></span></div>
-      </div>
+      </section>
 
-      <div class="card" id="department-panel" style="margin-top:24px;">
+      <section class="card ud-card">
+        <div class="cfg-sec-head">
+          <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.2c0 4.6 3.2 8.9 7.5 9.8 4.3-.9 7.5-5.2 7.5-9.8V6Z"/><path d="m9.2 11.8 2.1 2.1 3.4-3.9"/></svg></div>
+          <div class="cfg-sec-txt"><h3>Role capabilities</h3><p class="muted">What every role unlocks. Expand a row for the full permission list.</p></div>
+        </div>
+        <div class="role-legend" id="role-legend"></div>
+      </section>
+
+      <div class="card ud-card" id="department-panel">
         <h3>Departments</h3>
         <p class="muted">Loading...</p>
       </div>

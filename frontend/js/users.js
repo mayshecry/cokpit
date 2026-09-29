@@ -3,21 +3,50 @@
   
 
   function renderRoleLegend() {
+    const host = $('#role-legend');
     const byRole = {};
     ROLES.forEach((r) => { byRole[r] = 0; });
     for (const u of state.users) if (byRole[u.role] !== undefined) byRole[u.role]++;
     const extras = (state.user && state.user.permissions && state.user.permissions.length) || 0;
     const extraNote = extras
-      ? `<p class="muted dept-extra-note">Your account also receives <strong>${extras}</strong> permission${extras === 1 ? '' : 's'} through your department membership${extras === 1 ? '' : 's'} — on top of your role.</p>`
+      ? `<p class="muted u-note">Your account also receives <strong>${extras}</strong> permission${extras === 1 ? '' : 's'} through your department membership${extras === 1 ? '' : 's'} — on top of your role.</p>`
       : '';
-    $('#role-legend').innerHTML = extraNote + ROLES.map((r) => `
-      <div class="role-card">
-        <div class="head">${badge('role-' + r, r)}<span class="n">${byRole[r]} user${byRole[r] === 1 ? '' : 's'}</span></div>
-        <div class="perm-list">${rolePerms[r].map((p) => `<span class="perm">${esc(p)}</span>`).join('')}</div>
-      </div>`).join('');
+    host.innerHTML = extraNote + ROLES.map((r) => {
+      const perms = rolePerms[r] || [];
+      const head = perms.slice(0, 4);
+      const rest = perms.slice(4);
+      return `<div class="u-role-row" data-role="${r}">
+        <span class="u-role-id">${badge('role-' + r, r)}</span>
+        <span class="cfg-pill neutral u-role-n">${byRole[r]} user${byRole[r] === 1 ? '' : 's'}</span>
+        <span class="u-role-perms">
+          ${head.map((p) => `<span class="perm">${esc(p)}</span>`).join('')}
+          ${rest.length ? `<span class="u-more">${rest.map((p) => `<span class="perm">${esc(p)}</span>`).join('')}</span>
+            <button type="button" class="u-exp" data-exp="${r}">+${rest.length} more</button>` : ''}
+        </span>
+      </div>`;
+    }).join('');
+    if (!host._expBound) {
+      host._expBound = true;
+      host.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-exp]');
+        if (!b) return;
+        const row = b.closest('.u-role-row');
+        const on = row.classList.toggle('open');
+        const n = row.querySelectorAll('.u-more .perm').length;
+        b.textContent = on ? 'show less' : `+${n} more`;
+      });
+    }
   }
 
   var userDepartments = {};
+  let userFilter = '';
+
+  function bindUserFilter() {
+    const inp = $('#user-filter');
+    if (!inp || inp._udBound) return;
+    inp._udBound = true;
+    inp.addEventListener('input', () => { userFilter = inp.value; renderUsers(false); });
+  }
 
   async function loadUserDepartment(userId) {
     try {
@@ -36,6 +65,7 @@
 
   async function renderUsers(reload) {
     if (!can('users:list')) return;
+    bindUserFilter();
     var canManage = can('users:manage');
     if (reload) {
       try {
@@ -54,10 +84,10 @@
     await loadDepartments();
 
     const tbody = $('#users-table tbody');
-    if (state.loadingUsers) { tbody.innerHTML = skeletonRows(4, 7); return; }
+    if (state.loadingUsers) { tbody.innerHTML = skeletonRows(4, 6); return; }
 
     if (!state.users.length) {
-      tbody.innerHTML = `<tr><td colspan="7"><div class="empty">
+      tbody.innerHTML = `<tr><td colspan="6"><div class="empty">
         <div class="empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7.5" r="3.5"/><path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"/></svg></div>
         <h3>No users</h3><p>Add your first operator to get started.</p></div></td></tr>`;
       $('#user-count').textContent = '';
@@ -65,32 +95,51 @@
       return;
     }
 
-    tbody.innerHTML = state.users.map((u) => {
+    const q = (userFilter || '').trim().toLowerCase();
+    const shown = q
+      ? state.users.filter((u) => {
+          const depts = (userDepartments[u.id] || []).map((d) => d.name).join(' ');
+          return (u.username + ' ' + (u.displayName || '') + ' ' + u.role + ' ' + depts).toLowerCase().includes(q);
+        })
+      : state.users;
+
+    tbody.innerHTML = shown.map((u) => {
       const isMe = u.id === (state.user && state.user.id);
       const depts = userDepartments[u.id] || [];
-      var actionsHtml = '<span class="row-actions">';
+      const initial = esc(((u.displayName || u.username || '?').trim()[0] || '?').toUpperCase());
+      var actionsHtml = `<span class="row-actions ud-acts${canManage ? '' : ' static'}">`;
       if (canManage) {
-        actionsHtml += `<button class="btn btn-secondary btn-sm" data-act="role" data-id="${u.id}">Role</button>`;
-        actionsHtml += `<button class="btn btn-secondary btn-sm" data-act="pwd" data-id="${u.id}">Password</button>`;
-        actionsHtml += `<button class="btn btn-secondary btn-sm" data-act="dept" data-id="${u.id}">Dept</button>`;
-        if (!isMe) actionsHtml += `<button class="btn btn-secondary btn-sm danger-ghost" data-act="del" data-id="${u.id}">Delete</button>`;
+        actionsHtml += `<button class="btn btn-ghost btn-sm" data-act="role" data-id="${u.id}">Role</button>`;
+        actionsHtml += `<button class="btn btn-ghost btn-sm" data-act="pwd" data-id="${u.id}">Password</button>`;
+        actionsHtml += `<button class="btn btn-ghost btn-sm" data-act="dept" data-id="${u.id}">Dept</button>`;
+        if (!isMe) actionsHtml += `<button class="btn btn-ghost btn-sm danger-ghost" data-act="del" data-id="${u.id}">Delete</button>`;
       } else {
         actionsHtml += '<span class="muted">View only</span>';
       }
       actionsHtml += '</span>';
       return `
-      <tr>
-        <td class="mono">${u.id}</td>
-        <td class="strong">${esc(u.username)}${isMe ? ' <span class="muted">(you)</span>' : ''}</td>
-        <td>${esc(u.displayName || '—')}</td>
+      <tr class="u-row">
+        <td class="ud-id mono">${u.id}</td>
+        <td>
+          <span class="u-user">
+            <span class="ud-ava role-${esc(u.role)}">${initial}</span>
+            <span class="u-user-t">
+              <span class="u-user-n">${esc(u.displayName || u.username)}${isMe ? ' <span class="chip chip-ok u-you">you</span>' : ''}</span>
+              <span class="u-user-h mono">@${esc(u.username)}</span>
+            </span>
+          </span>
+        </td>
         <td>${badge('role-' + esc(u.role), u.role)}</td>
         <td>${depts.length > 0 ? depts.map((d) => `<span class="dept-tag">${esc(d.name)}</span>`).join(' ') : '<span class="muted">—</span>'}</td>
         <td class="time">${fmtTime(u.createdAt)}</td>
         <td class="actions">${actionsHtml}</td>
       </tr>`;
-    }).join('');
+    }).join('') || `<tr><td colspan="6"><div class="empty"><h3>No match</h3><p>No user matches “${esc(userFilter)}”.</p></div></td></tr>`;
 
-    $('#user-count').textContent = `${state.users.length} user${state.users.length === 1 ? '' : 's'}`;
+    const uc = $('#user-count');
+    if (uc) uc.textContent = q
+      ? `${shown.length} of ${state.users.length} users`
+      : `${state.users.length} user${state.users.length === 1 ? '' : 's'}`;
     renderRoleLegend();
     renderDepartmentPanel();
   }
@@ -197,11 +246,16 @@
     if (!panel) return;
     var depts = state.departments || [];
     var canManage = can('users:manage');
-    var html = '<div class="dept-panel-header"><h3>Departments</h3>';
-    if (canManage) {
-      html += '<button type="button" class="btn btn-sm btn-primary" id="new-dept-btn">+ New Department</button>';
-    }
-    html += '</div>';
+    var memberTotal = 0;
+    for (var mi = 0; mi < depts.length; mi++) memberTotal += deptMemberCount(depts[mi].id);
+    var html = `<div class="cfg-sec-head">
+      <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 21V8.2L12 3.5l8.5 4.7V21"/><path d="M8.5 21v-5.5h7V21"/><path d="M3.5 21h17"/></svg></div>
+      <div class="cfg-sec-txt"><h3>Departments</h3><p class="muted">Groups that grant extra permissions to their members.</p></div>
+      <div class="cfg-sec-acts">
+        <span class="cfg-pill neutral">${depts.length} dept${depts.length === 1 ? '' : 's'}${memberTotal ? ' · ' + memberTotal + ' seats' : ''}</span>
+        ${canManage ? '<button type="button" class="btn btn-primary btn-sm" id="new-dept-btn">+ New Department</button>' : ''}
+      </div>
+    </div>`;
     if (canManage) {
       html += '<div class="dept-matrix-note muted"><span class="dot dot-brand" aria-hidden="true"></span> ' +
         esc(t('dept.hint')) + '</div>';

@@ -134,6 +134,12 @@
     if (page === 'checklists' && !can('orders:view')) { location.replace(fallbackHash()); return; }
     if (page === 'products' && !can('orders:list')) { location.replace(fallbackHash()); return; }
     if (page === 'manuals' && !can('orders:view')) { location.replace(fallbackHash()); return; }
+    if (state.token) {
+      if (page !== 'checklists' && !$('#checklist-panel').classList.contains('hidden')) closeChecklistPanel();
+      if (page !== 'products' && !$('#product-panel').classList.contains('hidden')) closeProductPanel();
+      if (page !== 'manuals' && !$('#manual-panel').classList.contains('hidden')) closeManualPanel();
+      if (page !== 'si' && !$('#si-detail').classList.contains('hidden')) closeSIDetail();
+    }
 
     if (can('users:list') && page === 'users') {
       showPane('users');
@@ -601,7 +607,29 @@
     if (demoBtn) loadDemoData(demoBtn);
   });
 
+  function closeChecklistPanel() {
+    state.checklistSelId = null;
+    renderChecklistPanel();
+  }
+
+  function closeProductPanel() {
+    state.productSelId = null;
+    state.productBlocks = [];
+    renderProductPanel();
+  }
+
+  function closeManualPanel() {
+    state.manualsSelId = null;
+    renderManualPanel();
+  }
+
+  $('#view-checklists .detail-scrim').addEventListener('click', () => closeChecklistPanel());
+  $('#view-products .detail-scrim').addEventListener('click', () => closeProductPanel());
+  $('#view-manuals .detail-scrim').addEventListener('click', () => closeManualPanel());
+  $('#view-si .detail-scrim').addEventListener('click', () => closeSIDetail());
+
   $('#checklist-panel').addEventListener('click', async (e) => {
+    if (e.target.closest('button[data-act="cl-close"]')) { closeChecklistPanel(); return; }
     const openBtn = e.target.closest('button[data-act="cl-open-order"]');
     if (openBtn) {
       if (state.checklistSelId) goToOrder(state.checklistSelId);
@@ -637,6 +665,7 @@
   });
 
   $('#product-panel-body').addEventListener('click', async (e) => {
+    if (e.target.closest('button[data-act="panel-close"]')) { closeProductPanel(); return; }
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
     const pid = state.productSelId;
@@ -653,6 +682,33 @@
         toast(err.message, true);
         btn.disabled = false;
       }
+      return;
+    }
+    if (act === 'block-edit') {
+      const blk = (state.productBlocks || []).find((x) => x.id === bid);
+      if (!blk) return;
+      const res = await modal({
+        title: 'Edit step',
+        description: 'Changes apply to the template. Manuals already attached to orders keep their snapshot.',
+        confirmLabel: 'Save',
+        fields: [
+          { name: 'title', label: 'Title', type: 'text', value: blk.title, required: true },
+          { name: 'body', label: 'Description', type: 'textarea', value: blk.body || '', placeholder: 'Optional detail for the tech' },
+          {
+            name: 'assignee', label: 'Assign to', type: 'select', value: blk.assignee || '',
+            options: [{ value: '', label: 'Unassigned — anyone can do it' },
+              ...(state.userBriefs || []).map((u) => ({ value: u.username, label: u.displayName || u.username }))],
+          },
+        ],
+      });
+      if (!res) return;
+      try {
+        await api('POST', `/api/v1/products/${pid}/blocks/${bid}`, {
+          title: (res.title || '').trim(), body: (res.body || '').trim(), assignee: res.assignee || '',
+        });
+        toast('Step updated');
+        await loadProductBlocks(pid, true);
+      } catch (err) { toast(err.message, true); }
       return;
     }
     if (act === 'block-del') {
@@ -783,6 +839,7 @@
   }
 
   $('#manual-panel-body').addEventListener('click', async (e) => {
+    if (e.target.closest('button[data-act="panel-close"]')) { closeManualPanel(); return; }
     const openBtn = e.target.closest('button[data-act="manual-open-order"]');
     if (openBtn) {
       const m = state.manuals.find((x) => x.manualId === state.manualsSelId);
@@ -968,6 +1025,10 @@
       if (typing && e.target.id === 'search-input') {
         e.target.value = ''; state.search = ''; renderTable(); syncURL(); e.target.blur();
       } else if (state.selectedId) closeDetail();
+      else if (location.hash.startsWith('#/checklists') && !$('#checklist-panel').classList.contains('hidden')) closeChecklistPanel();
+      else if (location.hash.startsWith('#/products') && !$('#product-panel').classList.contains('hidden')) closeProductPanel();
+      else if (location.hash.startsWith('#/manuals') && !$('#manual-panel').classList.contains('hidden')) closeManualPanel();
+      else if (location.hash.startsWith('#/si') && !$('#si-detail').classList.contains('hidden')) closeSIDetail();
       return;
     }
 

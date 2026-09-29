@@ -90,6 +90,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/stats/qc", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleQCStats)))
 	mux.HandleFunc("GET /api/v1/qc/queue", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleQCQueue)))
 	mux.HandleFunc("GET /api/v1/qc/reasons", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleQCReasons)))
+	mux.HandleFunc("GET /api/v1/qc/context/{id}", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleQCContext)))
 	mux.HandleFunc("GET /api/v1/dayplan", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleGetDayplan)))
 	mux.HandleFunc("PUT /api/v1/dayplan/goal", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handlePutDayGoal)))
 	mux.HandleFunc("POST /api/v1/dayplan/send", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleSendDayGoal)))
@@ -116,6 +117,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/products/{id}/approve", s.requireAuth(s.requirePerm(auth.PermManualsApprove, s.handleApproveProduct)))
 	mux.HandleFunc("POST /api/v1/products/{id}/department", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleSetProductDepartment)))
 	mux.HandleFunc("POST /api/v1/si/customers/{id}/coordinator", s.requireAuth(s.requirePerm(auth.PermCustomersManage, s.handleSetCustomerCoordinator)))
+
+	mux.HandleFunc("GET /api/v1/customers", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleListCustomersDirectory)))
+	mux.HandleFunc("POST /api/v1/customers", s.requireAuth(s.requirePerm(auth.PermCustomersManage, s.handleCreateCustomerManaged)))
+	mux.HandleFunc("GET /api/v1/customers/flows", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleListCustomerFlows)))
 	mux.HandleFunc("POST /api/v1/products/{id}/blocks", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleAddManualBlock)))
 	mux.HandleFunc("POST /api/v1/products/{pid}/blocks/{bid}", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleUpdateManualBlock)))
 	mux.HandleFunc("POST /api/v1/products/{pid}/blocks/{bid}/move", s.requireAuth(s.requirePerm(auth.PermManualManage, s.handleMoveManualBlock)))

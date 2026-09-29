@@ -29,6 +29,9 @@ const Dashboard = {
     if (!el || !d) return;
     el.classList.remove('hidden');
     const actives = (d.leaderboard || []).reduce((a, u) => a + (u.active || 0), 0);
+    const clockedHtml = Dash.clocked(d);
+    const mix = d.slaMix || {};
+    const mixTot = (mix.ON_TIME || 0) + (mix.WARNING || 0) + (mix.BREACHED || 0);
     el.innerHTML = `
       <div class="dash-kpis">
         ${Dash.kpi('Open orders', d.open, '')}
@@ -39,20 +42,27 @@ const Dashboard = {
       </div>
       <div class="dash-grid">
         <section class="card dash-card">
-          <header class="dash-card-head"><h3>Completed vs received</h3><span class="muted">last ${d.days} days</span></header>
+          <header class="dash-card-head"><h3>Completed vs received</h3>
+            <div class="dash-legend"><span><i class="sw a"></i>completed</span><span><i class="sw b"></i>received</span><span class="muted">· last ${d.days} days</span></div></header>
           ${Dash.bars(d)}
         </section>
         <section class="card dash-card">
           <header class="dash-card-head"><h3>Open orders by SLA</h3><span class="muted">live</span></header>
           ${Dash.donut(d.slaMix)}
+          ${mixTot ? `<div class="qc-donut-foot">
+            <div><span>breached</span><strong>${Math.round(((mix.BREACHED || 0) / mixTot) * 100)}%</strong></div>
+            <div><span>on time</span><strong>${Math.round(((mix.ON_TIME || 0) / mixTot) * 100)}%</strong></div>
+            <div><span>warning</span><strong>${mix.WARNING || 0}</strong></div>
+          </div>` : ''}
         </section>
         <section class="card dash-card">
           <header class="dash-card-head"><h3>Team effort</h3><span class="muted">clocked time, last ${d.days} days</span></header>
           ${Dash.team(d)}
         </section>
         <section class="card dash-card">
-          <header class="dash-card-head"><h3>Clock time per day</h3><span class="muted">hours on the floor</span></header>
-          ${Dash.clocked(d)}
+          <header class="dash-card-head"><h3>Clock time per day</h3>
+            <div class="dash-legend"><span><i class="sw c"></i>hours</span>${Dash._peak || ''}</div></header>
+          ${clockedHtml}
         </section>
       </div>`;
     hydrateCounts(el);
@@ -65,7 +75,7 @@ const Dash = {
   },
 
   dur(ms) {
-    if (!ms) return '—';
+    if (!ms || ms < 0 || !isFinite(ms)) return '—';
     const m = Math.round(ms / 60000);
     const h = Math.floor(m / 60);
     return h ? `${h}h ${m % 60}m` : `${m}m`;
@@ -94,8 +104,7 @@ const Dash = {
         ${i % 2 === 0 ? `<text x="${(x + bw / 2).toFixed(1)}" y="${H - 10}" class="dash-lbl" text-anchor="middle">${k.slice(5)}</text>` : ''}`;
     }).join('');
     const grid = [0.25, 0.5, 0.75, 1].map((f) => `<line x1="${P}" x2="${W - P}" y1="${(H - 26 - f * ih).toFixed(1)}" y2="${(H - 26 - f * ih).toFixed(1)}" class="dash-grid"></line>`).join('');
-    return `<svg viewBox="0 0 ${W} ${H}" class="dash-svg" role="img" aria-label="Completed and received orders per day">${grid}${cols}</svg>
-      <div class="dash-legend"><span><i class="sw a"></i>completed</span><span><i class="sw b"></i>received</span></div>`;
+    return `<svg viewBox="0 0 ${W} ${H}" class="dash-svg" role="img" aria-label="Completed and received orders per day">${grid}${cols}</svg>`;
   },
 
   donut(mix) {
@@ -139,8 +148,8 @@ const Dash = {
         <rect x="${(x + bw * 0.18).toFixed(1)}" y="${(H - 22 - h).toFixed(1)}" width="${(bw * 0.64).toFixed(1)}" height="${h.toFixed(1)}" rx="3" class="bar-c"></rect></g>
         ${i % 3 === 0 ? `<text x="${(x + bw / 2).toFixed(1)}" y="${H - 8}" class="dash-lbl" text-anchor="middle">${k.slice(8)}</text>` : ''}`;
     }).join('');
-    return `<svg viewBox="0 0 ${W} ${H}" class="dash-svg" role="img" aria-label="Clocked hours per day">${cols}</svg>
-      <div class="dash-legend"><span><i class="sw c"></i>hours clocked</span><span class="muted">peak ${Dash.dur(max === 3600000 && Math.max(...vals) === 0 ? 0 : max)}</span></div>`;
+    Dash._peak = `<span class="muted">peak ${Dash.dur(max === 3600000 && Math.max(...vals) === 0 ? 0 : max)}</span>`;
+    return `<svg viewBox="0 0 ${W} ${H}" class="dash-svg" role="img" aria-label="Clocked hours per day">${cols}</svg>`;
   },
 
   team(d) {

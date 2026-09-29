@@ -536,7 +536,23 @@
     }
   }
 
+  let orderCustomersCache = null; let orderCustomersAt = 0;
+
+  async function orderCustomerOptions() {
+    if (orderCustomersCache && (Date.now() - orderCustomersAt) < 60000) return orderCustomersCache;
+    const d = await api('GET', '/api/v1/customers');
+    const names = [...new Set((d.customers || []).map((c) => c.name).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    orderCustomersCache = names; orderCustomersAt = Date.now();
+    return names;
+  }
+
   async function openCreateOrder() {
+    let custOpts = [];
+    let custHint = 'Type a customer name.';
+    try {
+      custOpts = await orderCustomerOptions();
+      custHint = custOpts.length ? `Pick one of ${custOpts.length} known customers or type a new one.` : 'No known customers yet — type the name.';
+    } catch (e) { /* keep free-text fallback */ }
     const now = new Date(Date.now() + 24 * 3600 * 1000 - new Date().getTimezoneOffset() * 60000);
     const res = await modal({
       title: 'Create order',
@@ -546,7 +562,7 @@
       fields: [
         { name: 'orderNumber', label: 'Order number', placeholder: 'e.g. ORD-10432', required: true, autofocus: true, half: true },
         { name: 'target', label: 'Target completion', type: 'datetime-local', value: now.toISOString().slice(0, 16), hint: 'Drives the SLA state. Leave blank to use the server default.', half: true },
-        { name: 'customerName', label: t('orders.customer'), placeholder: 'Acme BV', half: true },
+        { name: 'customerName', label: t('orders.customer'), placeholder: 'Acme BV', half: true, type: 'combobox', options: custOpts, required: true, hint: custHint },
         { name: 'debitNumber', label: t('info.debit'), placeholder: 'DEB-0000', half: true },
         { name: 'device', label: t('info.device'), placeholder: 'ThinkCentre M90q', half: true },
         { name: 'assetNumber', label: t('info.asset'), placeholder: 'ASSET-00000', half: true },
@@ -555,6 +571,7 @@
       ],
     });
     if (!res) return;
+    const isNewCustomer = !!(res.customerName || '').trim() && (!custOpts.length || !custOpts.some((n) => n.toLowerCase() === res.customerName.trim().toLowerCase()));
     const body = { orderNumber: res.orderNumber.trim() };
     ['customerName', 'debitNumber', 'device', 'assetNumber', 'configuration', 'omnitrackerTicket'].forEach((k) => {
       const v = (res[k] || '').trim();
@@ -566,7 +583,8 @@
     }
     try {
       await api('POST', '/api/v1/orders', body);
-      toast(t('toast.created'));
+      toast(t('toast.created') + (isNewCustomer ? ` · new customer “${body.customerName}”` : ''));
+      orderCustomersAt = 0;
       await loadOrders(true);
     } catch (err) {
       const existing = err.data && err.data.error && err.data.error.extra && err.data.error.extra.existingOrder;

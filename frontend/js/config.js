@@ -426,6 +426,109 @@
 
   /* ---- guided work flow editor (admin) ---- */
   let wfDraft = null;
+  let wfScope = '';              // '' = global default, otherwise a customer name
+  const wfDrafts = { '': null }; // unsaved drafts per scope
+  let custList = [];             // directory from /api/v1/customers
+
+  async function refreshCustomersCard() {
+    try {
+      const d = await api('GET', '/api/v1/customers');
+      custList = (d.customers || []).sort((a, b) => a.name.localeCompare(b.name));
+    } catch { custList = []; }
+    paintCustomersCard();
+    fillScopeOptions();
+  }
+
+  function paintCustomersCard() {
+    const host = $('#cust-list');
+    if (!host) return;
+    const cc = $('#cust-count');
+    const withFlow = custList.filter((c) => c.hasFlow).length;
+    if (cc) cc.textContent = custList.length ? `${custList.length} total · ${withFlow} own flow` : '';
+    if (!custList.length) { host.innerHTML = '<p class="muted cust-empty">No customers yet — create the first one above.</p>'; return; }
+    const q = custFilter.trim().toLowerCase();
+    const view = q ? custList.filter((c) => c.name.toLowerCase().includes(q)) : custList;
+    if (!view.length) { host.innerHTML = `<p class="muted cust-empty">Nothing matches &ldquo;${esc(custFilter)}&rdquo;.</p>`; return; }
+    host.innerHTML = view.map((c) => `
+      <div class="cust-row" data-cust="${esc(c.name)}">
+        <span class="cust-name">${esc(c.name)}</span>
+        ${c.number ? `<span class="chip mono cust-num">${esc(c.number)}</span>` : ''}
+        ${c.custom ? '<span class="chip cust-chip">custom</span>' : ''}
+        ${c.hasFlow ? '<span class="chip chip-ok cust-chip">own flow</span>' : ''}
+        <span class="cust-row-acts">
+          ${c.custom && !c.managed ? '<button type="button" class="btn btn-ghost btn-sm cust-adopt" title="Add to the customer directory">Adopt</button>' : ''}
+          <button type="button" class="btn btn-ghost btn-sm cust-edit">${c.hasFlow ? 'Edit flow' : 'Own flow'}</button>
+        </span>
+      </div>`).join('');
+  }
+
+  let custFilter = '';
+
+  function customersCardHtml() {
+    return `
+      <section class="card cust-card" id="cust-card">
+        <div class="cfg-sec-head">
+          <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.4 19.2a5.6 5.6 0 0 1 11.2 0"/><circle cx="17" cy="9.4" r="2.5"/><path d="M15.4 14.2a5 5 0 0 1 5.3 4.6"/></svg></div>
+          <div class="cfg-sec-txt"><h3>Customers</h3><p class="muted">Directory of customers known from orders and SIs. &ldquo;Custom&rdquo; names arrived via orders — adopt them into the directory, or give any customer its own guided work flow.</p></div>
+          <div class="cfg-sec-acts">
+            <button type="button" class="btn btn-primary btn-sm" id="cust-new">+ New customer</button>
+          </div>
+        </div>
+        <div class="cust-tools">
+          <input id="cust-filter" class="cfg-search" type="search" placeholder="Filter customers&hellip;" autocomplete="off" spellcheck="false">
+          <span class="cfg-pill neutral" id="cust-count"></span>
+        </div>
+        <div id="cust-list"><p class="muted cust-empty">Loading&hellip;</p></div>
+      </section>`;
+  }
+
+  async function newCustomerModal(prefillName) {
+    const vals = await modal({
+      title: 'New customer',
+      description: 'Adds the customer to the directory. Order imports and the guided-flow editor can use it right away.',
+      confirmLabel: 'Create customer',
+      fields: [
+        { name: 'name', label: 'Name', placeholder: 'e.g. Gemeente Sittard', value: prefillName || '', required: true },
+        { name: 'number', label: 'Customer number (optional)', placeholder: 'e.g. 1042', hint: 'Leave empty for an automatic number.' },
+      ],
+    });
+    if (!vals) return;
+    try {
+      const r = await api('POST', '/api/v1/customers', { name: String(vals.name || '').trim(), number: String(vals.number || '').trim() });
+      toast(`Customer "${r.customer.name}" created`);
+      await refreshCustomersCard();
+      switchScopeTo(r.customer.name);
+    } catch (err) { toast(err.message, true); }
+  }
+
+  function switchScopeTo(name) {
+    wfDrafts[wfScope] = wfDraft;
+    wfScope = name;
+    const sel = $('#wf-scope'); if (sel) sel.value = name;
+    const ed = $('#wf-editor'); if (ed) ed.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (wfDrafts[wfScope]) { wfDraft = wfDrafts[wfScope]; renderWorkflowEditor(); updateScopeUI(); }
+    else loadWorkflowEditor();
+  }
+
+  function fillScopeOptions() {
+    const sel = $('#wf-scope');
+    if (!sel) return;
+    const flowNames = new Set(custList.filter((c) => c.hasFlow).map((c) => c.name));
+    sel.innerHTML = '<option value="">Global default</option>' + custList.map((c) =>
+      `<option value="${esc(c.name)}"${c.name === wfScope ? ' selected' : ''}>${esc(c.name)}${flowNames.has(c.name) ? ' ●' : ''}</option>`).join('');
+    updateScopeUI();
+  }
+
+  function updateScopeUI() {
+    const scoped = !!wfScope;
+    const box = $('#wf-scopebox'); if (box) box.classList.toggle('scoped', scoped);
+    const ed = $('#wf-editor'); if (ed) ed.classList.toggle('scoped', scoped);
+    const vc = $('#wf-scope-val'); if (vc) vc.classList.toggle('hidden', !scoped);
+    const gc = $('#wf-global-chip'); if (gc) gc.classList.toggle('hidden', scoped);
+    const desc = $('#wf-scope-desc');
+    if (desc) desc.innerHTML = scoped ? `Customer flow — overrides the default for <b>${esc(wfScope)}</b> orders` : 'Default for every customer';
+    const rst = $('#wf-reset'); if (rst) rst.textContent = scoped ? 'Remove custom flow' : 'Reset to default';
+  }
 
   function wfDefaultDraft() {
     return DEFAULT_WORK_STEPS.map((st) => ({
@@ -443,12 +546,14 @@
 
   async function loadWorkflowEditor() {
     try {
-      const d = await api('GET', '/api/v1/workflow');
+      const d = await api('GET', '/api/v1/workflow' + (wfScope ? '?customer=' + encodeURIComponent(wfScope) : ''));
       wfDraft = d.steps
         ? d.steps.map((st) => ({ key: st.key, title: st.title || '', desc: st.desc || '', checks: (st.checks || []).map((c) => ({ key: c.key, label: c.label })), next: st.next || '', pick: !!st.pick, qcGate: !!st.qcGate }))
         : wfDefaultDraft();
     } catch { wfDraft = wfDefaultDraft(); }
+    wfDrafts[wfScope] = wfDraft;
     renderWorkflowEditor();
+    updateScopeUI();
   }
 
   function renderWorkflowEditor() {
@@ -532,19 +637,41 @@
     });
     $('#wf-save', root).addEventListener('click', async () => {
       try {
-        await api('PUT', '/api/v1/workflow', { steps: wfCollect() });
-        toast('Work flow saved — everyone uses it now');
-        if (window.WorkFlow) WorkFlow.loadFlow(true);
+        const qs = wfScope ? '?customer=' + encodeURIComponent(wfScope) : '';
+        await api('PUT', '/api/v1/workflow' + qs, { steps: wfCollect() });
+        toast(wfScope ? `Customer flow saved — only "${wfScope}" orders use it` : 'Work flow saved — everyone uses it now');
+        if (window.WorkFlow) WorkFlow.loadFlow(true, true);
+        refreshCustomersCard();
       } catch (err) { toast(err.message, true); }
     });
     $('#wf-reset', root).addEventListener('click', async () => {
+      if (wfScope) {
+        const ok = await modal({
+          title: 'Remove custom flow?',
+          description: `"${wfScope}" will follow the default guided flow again. Open work sessions keep the flow they started with.`,
+          confirmLabel: 'Remove override',
+        });
+        if (!ok) return;
+      }
       try {
-        await api('PUT', '/api/v1/workflow', { steps: null });
+        const qs = wfScope ? '?customer=' + encodeURIComponent(wfScope) : '';
+        await api('PUT', '/api/v1/workflow' + qs, { steps: null });
         wfDraft = wfDefaultDraft();
+        wfDrafts[wfScope] = wfDraft;
         renderWorkflowEditor();
-        if (window.WorkFlow) WorkFlow.loadFlow(true);
-        toast('Work flow reset to the built-in default');
+        updateScopeUI();
+        if (window.WorkFlow) WorkFlow.loadFlow(true, true);
+        if (wfScope) { toast(`Custom flow removed — "${wfScope}" uses the default again`); refreshCustomersCard(); }
+        else toast('Work flow reset to the built-in default');
       } catch (err) { toast(err.message, true); }
+    });
+
+    const scopeSel = $('#wf-scope', root);
+    if (scopeSel) scopeSel.addEventListener('change', () => {
+      wfDrafts[wfScope] = wfDraft;
+      wfScope = scopeSel.value;
+      if (wfDrafts[wfScope]) { wfDraft = wfDrafts[wfScope]; renderWorkflowEditor(); updateScopeUI(); }
+      else loadWorkflowEditor();
     });
   }
 
@@ -564,66 +691,103 @@
     let html = '';
     if (!isXlsxBeschikbaar()) html += configCompatibiliteitsWaarschuwing();
 
-    html += `<div class="card config-card">
-      <h3 class="config-card-title">Excel-bronnen</h3>
-      <p class="muted config-card-sub">Upload de vier one-time Excel-bronnen. Elke brons wordt omgezet naar de gedeelde orderpick-config.json.</p>
-      <div class="config-section">`;
+    const loaded = sources.filter((s) => !!m[s.key]).length;
+    const progress = Math.round((loaded / sources.length) * 100);
+    const xlsxIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2.5H6.5A1.5 1.5 0 0 0 5 4v16a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 20V7.5Z"/><path d="M14 2.5v5h5"/><path d="m9.2 12.2 5.6 5.6m0-5.6-5.6 5.6"/></svg>';
+    html += `<section class="card config-card cfg-card">
+      <div class="cfg-sec-head">
+        <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5a2 2 0 0 1 2-2h8.5L20 8.5V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M14 3v6h6"/></svg></div>
+        <div class="cfg-sec-txt"><h3>Excel-bronnen</h3><p class="muted">Upload de vier one-time Excel-bronnen. Elke bron wordt omgezet naar de gedeelde orderpick-config.json.</p></div>
+        <div class="cfg-sec-acts"><span class="cfg-pill ${loaded === sources.length ? 'ok' : 'neutral'}" id="cfg-progress">${loaded} van ${sources.length} geladen</span></div>
+      </div>
+      <div class="cfg-src-grid">`;
     for (const s of sources) {
       const meta = m[s.key];
-      html += `<div class="config-row">
-        <div class="config-row-main">
-          <div class="config-row-title">${esc(s.label)}</div>
-          <div class="config-row-desc muted">${esc(s.desc)}</div>
-          <div class="config-meta muted">${metaTxt(meta)}</div>
-        </div>
-        <button type="button" class="btn ${meta ? 'btn-ghost' : 'btn-primary'}" data-cfg-src="${s.key}">${meta ? 'Vervangen' : 'Uploaden'}</button>
-      </div>`;
+      html += `<button type="button" class="cfg-src ${meta ? 'loaded' : ''}" data-cfg-src="${s.key}">
+        <span class="cfg-src-ico">${xlsxIco}</span>
+        <span class="cfg-src-main">
+          <span class="cfg-src-title">${esc(s.label)}</span>
+          <span class="cfg-src-desc muted">${esc(s.desc)}</span>
+          <span class="cfg-src-meta muted">${metaTxt(meta)}</span>
+        </span>
+        <span class="cfg-src-side">
+          <span class="cfg-pill ${meta ? 'ok' : 'warn'}">${meta ? 'Geladen' : 'Ontbreekt'}</span>
+          <span class="cfg-src-act">${meta ? 'Vervangen' : 'Uploaden'}</span>
+        </span>
+      </button>`;
     }
-    html += `</div></div>`;
-
-    html += `<div class="card config-card">
-      <h3 class="config-card-title">Configuratie bundelen</h3>
-      <p class="muted config-card-sub">
-        Download orderpick-config.json en plaats het in de gedeelde map naast deze portal-pagina — dan wordt
-        het bij het openen automatisch geladen, zodat medewerkers elke dag alleen nog de verkoopregels hoeven te importeren.
-      </p>
-      <div class="config-bundle">
-        <button type="button" id="cfg-download" class="btn btn-primary" ${alleVier ? '' : 'disabled'}>⬇ Downloaden als orderpick-config.json</button>
-        <button type="button" id="cfg-upload" class="btn btn-ghost">⬆ Configuratie laden vanuit JSON</button>
-      </div>
-      ${alleVier ? '' : '<p class="muted config-card-sub">Upload eerst alle vier bronnen hierboven voordat je kunt bundelen.</p>'}
-      ${state.configBron ? `<p class="muted config-meta">Actieve configuratie geladen via: ${esc(state.configBron)}</p>` : ''}
-    </div>`;
+    html += `</div>
+      <div class="cfg-progress"><div class="cfg-progress-track"><div class="cfg-progress-fill" style="width:${progress}%"></div></div><span class="muted">deelbaar als orderpick-config.json</span></div>
+    </section>`;
 
     const pickMeta = state.picklistMeta || {};
-    html += `<div class="card config-card">
-      <h3 class="config-card-title">Dagelijkse picklijst (verkoopregels)</h3>
-      <p class="muted config-card-sub">
-        Importeer het dagelijkse verkoopregels-Excel. Orders die in de API bestaan krijgen per order
-        een live pick-checklist (locatie + artikel) die het hele team realtime kan afvinken — met naam en tijdstip.
-
-      <div class="config-bundle">
-        <button type="button" id="picklist-upload" class="btn btn-primary">⬆ Verkoopregels importeren (.xlsx)</button>
+    html += `<section class="card config-card cfg-card">
+      <div class="cfg-sec-head">
+        <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12.5 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8.5L20 8.5V12"/><path d="M14 3v6h6"/><path d="M12 17.5h7.5m0 0-2.6-2.6m2.6 2.6-2.6 2.6"/></svg></div>
+        <div class="cfg-sec-txt"><h3>Bundel &amp; dagelijkse picklijst</h3><p class="muted">Zet de gebundelde config naast de portal-pagina zodat hij automatisch laadt — daarna hoeft het team elke dag alleen de verkoopregels te importeren.</p></div>
       </div>
-      ${pickMeta.bestand
-        ? `<p class="muted config-meta">Laatste import: ${esc(pickMeta.bestand)} · ${pickMeta.orders}/${pickMeta.totaal} orders bijgewerkt${pickMeta.missed ? ` · ${pickMeta.missed} niet gevonden` : ''} · ${fmtTime(pickMeta.tijd)}</p>`
-        : '<p class="muted config-meta">Nog geen picklijst geimporteerd. Upload het dagelijkse bestand om checklists te genereren.</p>'}
-    </div>`;
+      <div class="cfg-duo">
+        <div class="cfg-duo-cell">
+          <span class="cfg-pill ${alleVier ? 'ok' : 'warn'}">${alleVier ? '4/4 bronnen geladen' : `nog ${sources.length - loaded} bron${sources.length - loaded === 1 ? '' : 'nen'} nodig`}</span>
+          <p class="muted cfg-duo-desc">orderpick-config.json bevat alle vier bronnen én staat klaar voor de gedeelde map.</p>
+          <div class="cfg-duo-acts">
+            <button type="button" id="cfg-download" class="btn btn-primary btn-sm" ${alleVier ? '' : 'disabled'}>&darr; Download orderpick-config.json</button>
+            <button type="button" id="cfg-upload" class="btn btn-ghost btn-sm">&uarr; Laden vanuit JSON</button>
+          </div>
+          ${state.configBron ? `<p class="muted config-meta">Actieve configuratie geladen via: ${esc(state.configBron)}</p>` : ''}
+        </div>
+        <div class="cfg-duo-cell">
+          <span class="cfg-pill ${pickMeta.bestand ? 'ok' : 'neutral'}">${pickMeta.bestand ? 'Picklijst actief' : 'Dagelijks ritueel'}</span>
+          <p class="muted cfg-duo-desc">Verkoopregels-Excel &rarr; live pick-checklists (locatie + artikel) die het team realtime afvinkt.</p>
+          <div class="cfg-duo-acts">
+            <button type="button" id="picklist-upload" class="btn btn-primary btn-sm">&uarr; ${pickMeta.bestand ? 'Nieuwe verkoopregels importeren' : 'Verkoopregels importeren (.xlsx)'}</button>
+          </div>
+          ${pickMeta.bestand
+            ? `<p class="muted config-meta">Laatste import: ${esc(pickMeta.bestand)} · ${pickMeta.orders}/${pickMeta.totaal} orders bijgewerkt${pickMeta.missed ? ` · ${pickMeta.missed} niet gevonden` : ''} · ${fmtTime(pickMeta.tijd)}</p>`
+            : '<p class="muted config-meta">Nog geen picklijst ge&iuml;mporteerd. Upload het dagelijkse bestand om checklists te genereren.</p>'}
+        </div>
+      </div>
+    </section>`;
 
-    $('#config-content').innerHTML = html + `
+    $('#config-content').innerHTML = html + customersCardHtml() + `
       <section class="card wf-editor" id="wf-editor">
-        <div class="wf-head">
-          <div><h3>Guided work flow</h3><p class="muted">The steps, manual checks and status moves behind every Start Work session — saved on the server for the whole team.</p></div>
-          <div class="wf-head-actions">
+        <div class="cfg-sec-head">
+          <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="6" r="2.1"/><circle cx="5.5" cy="18" r="2.1"/><circle cx="18.5" cy="12" r="2.6"/><path d="M7.6 6h6.5a2.9 2.9 0 0 1 0 5.8H9.9A2.9 2.9 0 0 0 7 14.7V16"/></svg></div>
+          <div class="cfg-sec-txt"><h3>Guided work flow</h3><p class="muted">The steps, manual checks and status moves behind every Start Work session — saved on the server for the whole team. Pick a customer below to give that customer its own flow.</p></div>
+          <div class="cfg-sec-acts wf-head-actions">
             <button type="button" class="btn btn-ghost btn-sm" id="wf-reset">Reset to default</button>
             <button type="button" class="btn btn-primary btn-sm" id="wf-save">Save flow</button>
           </div>
+        </div>
+        <div class="wf-scopebox" id="wf-scopebox">
+          <label class="wf-scope-l" for="wf-scope">Editing</label>
+          <select id="wf-scope" class="wf-scope-select"></select>
+          <span class="chip hidden" id="wf-global-chip">Default</span>
+          <span class="chip chip-ok hidden" id="wf-scope-val">Custom</span>
+          <span class="wf-scope-desc muted" id="wf-scope-desc">Default for every customer</span>
         </div>
         <div id="wf-steps"></div>
         <button type="button" class="btn btn-secondary btn-sm" id="wf-add-step">+ Add step</button>
       </section>`;
     bindWorkflowEditor($('#config-content'));
     loadWorkflowEditor();
+    fillScopeOptions();
+    const newBtn = $('#cust-new');
+    if (newBtn) newBtn.addEventListener('click', () => newCustomerModal());
+    const custHost = $('#cust-list');
+    if (custHost) custHost.addEventListener('click', async (e) => {
+      const row = e.target.closest('.cust-row');
+      if (!row) return;
+      const name = row.dataset.cust;
+      if (e.target.closest('.cust-edit')) { switchScopeTo(name); return; }
+      if (e.target.closest('.cust-adopt')) {
+        try { await api('POST', '/api/v1/customers', { name, number: '' }); toast(`"${name}" added to the directory`); refreshCustomersCard(); }
+        catch (err) { toast(err.message, true); }
+      }
+    });
+    refreshCustomersCard();
+    const custSearch = $('#cust-filter');
+    if (custSearch) custSearch.addEventListener('input', () => { custFilter = custSearch.value; paintCustomersCard(); });
 
     const downloadBtn = $('#cfg-download');
     if (downloadBtn) downloadBtn.addEventListener('click', downloadConfigJSON);

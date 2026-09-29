@@ -72,7 +72,7 @@ func TestAttentionProjection(t *testing.T) {
 	if _, err := st.TransitionOrder(ctx, doneID, "QC_Review", "admin", fixedClock()); err != nil {
 		t.Fatalf("transition qc: %v", err)
 	}
-	if _, err := st.SubmitQC(ctx, doneID, order.QCPass, "admin", "", "admin", fixedClock()); err != nil {
+	if _, err := st.SubmitQC(ctx, doneID, order.QCPass, "admin", "", "", "admin", fixedClock()); err != nil {
 		t.Fatalf("qc pass: %v", err)
 	}
 	if _, err := st.TransitionOrder(ctx, doneID, "Completed", "admin", fixedClock()); err != nil {

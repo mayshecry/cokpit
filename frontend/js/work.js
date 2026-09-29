@@ -49,13 +49,16 @@ const WorkFlow = {
     }));
   },
 
-  async loadFlow(force) {
-    if (WorkFlow.flowLoaded && !force) return;
+  async loadFlow(force, reset) {
+    if (reset) { WorkFlow.flowLoaded = false; WorkFlow.flowCustomer = undefined; }
+    const cust = (WorkFlow.order && WorkFlow.order.customerName && String(WorkFlow.order.customerName).trim()) || '';
+    if (WorkFlow.flowLoaded && !force && WorkFlow.flowCustomer === cust) return;
     try {
-      const d = await api('GET', '/api/v1/workflow');
+      const d = await api('GET', '/api/v1/workflow' + (cust ? '?customer=' + encodeURIComponent(cust) : ''));
       state.workFlow = d.steps || null;
       WorkFlow.flowLoaded = true;
-    } catch { /* keep default */ }
+      WorkFlow.flowCustomer = cust;
+    } catch { /* keep previous */ }
   },
 
   stepTitle(st) { return st.title || t('work.step.' + st.key); },
@@ -171,9 +174,9 @@ const WorkFlow = {
   },
 
   async open(orderId) {
-    await WorkFlow.loadFlow();
     const o = (state.orders || []).find((x) => x.id === orderId) || (await api('GET', `/api/v1/orders/${orderId}`)).order;
     WorkFlow.order = o;
+    await WorkFlow.loadFlow();
     const root = WorkFlow.ensureRoot();
     root.classList.remove('hidden');
     const sess = WorkFlow.activeFor(o.id);

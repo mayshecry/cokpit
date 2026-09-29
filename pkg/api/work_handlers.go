@@ -231,17 +231,35 @@ func validateWorkFlow(raw json.RawMessage) ([]wfStep, error) {
 }
 
 func (s *Server) handleGetWorkflow(w http.ResponseWriter, r *http.Request) {
+	customer := strings.TrimSpace(r.URL.Query().Get("customer"))
+	resp := map[string]any{"steps": nil, "source": "default"}
+	if customer != "" {
+		raw, err := s.store.GetCustomerWorkflow(r.Context(), customer)
+		if err == nil && raw != "" {
+			var steps any
+			if err := json.Unmarshal([]byte(raw), &steps); err == nil {
+				resp["steps"] = steps
+			}
+			resp["source"] = "customer"
+			resp["customer"] = customer
+			s.writeJSON(w, http.StatusOK, resp)
+			return
+		} else if err != nil && !errors.Is(err, db.ErrNoCustomerFlow) {
+			s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+			return
+		}
+	}
 	value, err := s.store.GetSetting(r.Context(), "work_flow")
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
-	resp := map[string]any{"steps": nil}
 	if value != "" {
 		var steps any
 		if err := json.Unmarshal([]byte(value), &steps); err == nil {
 			resp["steps"] = steps
 		}
+		resp["source"] = "global"
 	}
 	s.writeJSON(w, http.StatusOK, resp)
 }
@@ -264,11 +282,20 @@ func (s *Server) handlePutWorkflow(w http.ResponseWriter, r *http.Request) {
 		value = string(req.Steps)
 	}
 	me := s.currentUser(r)
+	customer := strings.TrimSpace(r.URL.Query().Get("customer"))
+	if customer != "" {
+		if err := s.store.PutCustomerWorkflow(r.Context(), customer, value, me.Username, s.now().UTC()); err != nil {
+			s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+			return
+		}
+		s.writeJSON(w, http.StatusOK, map[string]any{"steps": steps, "source": "customer", "customer": customer})
+		return
+	}
 	if err := s.store.SetSetting(r.Context(), "work_flow", value, me.Username, s.now().UTC()); err != nil {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
-	s.writeJSON(w, http.StatusOK, map[string]any{"steps": steps})
+	s.writeJSON(w, http.StatusOK, map[string]any{"steps": steps, "source": "global"})
 }
 
 func (s *Server) handleListAllWork(w http.ResponseWriter, r *http.Request) {

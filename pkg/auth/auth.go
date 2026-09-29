@@ -155,7 +155,7 @@ var rolePermissions = map[Role][]Permission{
 	RoleSC: {
 		PermOrderList, PermOrderView, PermAuditView,
 		PermCommentRead, PermCommentPost, PermNotifyRead,
-		PermManualManage, PermManualsApprove,
+		PermManualManage, PermManualsApprove, PermCustomersManage,
 		PermSIList, PermSIView, PermUsersList,
 		PermProcessView,
 	},

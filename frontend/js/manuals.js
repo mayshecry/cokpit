@@ -295,36 +295,34 @@
     const admin = can('manuals:manage');
     const blocksHtml = state.productBlocks.length
       ? state.productBlocks.map((b) => `
-          <div class="manual-block" data-block="${b.id}">
-            <div class="manual-block-main">
-              <span class="manual-seq">${b.seq + 1}</span>
-              <div class="manual-block-text">
-                <span class="manual-block-title">${esc(b.title)}</span>
-                ${b.body ? `<span class="manual-block-body muted">${esc(b.body)}</span>` : ''}
-              </div>
-              ${b.assignee ? `<span class="manual-assignee" title="Assigned to">${esc(b.assignee)}</span>` : ''}
+          <div class="sb-block${admin ? ' sb-can-drag' : ''}" data-block="${b.id}" style="--sb-h:${sbHue(b.assignee || '')}">
+            <span class="sb-tab" aria-hidden="true"></span>
+            ${admin ? '<span class="sb-grip" aria-hidden="true"></span>' : ''}
+            <span class="sb-seq mono">${b.seq + 1}</span>
+            <div class="sb-text">
+              <span class="sb-title">${esc(b.title)}</span>
+              ${b.body ? `<span class="sb-body">${esc(b.body)}</span>` : ''}
             </div>
+            <span class="sb-who${b.assignee ? '' : ' none'}">${b.assignee ? '@' + esc(b.assignee) : 'anyone'}</span>
             ${admin ? `
-            <div class="manual-block-side">
-              <div class="manual-edit-row">
-                <button type="button" class="icon-btn" data-act="block-up" data-id="${b.id}" title="Move up" aria-label="Move up">↑</button>
-                <button type="button" class="icon-btn" data-act="block-down" data-id="${b.id}" title="Move down" aria-label="Move down">↓</button>
-                <button type="button" class="icon-btn" data-act="block-edit" data-id="${b.id}" title="Edit block" aria-label="Edit block">✎</button>
-                <button type="button" class="icon-btn" data-act="block-del" data-id="${b.id}" title="Delete block" aria-label="Delete block">✕</button>
-              </div>
-            </div>` : ''}
+            <span class="sb-tools">
+              <button type="button" class="sb-tool" data-act="block-up" data-id="${b.id}" title="Move up" aria-label="Move up">↑</button>
+              <button type="button" class="sb-tool" data-act="block-down" data-id="${b.id}" title="Move down" aria-label="Move down">↓</button>
+              <button type="button" class="sb-tool" data-act="block-edit" data-id="${b.id}" title="Edit block" aria-label="Edit block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg></button>
+              <button type="button" class="sb-tool" data-act="block-del" data-id="${b.id}" title="Delete block" aria-label="Delete block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>
+            </span>` : ''}
           </div>`).join('')
-      : '<p class="empty-inline">No blocks yet — add the first step below.</p>';
+      : `<div class="sb-empty">${admin ? 'No steps yet — build the first one in the block shop, then drag things into place.' : 'No blocks.'}</div>`;
+
     const addForm = admin ? `
-        <form class="manual-add-form" id="block-form">
-          <span class="label">Add block</span>
-          <input id="block-title" placeholder="Block title, e.g. “Check the seal”" required autocomplete="off">
+        <form class="sb-form" id="block-form">
+          <input id="block-title" placeholder="Step title, e.g. “Check the seal”" required autocomplete="off">
           <input id="block-body" placeholder="Description (optional)" autocomplete="off">
           <select id="block-assignee" aria-label="Assign to">
             <option value="">Unassigned — anyone can do it</option>
             ${(state.userBriefs || []).map((u) => `<option value="${esc(u.username)}">${esc(u.displayName || u.username)}</option>`).join('')}
           </select>
-          <button type="submit" class="btn btn-primary btn-sm">Add block</button>
+          <button type="submit" class="btn btn-primary btn-sm">+ Add step</button>
         </form>` : '';
     body.innerHTML = `
       <div class="detail-head">
@@ -343,17 +341,31 @@
           ${admin ? `<button type="button" class="btn btn-secondary btn-sm" data-act="product-dept" data-id="${p.id}" title="Move to another department">⇄ Department</button>` : ''}
           ${admin ? `
           <button type="button" class="icon-btn" data-act="product-edit" title="Edit product" aria-label="Edit product">✎</button>
-          <button type="button" class="icon-btn" data-act="product-del" title="Delete product" aria-label="Delete product">✕</button>` : ''}
+          <button type="button" class="icon-btn" data-act="product-del" title="Delete product" aria-label="Delete product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>` : ''}
         </div>` : ''}
+        <div class="detail-head-actions"><button type="button" class="icon-btn" data-act="panel-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
       </div>
-      <div class="detail-scroll">
-        ${p.description ? `<p class="muted" style="margin:0 0 10px">${esc(p.description)}</p>` : ''}
-        <section class="detail-section">
-          <h3>Blocks ${state.productBlocks.length ? `<span class="count">${state.productBlocks.length}</span>` : ''}</h3>
-          ${blocksHtml}
-        </section>
-        ${addForm}
+      <div class="sb-wrap">
+        ${admin ? `
+        <aside class="sb-palette">
+          <header>Block shop</header>
+          <div class="sb-pal-sec">New step</div>
+          ${addForm}
+          <div class="sb-pal-sec">People — drop on a step</div>
+          <div class="sb-chips">
+            <span class="sb-chip" data-sb-user="" style="--sb-h:24" title="Unassign">anyone</span>
+            ${(state.userBriefs || []).map((u) => `<span class="sb-chip" data-sb-user="${esc(u.username)}" style="--sb-h:${sbHue(u.username)}">@${esc(u.username)}</span>`).join('')}
+          </div>
+        </aside>` : ''}
+        <div class="sb-stage">
+          <header class="sb-stage-head">
+            <span>Steps</span><strong class="mono">${state.productBlocks.length}</strong>
+            ${admin ? '<span class="muted sb-hint">drag blocks to reorder · click ✎ to edit</span>' : ''}
+          </header>
+          <div class="sb-stack" id="sb-stack">${blocksHtml}</div>
+        </div>
       </div>`;
+    sbBindOnce();
     panel.classList.remove('hidden');
     const split = $('#products-split');
     if (split) split.classList.remove('no-detail');
@@ -435,9 +447,7 @@
       if (state.manualsSelId && !state.manuals.some((m) => m.manualId === state.manualsSelId)) {
         state.manualsSelId = null;
       }
-      if (!state.manualsSelId && state.manuals.length) {
-        state.manualsSelId = state.manuals[0].manualId;
-      }
+      /* no auto-select: manual opens as centered workspace on row click */
       renderManualsList();
       renderManualPanel();
     } catch (err) {
@@ -503,6 +513,7 @@
         </div>
         <div class="detail-head-actions">
           <button type="button" class="btn btn-secondary btn-sm" data-act="manual-open-order">Open order</button>
+          <button type="button" class="icon-btn" data-act="panel-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
         </div>
       </div>
       <div class="detail-scroll">
@@ -519,6 +530,118 @@
     panel.classList.remove('hidden');
     const split = $('#manuals-split');
     if (split) split.classList.remove('no-detail');
+  }
+
+  /* Scratch-style maker helpers */
+  function sbHue(name) {
+    if (!name) return 24;
+    let h = 7;
+    for (const c of String(name)) h = (h * 31 + c.charCodeAt(0)) % 360;
+    return h;
+  }
+
+  const SB = { drag: null };
+
+  function sbBindOnce() {
+    if (SB.bound) return;
+    SB.bound = true;
+    const host = $('#product-panel-body');
+    if (!host) return;
+
+    SB.move = (e) => {
+      const d = SB.drag;
+      if (!d) return;
+      d.ghost.style.left = (e.clientX + 14) + 'px';
+      d.ghost.style.top = (e.clientY - 18) + 'px';
+      const stack = $('#sb-stack');
+      if (!stack) return;
+      const blocks = [...stack.querySelectorAll('.sb-block')].filter((b) => !b.classList.contains('sb-dragging'));
+      if (d.type === 'block') {
+        let t = blocks.length;
+        for (let i = 0; i < blocks.length; i++) {
+          const r = blocks[i].getBoundingClientRect();
+          if (e.clientY < r.top + r.height / 2) { t = i; break; }
+        }
+        d.target = t;
+        const ref = blocks[t] || null;
+        if (ref) stack.insertBefore(d.gap, ref); else stack.appendChild(d.gap);
+      } else {
+        blocks.forEach((b) => {
+          const r = b.getBoundingClientRect();
+          b.classList.toggle('sb-drop', e.clientY > r.top && e.clientY < r.bottom && e.clientX > r.left && e.clientX < r.right);
+        });
+      }
+    };
+
+    SB.up = async (e) => {
+      window.removeEventListener('pointermove', SB.move);
+      const d = SB.drag;
+      SB.drag = null;
+      if (!d) return;
+      d.ghost.remove();
+      document.querySelectorAll('.sb-drop').forEach((x) => x.classList.remove('sb-drop'));
+      const pid = state.productSelId;
+      if (d.type === 'block') {
+        d.gap.remove();
+        d.el.classList.remove('sb-dragging');
+        const from = d.from;
+        let target = d.target;
+        if (target > from) target -= 1;
+        if (target !== from && pid) {
+          const dir = target < from ? 'up' : 'down';
+          const n = Math.abs(target - from);
+          try {
+            for (let i = 0; i < n; i++) {
+              await api('POST', `/api/v1/products/${pid}/blocks/${d.id}/move`, { direction: dir });
+            }
+            await loadProductBlocks(pid, true);
+          } catch (err) { toast(err.message, true); await loadProductBlocks(pid, true); }
+        }
+        return;
+      }
+      const over = document.elementFromPoint(e.clientX, e.clientY);
+      const blk = over && over.closest ? over.closest('.sb-block') : null;
+      if (blk && pid) {
+        const bid = Number(blk.dataset.block);
+        try {
+          await api('POST', `/api/v1/products/${pid}/blocks/${bid}`, { assignee: d.user });
+          await loadProductBlocks(pid, true);
+        } catch (err) { toast(err.message, true); }
+      }
+    };
+
+    host.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (e.target.closest('button, input, select, textarea, a')) return;
+      const chip = e.target.closest('.sb-chip');
+      const block = e.target.closest('.sb-block.sb-can-drag');
+      if (!chip && !block) return;
+      e.preventDefault();
+      const stack = host.querySelector('#sb-stack');
+      if (!stack) return;
+      if (chip) {
+        SB.drag = { type: 'chip', user: chip.dataset.sbUser || '' };
+        const ghost = chip.cloneNode(true);
+        ghost.classList.add('sb-ghost');
+        document.body.appendChild(ghost);
+        SB.drag.ghost = ghost;
+      } else {
+        const blocks = [...stack.querySelectorAll('.sb-block')];
+        const from = blocks.indexOf(block);
+        block.classList.add('sb-dragging');
+        const ghost = block.cloneNode(true);
+        ghost.classList.add('sb-ghost');
+        ghost.style.width = block.offsetWidth + 'px';
+        document.body.appendChild(ghost);
+        const gap = document.createElement('div');
+        gap.className = 'sb-gap';
+        SB.drag = { type: 'block', id: Number(block.dataset.block), from, target: from, ghost, gap, el: block };
+        stack.appendChild(gap);
+      }
+      SB.move(e);
+      window.addEventListener('pointermove', SB.move);
+      window.addEventListener('pointerup', SB.up, { once: true });
+    });
   }
 
   function renderDetail() {

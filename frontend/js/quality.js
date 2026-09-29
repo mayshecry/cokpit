@@ -186,9 +186,8 @@ const Quality = {
     const trendCard = `
       <section class="card dash-card qc-span2 qc-trendcard">
         <header class="dash-card-head"><h3>Check volume &amp; rolling pass rate</h3>
-          <span class="muted">per day · ${esc(Quality.month)} · line = 7-day rolling</span></header>
+          <div class="qc-legend"><i class="lg good"></i><span>pass</span><i class="lg bad"></i><span>fail</span><i class="lg line"></i><span>rolling rate</span><span class="muted">· ${esc(Quality.month)}</span></div></header>
         ${trend.length ? Quality.trendSvg(trend) : '<p class="muted dash-empty">No QC checks recorded this month yet.</p>'}
-        <div class="qc-legend"><i class="lg good"></i><span>pass</span><i class="lg bad"></i><span>fail</span><i class="lg line"></i><span>rolling pass rate</span></div>
         <div class="qc-tip" hidden></div>
       </section>`;
 
@@ -203,7 +202,19 @@ const Quality = {
             <li><i class="lg bad"></i><span>Failed</span><strong data-count="${fail}">0</strong></li>
             <li><i class="lg mute"></i><span>Prev month</span><strong>${Quality.pct(prevRate)}</strong></li>
           </ul>
-        </div>` : '<p class="muted dash-empty">Nothing checked yet this month.</p>'}
+        </div>
+        ${(() => {
+          const days = trend.filter((t) => (t.pass + t.fail) > 0)
+            .map((t) => ({ d: t.day.slice(8), r: (t.pass / (t.pass + t.fail)) * 100 }));
+          if (!days.length) return '';
+          const best = days.reduce((a, b) => (b.r > a.r ? b : a));
+          const worstD = days.reduce((a, b) => (b.r < a.r ? b : a));
+          return `<div class="qc-donut-foot">
+            <div><span>best day</span><strong>${best.d} · ${best.r.toFixed(0)}%</strong></div>
+            <div><span>worst day</span><strong>${worstD.d} · ${worstD.r.toFixed(0)}%</strong></div>
+            <div><span>checks / day</span><strong>${(tot / trend.length).toFixed(1)}</strong></div>
+          </div>`;
+        })()}` : '<p class="muted dash-empty">Nothing checked yet this month.</p>'}
       </section>`;
 
     const tableCard = `

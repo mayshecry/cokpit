@@ -249,6 +249,13 @@ CREATE TABLE IF NOT EXISTS manual_tick_log (
 
 CREATE INDEX IF NOT EXISTS idx_manual_tick_log_block ON manual_tick_log(block_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_manual_tick_log_manual ON manual_tick_log(manual_id, created_at);
+CREATE TABLE IF NOT EXISTS customer_workflows (
+    customer_name TEXT PRIMARY KEY,
+    steps_json    TEXT NOT NULL,
+    updated_by    TEXT NOT NULL DEFAULT '',
+    updated_at    BIGINT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS customers (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     number     TEXT    NOT NULL UNIQUE,
