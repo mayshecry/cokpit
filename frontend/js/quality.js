@@ -121,7 +121,7 @@ const Quality = {
       const x = PL + i * bw;
       const hp = (t.pass / max) * ih;
       const hf = (t.fail / max) * ih;
-      const w = Math.max(2, bw * 0.62);
+      const w = Math.min(Math.max(2, bw * 0.62), 26);
       const ox = x + (bw - w) / 2;
       const tip = `data-d="${t.day}" data-p="${t.pass}" data-f="${t.fail}" data-r="${roll.toFixed(2)}"`;
       bars += `<rect class="qc-bar-p" ${tip} x="${ox.toFixed(1)}" y="${(PT + ih - hp).toFixed(1)}" width="${w.toFixed(1)}" height="${hp.toFixed(1)}" rx="2.5" style="animation-delay:${i * 16}ms"></rect>`;
@@ -137,23 +137,83 @@ const Quality = {
     }).join('');
     const every = Math.ceil(trend.length / 8);
     const labels = trend.map((t, i) => (i % every === 0 ? `<text class="qc-ax" x="${PL + i * bw + bw / 2}" y="${H - 8}" text-anchor="middle">${t.day.slice(8)}</text>` : '')).join('');
+    const area = `${path} L ${pts[pts.length - 1][0]} ${PT + ih} L ${pts[0][0]} ${PT + ih} Z`;
+    const last = pts[pts.length - 1];
     return `<svg viewBox="0 0 ${W} ${H}" class="qc-trend" role="img" aria-label="Daily QC checks with rolling pass rate">
+      <defs>
+        <linearGradient id="qcGPass" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--good)" stop-opacity="1"/><stop offset="1" stop-color="var(--good)" stop-opacity=".68"/>
+        </linearGradient>
+        <linearGradient id="qcGFail" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--warn)" stop-opacity=".95"/><stop offset="1" stop-color="var(--bad)" stop-opacity=".85"/>
+        </linearGradient>
+        <linearGradient id="qcGArea" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="var(--info)" stop-opacity=".16"/><stop offset="1" stop-color="var(--info)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
       ${ticks}${bars}
+      <path class="qc-area" d="${area}" fill="url(#qcGArea)"></path>
       <path class="qc-line" d="${path}" fill="none"></path>
+      <circle class="qc-line-end" cx="${last[0]}" cy="${last[1]}" r="3"></circle>
       ${labels}
     </svg>`;
   },
 
+  bindDonut(box, m) {
+    const wrap = box.querySelector('.qc-donut-wrap');
+    if (!wrap) return;
+    const v = wrap.querySelector('.dc-v');
+    const l = wrap.querySelector('.dc-l');
+    const d = wrap.querySelector('.dc-d');
+    const base = { v: '', l: l.textContent, d: d ? d.textContent : '', vis: d ? d.style.visibility : '' };
+    const show = (nv, nl, color) => {
+      v.textContent = nv; l.textContent = nl;
+      v.style.color = color || '';
+      if (d) d.style.visibility = 'hidden';
+    };
+    wrap.addEventListener('mouseover', (e) => {
+      const li = e.target.closest('[data-seg]');
+      if (!li) return;
+      const seg = li.dataset.seg;
+      wrap.setAttribute('data-hl', seg);
+      if (seg === 'pass') show(String(m.pass), 'passed' + (m.pass + m.fail ? ' · ' + Math.round((m.pass / (m.pass + m.fail)) * 100) + '%' : ''), 'var(--good)');
+      else if (seg === 'fail') show(String(m.fail), 'failed' + (m.pass + m.fail ? ' · ' + Math.round((m.fail / (m.pass + m.fail)) * 100) + '%' : ''), 'var(--bad)');
+      else show(m.prevRate == null ? '—' : m.prevRate.toFixed(2) + '%', Quality.monthName(-1), '');
+    });
+    wrap.addEventListener('mouseleave', () => {
+      wrap.removeAttribute('data-hl');
+      v.textContent = m.rate.toFixed(2) + '%';
+      l.textContent = base.l;
+      v.style.color = '';
+      if (d) d.style.visibility = '';
+    });
+  },
+
   donutSvg(pass, fail, rate) {
-    const C = 2 * Math.PI * 52;
-    const passLen = pass + fail ? (pass / (pass + fail)) * C : 0;
+    const R = 52, C = 2 * Math.PI * R;
+    const tot = pass + fail;
+    const passLen = tot ? (pass / tot) * C : 0;
+    const failLen = tot ? (fail / tot) * C : 0;
+    const gap = pass > 0 && fail > 0 ? 4 : 0;
+    const pLen = pass > 0 ? Math.max(2.5, passLen - gap) : 0;
+    const fLen = fail > 0 ? Math.max(2.5, failLen - gap) : 0;
+    const badAngle = -90 + (passLen / C) * 360;
     return `
-      <svg viewBox="0 0 140 140" class="donut qc-donut" role="img" aria-label="Pass versus fail share">
-        <circle r="52" cx="70" cy="70" fill="none" stroke="var(--bad)" stroke-width="15"></circle>
-        <circle r="52" cx="70" cy="70" fill="none" stroke="var(--good)" stroke-width="15"
-          stroke-dasharray="${Math.max(0, passLen - 2).toFixed(1)} ${C}" transform="rotate(-90 70 70)" class="qc-donut-arc"></circle>
-        <text x="70" y="67" class="donut-n" text-anchor="middle" data-count="${rate.toFixed(2)}" data-dec="2" data-suffix="%">0.00%</text>
-        <text x="70" y="86" class="donut-t" text-anchor="middle">first-pass</text>
+      <svg viewBox="0 0 150 150" class="donut qc-donut" role="img" aria-label="Pass versus fail share">
+        <defs>
+          <linearGradient id="qcDgBad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--warn)"/><stop offset="1" stop-color="var(--bad)"/>
+          </linearGradient>
+          <linearGradient id="qcDgGood" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--good)"/><stop offset="1" stop-color="var(--info)"/>
+          </linearGradient>
+        </defs>
+        <circle r="63.5" cx="75" cy="75" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="1 5" opacity=".8"></circle>
+        <circle r="52" cx="75" cy="75" fill="none" stroke="var(--neutral-soft)" stroke-width="15"></circle>
+        ${fail > 0 ? `<circle class="seg seg-fail" r="52" cx="75" cy="75" fill="none" stroke="url(#qcDgBad)" stroke-width="15" stroke-linecap="round"
+          stroke-dasharray="${fLen.toFixed(1)} ${C.toFixed(1)}" transform="rotate(${badAngle.toFixed(2)} 75 75)"></circle>` : ''}
+        ${pass > 0 ? `<circle class="seg qc-donut-arc" r="52" cx="75" cy="75" fill="none" stroke="url(#qcDgGood)" stroke-width="15" stroke-linecap="round"
+          stroke-dasharray="${pLen.toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 75 75)"></circle>` : ''}
       </svg>`;
   },
 
@@ -187,7 +247,7 @@ const Quality = {
       <section class="card dash-card qc-span2 qc-trendcard">
         <header class="dash-card-head"><h3>Check volume &amp; rolling pass rate</h3>
           <div class="qc-legend"><i class="lg good"></i><span>pass</span><i class="lg bad"></i><span>fail</span><i class="lg line"></i><span>rolling rate</span><span class="muted">· ${esc(Quality.month)}</span></div></header>
-        ${trend.length ? Quality.trendSvg(trend) : '<p class="muted dash-empty">No QC checks recorded this month yet.</p>'}
+        ${trend.length ? Quality.trendSvg(trend) : '<div class="qc-empty"><span class="qc-e-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.4 2.4 4.6-5"/></svg></span><strong>No checks recorded</strong><span class="muted">Nothing was inspected in ' + esc(Quality.month) + ' yet — run a review from the QC bench.</span></div>'}
         <div class="qc-tip" hidden></div>
       </section>`;
 
@@ -195,12 +255,19 @@ const Quality = {
       <section class="card dash-card">
         <header class="dash-card-head"><h3>Good vs wrong</h3><span class="muted">${esc(Quality.month)}</span></header>
         ${tot ? `
-        <div class="donut-wrap">
-          ${Quality.donutSvg(pass, fail, rate)}
-          <ul class="donut-legend">
-            <li><i class="lg good"></i><span>Passed</span><strong data-count="${pass}">0</strong></li>
-            <li><i class="lg bad"></i><span>Failed</span><strong data-count="${fail}">0</strong></li>
-            <li><i class="lg mute"></i><span>Prev month</span><strong>${Quality.pct(prevRate)}</strong></li>
+        <div class="donut-wrap qc-donut-wrap">
+          <div class="qc-donut-stage">
+            ${Quality.donutSvg(pass, fail, rate)}
+            <div class="qc-donut-c">
+              <span class="dc-v" data-count="${rate.toFixed(2)}" data-dec="2" data-suffix="%">0.00%</span>
+              <span class="dc-l">first-pass</span>
+              ${prevRate == null ? '<span class="dc-d na">no prev data</span>' : `<span class="dc-d ${rate - prevRate >= 0 ? 'good' : 'bad'}">${(rate - prevRate >= 0 ? '▲ +' : '▼ −') + Math.abs(rate - prevRate).toFixed(2)} pp</span>`}
+            </div>
+          </div>
+          <ul class="donut-legend qc-dleg">
+            <li data-seg="pass"><i class="lg good"></i><span>Passed</span><strong data-count="${pass}">0</strong><em>${tot ? Math.round((pass / tot) * 100) : 0}%</em></li>
+            <li data-seg="fail"><i class="lg bad"></i><span>Failed</span><strong data-count="${fail}">0</strong><em>${tot ? Math.round((fail / tot) * 100) : 0}%</em></li>
+            <li data-seg="prev"><i class="lg mute"></i><span>Prev month</span><strong>${Quality.pct(prevRate)}</strong></li>
           </ul>
         </div>
         ${(() => {
@@ -210,24 +277,25 @@ const Quality = {
           const best = days.reduce((a, b) => (b.r > a.r ? b : a));
           const worstD = days.reduce((a, b) => (b.r < a.r ? b : a));
           return `<div class="qc-donut-foot">
-            <div><span>best day</span><strong>${best.d} · ${best.r.toFixed(0)}%</strong></div>
-            <div><span>worst day</span><strong>${worstD.d} · ${worstD.r.toFixed(0)}%</strong></div>
+            <div class="best"><span>best day</span><strong>${best.d} · ${best.r.toFixed(0)}%</strong></div>
+            <div class="worst"><span>worst day</span><strong>${worstD.d} · ${worstD.r.toFixed(0)}%</strong></div>
             <div><span>checks / day</span><strong>${(tot / trend.length).toFixed(1)}</strong></div>
           </div>`;
-        })()}` : '<p class="muted dash-empty">Nothing checked yet this month.</p>'}
+        })()}` : '<div class="qc-empty"><span class="qc-e-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 12l3-3m-3 3l3 3"/></svg></span><strong>Nothing checked yet</strong><span class="muted">The pass/fail split appears once the first check lands.</span></div>'}
       </section>`;
 
     const tableCard = `
       <section class="card dash-card qc-span2">
         <header class="dash-card-head"><h3>Rework per tech</h3><span class="muted">who the fails landed on, ${esc(Quality.month)}</span></header>
         ${rows.length ? `
+        <div class="qc-scroll">
         <table class="dash-table qc-table">
           <thead><tr><th>Tech</th><th class="num">Checks</th><th class="num">Pass</th><th class="num">Fail</th><th class="num">Fail %</th><th class="num">vs prev</th><th class="qc-sparkhead">fail % · 6 mo</th><th class="qc-barcol">fail share</th><th></th></tr></thead>
           <tbody>${rows.map((r, i) => {
             const t = r.pass + r.fail;
             const fp = t ? (r.fail / t) * 100 : 0;
             return `<tr style="animation-delay:${i * 45}ms">
-              <td class="qc-tech">${esc(name(r.username))}</td>
+              <td class="qc-tech"><span class="qc-ava">${esc((name(r.username) || '?').trim().charAt(0).toUpperCase())}</span><span class="qc-tech-n">${esc(name(r.username))}</span></td>
               <td class="num">${t}</td>
               <td class="num">${r.pass}</td>
               <td class="num ${r.fail ? 'strong bad-num' : ''}">${r.fail}</td>
@@ -238,7 +306,7 @@ const Quality = {
               <td>${r.username === worst ? '<span class="badge sla-BREACHED"><span class="dot"></span>most rework</span>' : ''}</td>
             </tr>`;
           }).join('')}</tbody>
-        </table>` : '<p class="muted dash-empty">No QC checks recorded this month yet.</p>'}
+        </table></div>` : '<div class="qc-empty"><span class="qc-e-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.4 2.4 4.6-5"/></svg></span><strong>No checks recorded</strong><span class="muted">Nothing was inspected in ' + esc(Quality.month) + ' yet — run a review from the QC bench.</span></div>'}
       </section>`;
 
     const reasonCard = `
@@ -248,7 +316,7 @@ const Quality = {
           <li style="animation-delay:${i * 50}ms">
             <div class="qc-r-head"><span>${esc(r.reason)}</span><strong>${r.count}</strong></div>
             <span class="qc-r-bar"><i style="width:${((r.count / maxReason) * 100).toFixed(0)}%;animation-delay:${i * 50 + 80}ms"></i></span>
-          </li>`).join('')}</ul>` : '<p class="muted dash-empty">No fails recorded — nothing to explain.</p>'}
+          </li>`).join('')}</ul>` : '<div class="qc-empty"><span class="qc-e-ico ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg></span><strong>Clean month</strong><span class="muted">No fails recorded — nothing to explain.</span></div>'}
       </section>`;
 
     const feedCard = `
@@ -262,7 +330,7 @@ const Quality = {
             <span class="muted qc-feed-insp">by ${esc(name(r.inspector))}</span>
             ${r.reason ? `<span class="qc-feed-reason">${esc(r.reason)}</span>` : '<span class="qc-feed-reason ok-t">clean pass</span>'}
             <span class="muted qc-feed-when">${esc(relTime(new Date(r.at).toISOString()))}</span>
-          </li>`).join('')}</ul>` : '<p class="muted dash-empty">No QC checks recorded this month yet.</p>'}
+          </li>`).join('')}</ul>` : '<div class="qc-empty"><span class="qc-e-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.4 2.4 4.6-5"/></svg></span><strong>No checks recorded</strong><span class="muted">Nothing was inspected in ' + esc(Quality.month) + ' yet — run a review from the QC bench.</span></div>'}
       </section>`;
 
     const box = $('#quality-content');
@@ -270,10 +338,12 @@ const Quality = {
     box.innerHTML = `<div class="qc-wrap ${enterCls}">${kpis}<div class="dash-grid qc-grid">${trendCard}${donutCard}${tableCard}${reasonCard}${feedCard}</div></div>`;
     hydrateCounts(box);
     Quality.bindTip(box);
+    Quality.bindDonut(box, { pass, fail, rate, prevRate });
 
     // animate donut arc + rolling-rate line + sparklines once mounted
     requestAnimationFrame(() => {
-      const arc = box.querySelector('.qc-donut-arc');
+      const arcs = box.querySelectorAll('.qc-donut-arc, .seg-fail');
+      arcs.forEach((arc) => {
       if (arc && arc.getTotalLength) {
         const len = arc.getTotalLength();
         if (len) {
@@ -284,6 +354,7 @@ const Quality = {
           requestAnimationFrame(() => { arc.style.strokeDasharray = target; });
         }
       }
+      })
       box.querySelectorAll('.qc-line, .qc-spark path').forEach((line) => {
         if (!line.getTotalLength) return;
         const L = line.getTotalLength();
