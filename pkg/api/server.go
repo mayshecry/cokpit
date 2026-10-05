@@ -193,7 +193,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/events", s.requireAuthSSE(s.requirePerm(auth.PermOrderList, s.handleEvents)))
 
 	mux.HandleFunc("/api/", s.handleAPINotFound)
-	mux.Handle("/", http.FileServer(http.Dir("frontend")))
+	// The app shell and static assets must never be served stale: after a deploy
+	// the browser's cached index.html <-> JS pairing is the classic source of
+	// "API fine, frontend broken" reports. Always revalidate.
+	static := http.FileServer(http.Dir("frontend"))
+	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".html") || r.URL.Path == "/" {
+			w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+		}
+		static.ServeHTTP(w, r)
+	}))
 
 	return s.recoverMiddleware(s.logMiddleware(mux))
 }
