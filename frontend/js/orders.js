@@ -547,6 +547,26 @@
   }
 
   async function openCreateOrder() {
+    // Dedicated new-order experience: real customer menu + guided basics.
+    if (typeof OrderCreate !== 'undefined' && OrderCreate) {
+      let customers = [];
+      try {
+        const d = await api('GET', '/api/v1/customers');
+        customers = (d.customers || []).sort((a, b) => a.name.localeCompare(b.name));
+      } catch (e) { /* free-text path still works */ }
+      let nextNum = '';
+      let mx = 0;
+      (state.orders || []).forEach((o) => {
+        const m = /^ORD-(\d+)$/i.exec(o.orderNumber || '');
+        if (m) mx = Math.max(mx, Number(m[1]));
+      });
+      if (mx) nextNum = 'ORD-' + String(mx + 1).padStart(Math.max(4, String(mx + 1).length));
+      const def = new Date(Date.now() + 24 * 3600 * 1000);
+      def.setHours(17, 0, 0, 0);
+      OrderCreate.open({ customers, nextNum, defaultTarget: def });
+      OrderCreate.onDone = null;
+      return;
+    }
     let custOpts = [];
     let custHint = 'Type a customer name.';
     try {

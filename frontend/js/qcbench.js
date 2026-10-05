@@ -67,6 +67,23 @@ const QCBench = {
     }
     QCBench.bindOnce();
     await QCBench.refresh(false);
+    // A saved filter value matching no queued order can only hide things — drop it.
+    // Isolated: this is convenience, never worth blocking the whole bench over.
+    try {
+    if (QCBench.queue.length) {
+      const f = QCBench.filters;
+      const prodOpts = new Set(QCBench.filterOptions('product').map(([v]) => v));
+      const custOpts = new Set(QCBench.filterOptions('customer').map(([v]) => v));
+      let dirty = false;
+      if (f.product && !prodOpts.has(f.product)) { f.product = ''; dirty = true; }
+      if (f.customer && !custOpts.has(f.customer)) { f.customer = ''; dirty = true; }
+      if (dirty) {
+        try { localStorage.setItem('cockpit_qcb_filters', JSON.stringify(f)); } catch (e) {  }
+        QCBench.applyFilter(null);
+        QCBench.render();
+      }
+    }
+    } catch (e) { console.warn('[qcbench] filter hygiene skipped:', e); }
     if (!QCBench.poll) {
       QCBench.poll = setInterval(() => {
         const pane = $('#view-qcbench');
@@ -79,12 +96,46 @@ const QCBench = {
     try {
       const d = await api('GET', '/api/v1/qc/queue');
       const prevId = (QCBench.list[QCBench.idx] || QCBench.cur() || {}).id;
+      const before = new Set(QCBench.queue.map((q) => q.id));
       QCBench.queue = d.queue || [];
+      // A stale saved filter that hides the entire queue looks like a broken
+      // bench — clear it automatically and tell the user once.
+      const f = QCBench.filters;
+      if ((f.product || f.customer) && QCBench.queue.length) {
+        const kept = QCBench.queue.filter((it) =>
+          (!f.product || (it.productCode || '').split(' + ').includes(f.product)) &&
+          (!f.customer || (it.customer || '') === f.customer));
+        if (!kept.length) {
+          QCBench.filters = { product: '', customer: '' };
+          try { localStorage.setItem('cockpit_qcb_filters', '{}'); } catch (e) {  }
+          if (!quiet || QCBench._sseKick) toast('Stale queue filter cleared — showing everything waiting');
+        }
+      }
       QCBench.applyFilter(prevId);
+      // surface arrivals: anything in the live queue we had not seen before
+      const fresh = QCBench.queue.filter((q) => !before.has(q.id));
+      if (QCBench._seenOnce && fresh.length) {
+        QCBench._newIds = new Set(fresh.map((q) => q.id));
+        const visible = new Set(QCBench.list.map((q) => q.id));
+        const hiddenByFilter = fresh.filter((q) => !visible.has(q.id));
+        toast(`${fresh.length === 1 ? fresh[0].orderNumber + ' entered' : fresh.length + ' orders entered'} the QC queue${hiddenByFilter.length === fresh.length ? ' — hidden by your filters' : hiddenByFilter.length ? ` (${hiddenByFilter.length} hidden by filters)` : ''}`);
+        setTimeout(() => { QCBench._newIds = null; }, 5200);
+      }
+      QCBench._seenOnce = true;
       QCBench.render();
     } catch (err) {
       if (!quiet) $('#qcbench-content').innerHTML = `<p class="muted">Queue unavailable: ${esc(err.message)}</p>`;
     }
+  },
+
+  sseRefresh() {
+    const pane = $('#view-qcbench');
+    if (!pane || pane.classList.contains('hidden')) return;
+    const now = Date.now();
+    if (QCBench._lastLive && now - QCBench._lastLive < 1200) return;
+    QCBench._lastLive = now;
+    QCBench._sseKick = true;
+    QCBench.refresh(true).finally(() => { QCBench._sseKick = false; });
   },
 
   resetOrderState() {
@@ -140,7 +191,18 @@ const QCBench = {
   },
 
   render() {
+    try { QCBench.renderCore(); } catch (err) {
+      console.error('[qcbench] render failed:', err);
+      const box = $('#qcbench-content');
+      if (box) box.innerHTML = `<div class="qcb-clear"><h2>QC bench hit a renderer error</h2><p class="muted">${esc(err && err.message || String(err))}</p><p class="muted">The queue itself is fine — please reload once, and tell development this message if it stays.</p><button type="button" class="btn btn-secondary" id="qcb-again2">Reload queue</button></div>`;
+      const again = $('#qcb-again2');
+      if (again) again.addEventListener('click', () => QCBench.refresh(false));
+    }
+  },
+
+  renderCore() {
     const box = $('#qcbench-content');
+    if (!box) return;
     const sit = $('#qcb-sit');
     if (sit) sit.textContent = QCBench.sitLabel();
     const q = QCBench.cur();
@@ -154,7 +216,8 @@ const QCBench = {
           ${s.n ? `<p class="qcb-clear-sit mono">${s.n} checks this sitting · ${(s.pass / s.n * 100).toFixed(1)}% passed · best streak ${s.best}</p>` : ''}
           <button type="button" class="btn btn-secondary" id="qcb-again">Check for new orders</button>
         </div>`;
-      $('#qcb-again').addEventListener('click', () => QCBench.refresh(false));
+      const again = $('#qcb-again');
+      if (again) again.addEventListener('click', () => QCBench.refresh(false));
       return;
     }
     const waitH = (Date.now() - q.updatedAt) / 3600000;
@@ -165,9 +228,10 @@ const QCBench = {
           <header class="qcb-rail-head">
             <div class="qcb-rail-title">
               <span>Queue</span>
-              <strong class="mono">${QCBench.filters.product || QCBench.filters.customer
-                ? QCBench.list.length + ' of ' + QCBench.queue.length + ' waiting'
-                : QCBench.queue.length + ' waiting'}</strong>
+              <strong class="mono">${QCBench.queue.length + ' waiting'}</strong>
+              ${QCBench.filters.product || QCBench.filters.customer
+                ? `<button type="button" class="qcb-fchip mono" id="qcb-freset" title="Clear queue filters">filtered: ${QCBench.list.length} of ${QCBench.queue.length} · reset ×</button>`
+                : ''}
             </div>
             <div class="qcb-filters">
               <label class="qcb-f"><span>Product</span>
@@ -186,7 +250,7 @@ const QCBench = {
           </header>
           <ul class="qcb-list">
             ${QCBench.list.map((it, i) => `
-              <li class="qcb-item ${i === QCBench.idx ? 'active' : ''} ${it.targetAt < Date.now() ? 'breached' : ''}" data-i="${i}">
+              <li class="qcb-item ${i === QCBench.idx ? 'active' : ''} ${it.targetAt < Date.now() ? 'breached' : ''} ${QCBench._newIds && QCBench._newIds.has(it.id) ? 'qcb-new' : ''}" data-i="${i}">
                 <span class="mono qcb-item-num">${esc(it.orderNumber)}</span>
                 ${it.productCode ? `<span class="qcb-pchip mono">${esc(it.productCode)}</span>` : ''}
                 <span class="qcb-item-meta">${esc(it.customer || '—')} · ${esc(it.device || '—')}</span>
@@ -371,6 +435,12 @@ const QCBench = {
       if (e.target.closest('#qcb-next')) { QCBench.step = Math.min(3, QCBench.step + 1); QCBench.render(); return; }
       if (e.target.closest('#qcb-submit')) { QCBench.submit(); return; }
       if (e.target.closest('#qcb-again')) { QCBench.refresh(false); return; }
+      if (e.target.closest('#qcb-freset')) {
+        QCBench.filters = { product: '', customer: '' };
+        try { localStorage.setItem('cockpit_qcb_filters', '{}'); } catch (err) {  }
+        QCBench.applyFilter(null);
+        QCBench.render();
+      }
     });
     box.addEventListener('change', (e) => {
       if (e.target.id === 'qcb-f-product') { QCBench.setFilter('product', e.target.value); return; }

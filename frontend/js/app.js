@@ -225,6 +225,8 @@
         state.lastSseAt = Date.now();
         await loadOrders(true);
         if (window.Workload && !$('#view-workload').classList.contains('hidden')) Workload.load(true);
+        if (window.QCBench && window.QCBench.sseRefresh) QCBench.sseRefresh();
+        if (window.Quality && location.hash.startsWith('#/quality')) Quality.liveRefresh();
         if (location.hash.startsWith('#/home')) {
           loadAttention(true);
           if (window.Dashboard) Dashboard.load();

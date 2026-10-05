@@ -14,6 +14,14 @@ const Quality = {
     return d.toISOString().slice(0, 7);
   },
 
+  liveRefresh() {
+    const now = Date.now();
+    if (Quality._lastLive && now - Quality._lastLive < 1500) return;
+    if (!Quality.data) return; // not initialised — normal load handles it
+    Quality._lastLive = now;
+    Quality.load(0);
+  },
+
   async load(dir) {
     if (!Quality.month) Quality.month = Quality.curMonth();
     $('#qc-month').textContent = Quality.month;
