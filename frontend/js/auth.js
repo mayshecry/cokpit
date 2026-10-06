@@ -2,14 +2,92 @@
 
   
 
+  // ---- QR sign-in (pair once + log in once, afterwards: scan) ----
+  let qrTicket = null, qrPollTimer = null;
+
+  function escapeHtmlHost(u) {
+    try { return new URL(u).origin; } catch { return u.split('/').slice(0, 3).join('/'); }
+  }
+
+  // Renders the status line while KEEPING the scanned URL visible under it —
+  // and flags the classic "localhost" misconfig, the #1 phone-pairing symptom.
+  function setQrState(kind, url, hostHint) {
+    const status = $('#qr-login-status');
+    if (!status) return;
+    if (!url) { const s = status.querySelector('.auth-qr-url'); url = s ? s.textContent : ''; }
+    const msg = kind === 'rejected' ? 'Declined on your phone — new code incoming…<br>'
+      : kind === 'refreshed' ? 'Code refreshed — scan the new one.<br>'
+      : 'Waiting for your phone…<br>';
+    const esc = (v) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    status.innerHTML = msg + (url ? '<span class="auth-qr-url">' + esc(url) + '</span>' : '') + (hostHint || '');
+  }
+
+  function stopQrFlow() {
+    if (qrPollTimer) { clearInterval(qrPollTimer); qrPollTimer = null; }
+  }
+
+  async function startQrTicket() {
+    const card = $('#qr-login-card');
+    const status = $('#qr-login-status');
+    try {
+      const d = await api('GET', '/api/v1/qr-login');
+      qrTicket = { id: d.ticket, started: Date.now(), ttl: (d.expires || 150) * 1000 };
+      $('#qr-login-img').src = d.dataUrl;
+      card.classList.remove('hidden');
+      const hostHint = /\blocalhost\b|127\.0\.0\.1/.test(d.url)
+        ? ' ⚠️ this QR points at <b>' + escapeHtmlHost(d.url) + '</b> — a phone on WiFi cannot reach this machine\'s localhost. Set <code>publicUrl</code> in cockpit.json to the server\'s address, then reload.'
+        : '';
+      setQrState('waiting', d.url, hostHint);
+    } catch (e) {
+      card.classList.add('hidden');
+      qrTicket = null;
+    }
+  }
+
+  async function pollQrTicket() {
+    if (!qrTicket || state.token) return;
+    if (Date.now() - qrTicket.started > qrTicket.ttl) { qrTicket = null; startQrTicket(); return; }
+    try {
+      const d = await api('GET', '/api/v1/qr-login/status?ticket=' + encodeURIComponent(qrTicket.id));
+      const status = $('#qr-login-status');
+      if (d.status === 'approved') {
+        stopQrFlow();
+        status.textContent = 'Signed in as ' + (d.user.username || 'you') + '…';
+        state.token = d.token;
+        state.user = d.user;
+        localStorage.setItem('cockpit_token', d.token);
+        localStorage.setItem('cockpit_user', JSON.stringify(d.user));
+        state.loadingOrders = true;
+        enterApp();
+      } else if (d.status === 'rejected') {
+        setQrState('rejected');
+        qrTicket = null; startQrTicket();
+      } else if (d.status === 'expired') {
+        setQrState('refreshed');
+        qrTicket = null; startQrTicket();
+      } else {
+        setQrState('waiting');
+      }
+    } catch (e) { /* transient — next tick retries */ }
+  }
+
+  function startQrFlow() {
+    stopQrFlow();
+    if (state.token) return;
+    startQrTicket();
+    qrPollTimer = setInterval(pollQrTicket, 2000);
+  }
+
   function showLogin() {
     document.body.classList.remove('app-shell');
     $('#view-app').classList.add('hidden');
     $('#view-login').classList.remove('hidden');
     $('#login-username').focus();
+    startQrFlow();
   }
 
   async function enterApp() {
+    stopQrFlow();
     document.body.classList.add('app-shell');
     $('#view-login').classList.add('hidden');
     $('#view-app').classList.remove('hidden');

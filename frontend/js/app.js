@@ -932,6 +932,34 @@
       if (!res) return;
       await act('POST', `/api/v1/users/${id}/password`, { password: res.password }, 'Password reset');
 
+    } else if (btn.dataset.act === 'pairphone') {
+      // Issue an account-linked one-time code + QR: the phone that pairs with it
+      // is instantly paired AND signed in as this account.
+      try {
+        btn.disabled = true;
+        await api('POST', '/api/v1/admin/pair-code', { username: target.username });
+        const qr = await api('GET', '/api/v1/admin/pair-qr?username=' + encodeURIComponent(target.username));
+        await modal({
+          title: `Pair a phone for ${target.displayName || target.username}`,
+          wide: true,
+          hideConfirm: true,
+          cancelLabel: 'Close',
+          bodyHtml: `<div class="pd-body" style="padding:0">
+            <div class="pd-qr-wrap"><img src="${qr.dataUrl}" alt="Pairing QR" width="180" height="180"></div>
+            <div class="pd-meta">
+              <div class="pd-code">${esc(qr.code)}</div>
+              <p class="muted">Show this QR to <strong>${esc(target.displayName || target.username)}</strong>. Their phone opens the link, the code pairs it <strong>as this account</strong> — they're instantly signed in, no password on the phone.</p>
+              <p class="muted">One-time: consumed by the first phone that pairs. From then on that phone signs any screen in with the login QR.</p>
+              <p class="muted mono" style="word-break:break-all">${esc(qr.url)}</p>
+            </div>
+          </div>`,
+        });
+      } catch (e2) {
+        toast('Pairing code failed: ' + e2.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+
     } else if (btn.dataset.act === 'del') {
       const ok = await confirmDialog(
         `Delete ${target.username || 'user'}?`,

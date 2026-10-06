@@ -91,6 +91,14 @@
       <button type="submit" class="btn btn-primary btn-block" id="login-submit">Sign in</button>
       <p class="auth-legal muted">Protected system. Activity is logged against your account.</p>
     </form>
+    <div class="auth-card auth-qr hidden" id="qr-login-card">
+      <div class="auth-card-head">
+        <h2>Scan to sign in</h2>
+        <p class="muted">Point your <strong>paired phone</strong> at this code and confirm — this screen signs in as you, no password needed.</p>
+      </div>
+      <div class="auth-qr-img"><img id="qr-login-img" alt="Sign-in QR code" width="212" height="212"></div>
+      <p class="auth-qr-meta muted" id="qr-login-status">Preparing code…</p>
+    </div>
   </div>
 </section>
 
@@ -618,6 +626,24 @@
           <button type="button" class="btn btn-primary" id="new-user-btn"><span aria-hidden="true">+</span> Add user</button>
         </div>
       </header>
+
+      <section class="card pd-card hidden" id="pair-device-card">
+        <div class="cfg-sec-head">
+          <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><path d="M13.5 13.5h3v3h-3z"/><path d="M20.5 13.5v7h-4"/><path d="M17 20.5h3.5"/></svg></div>
+          <div class="cfg-sec-txt"><h3>Pair a desktop client / device</h3><p class="muted">Generic device code for the desktop client (<em>CockpitClient.exe</em>) — no account attached. For PHONES use the <strong>📱 Pair phone</strong> button on a user below: that code pairs the phone <em>and signs it in as that account</em> in one go.</p></div>
+          <div class="cfg-sec-acts">
+            <button type="button" class="btn btn-ghost" id="pair-refresh-btn" title="Discard the current code and issue a fresh one"><span aria-hidden="true">&orarr;</span> New code</button>
+          </div>
+        </div>
+        <div class="pd-body">
+          <div class="pd-qr-wrap"><img id="pair-qr-img" alt="Pairing QR code" width="180" height="180"></div>
+          <div class="pd-meta">
+            <div class="pd-code" id="pair-code">&hellip;</div>
+            <p class="muted" id="pair-url"></p>
+            <p class="muted">After scanning, the phone shows <strong>Link device</strong> once — then the normal login screen is served to it.</p>
+          </div>
+        </div>
+      </section>
 
       <section class="card ud-card">
         <div class="cfg-sec-head">

@@ -80,6 +80,7 @@
     }
     if (canManage) {
       await loadAllUserDepartments();
+      await renderPairDevice();
     }
     await loadDepartments();
 
@@ -112,6 +113,7 @@
         actionsHtml += `<button class="btn btn-ghost btn-sm" data-act="role" data-id="${u.id}">Role</button>`;
         actionsHtml += `<button class="btn btn-ghost btn-sm" data-act="pwd" data-id="${u.id}">Password</button>`;
         actionsHtml += `<button class="btn btn-ghost btn-sm" data-act="dept" data-id="${u.id}">Dept</button>`;
+        actionsHtml += `<button class="btn btn-ghost btn-sm" data-act="pairphone" data-id="${u.id}" title="Issue a one-time QR + code that pairs a phone as this account">📱 Pair phone</button>`;
         if (!isMe) actionsHtml += `<button class="btn btn-ghost btn-sm danger-ghost" data-act="del" data-id="${u.id}">Delete</button>`;
       } else {
         actionsHtml += '<span class="muted">View only</span>';
@@ -373,5 +375,30 @@
     });
   }
 
-  
+async function renderPairDevice() {
+    const card = $('#pair-device-card');
+    if (!card) return;
+    try {
+      const d = await api('GET', '/api/v1/admin/pair-qr');
+      $('#pair-qr-img').src = d.dataUrl;
+      $('#pair-code').textContent = d.code;
+      $('#pair-url').textContent = d.url;
+      card.classList.remove('hidden');
+    } catch (e) {
+      card.classList.add('hidden'); // client-only mode off, or no permission
+    }
+    const btn = $('#pair-refresh-btn');
+    if (btn && !btn.dataset.bound) {
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        try {
+          await api('POST', '/api/v1/admin/pair-code');
+          await renderPairDevice();
+          toast('New pairing code issued', false);
+        } catch (e) { toast(e.message, true); }
+        btn.disabled = false;
+      });
+    }
+  }
 

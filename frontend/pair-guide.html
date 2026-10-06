@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Esprit ICT — link this client</title>
+<style>
+  :root {
+    --bg:#101216; --card:#16191e; --line:#262c34; --txt:#e4e8ed; --mut:#8a919b;
+    --brand:#ff8a2a; --brand-hi:#ffa04d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(1200px 700px at 70% -10%, rgba(255,138,42,.10), transparent 60%), var(--bg);
+    color: var(--txt); font: 14px/1.55 "Segoe UI", system-ui, sans-serif;
+  }
+  .card { width: min(440px, 92vw); background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 30px 34px 26px;
+          box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  h1 { margin: 0 0 4px; font-size: 20px; letter-spacing: -.01em; }
+  p.mut { color: var(--mut); font-size: 13px; margin: 0 0 20px; }
+  label { display: block; font: 600 11px/1.4 inherit; color: var(--mut); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+  input {
+    width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 11px; background: #101216;
+    color: var(--txt); font: 600 17px/1.2 "Cascadia Code", ui-monospace, monospace; letter-spacing: .14em; text-align: center;
+  }
+  input:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px rgba(255,138,42,.18); }
+  button {
+    width: 100%; margin-top: 16px; padding: 12px; border: none; border-radius: 11px; cursor: pointer;
+    background: linear-gradient(140deg, #ff8a2a, #ff7a12); color: #1c1405; font: 700 14px/1 inherit;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  .err { color: #f0655a; font-size: 12.5px; min-height: 18px; margin-top: 12px; }
+  .ok  { color: #4cc38a; }
+  .foot { margin-top: 18px; color: #676e78; font-size: 11px; text-transform: uppercase; letter-spacing: .09em; text-align: center; }
+  .step { display: flex; gap: 9px; align-items: center; margin: 14px 0 0; color: var(--mut); font-size: 12.5px; }
+  .n { width: 20px; height: 20px; border-radius: 999px; background: rgba(255,138,42,.14); color: var(--brand);
+       display: grid; place-items: center; font: 700 11px/1 ui-monospace; flex: 0 0 20px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>Link this client</h1>
+    <p class="mut">Enter the one-time pairing code shown in the server's startup log (printed on every server start) or issued by an administrator. Dashes are optional.</p>
+    <label for="code">Pairing code</label>
+    <input id="code" maxlength="12" placeholder="1234-5678" inputmode="numeric" autocomplete="off" spellcheck="false">
+    <div class="step"><span class="n">1</span><span>Code is consumed after first use — other devices need a fresh code.</span></div>
+    <div class="step"><span class="n">2</span><span>Pairing binds this client's identity to this machine.</span></div>
+    <button id="go" type="button">Link client</button>
+    <p class="err" id="msg"></p>
+    <p class="foot">cockpit · client-only mode</p>
+  </div>
+  <script src="/js/pairguide.js"></script>
+</body>
+</html>
