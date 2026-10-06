@@ -37,8 +37,8 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "bad_request", "username is required")
 		return
 	}
-	if len(req.Password) < 8 {
-		s.writeError(w, http.StatusBadRequest, "bad_request", "password must be at least 8 characters")
+	if code, msg, ok := checkPasswordPolicy(username, req.Password); !ok {
+		s.writeError(w, http.StatusBadRequest, code, msg)
 		return
 	}
 	role := auth.Role(cleanString(req.Role))

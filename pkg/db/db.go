@@ -89,6 +89,17 @@ CREATE TABLE IF NOT EXISTS api_tokens (
 CREATE INDEX IF NOT EXISTS idx_api_tokens_token ON api_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_api_tokens_user ON api_tokens(user_id);
 
+CREATE TABLE IF NOT EXISTS pair_codes (
+    code       TEXT   PRIMARY KEY,
+    username   TEXT   NOT NULL DEFAULT '',
+    created_by TEXT   NOT NULL DEFAULT '',
+    created_at BIGINT NOT NULL,
+    expires_at BIGINT NOT NULL,
+    used_at    BIGINT NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_pair_codes_state ON pair_codes(username, used_at, expires_at);
+
 CREATE TABLE IF NOT EXISTS comments (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,

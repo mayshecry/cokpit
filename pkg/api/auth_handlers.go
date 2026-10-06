@@ -3,6 +3,9 @@ package api
 import (
 	"context"
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"cockpit/pkg/auth"
 )
@@ -23,6 +26,26 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
 		return
 	}
+	// Brute-force throttle before any credential work (reads are cheap,
+	// PBKDF2 is not): strict per IP+username (5 attempts / 5 min), plus a
+	// broader per-IP ceiling (20 / minute). 429 + Retry-After when hit.
+	ip := clientIP(r)
+	uname := strings.ToLower(cleanString(req.Username))
+	if ok, retry := s.loginLimiter.Allow(ip+"|login", 20, time.Minute); !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(retry))
+		s.writeError(w, http.StatusTooManyRequests, "rate_limited", "too many login attempts — try again in "+strconv.Itoa(retry)+"s")
+		return
+	}
+	if ok, retry := s.loginLimiter.Allow(ip+"|"+uname, 5, 5*time.Minute); !ok {
+		w.Header().Set("Retry-After", strconv.Itoa(retry))
+		mins := retry / 60
+		if mins < 1 {
+			mins = 1
+		}
+		s.writeError(w, http.StatusTooManyRequests, "rate_limited", "too many failed logins for this account — try again in "+strconv.Itoa(mins)+"m "+strconv.Itoa(retry%60)+"s")
+		return
+	}
+
 	user, err := s.store.UserByUsername(r.Context(), cleanString(req.Username))
 	if err != nil {
 		s.writeError(w, http.StatusUnauthorized, "unauthorized", "invalid username or password")
@@ -33,6 +56,10 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusUnauthorized, "unauthorized", "invalid username or password")
 		return
 	}
+
+	// Successful auth: clear this account+IP window again so a typo streak
+	// earlier in the day never carries over.
+	s.loginLimiter.Reset(ip + "|" + uname)
 
 	token, err := auth.NewToken()
 	if err != nil {

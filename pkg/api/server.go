@@ -18,6 +18,9 @@ import (
 const maxBodyBytes = 1 << 20
 
 type Server struct {
+	loginLimiter *RateLimiter
+	qr           *qrTicketMgr
+	clientGuard  *ClientGuard
 	store        *db.Store
 	now          func() time.Time
 	slaHrs       time.Duration
@@ -28,7 +31,13 @@ type Server struct {
 }
 
 type ServerConfig struct {
-	Now func() time.Time
+	ClientGuard *ClientGuard
+	// TrustProxy: honor X-Forwarded-For / -Proto / -Host (set behind a proxy).
+	TrustProxy bool
+	// PublicURL: absolute external URL, e.g. https://cockpit.example.com —
+	// used for QR URLs and the cookie Secure flag; wins over header inference.
+	PublicURL string
+	Now       func() time.Time
 
 	SLATargetDefaultHours int
 
@@ -40,6 +49,8 @@ type ServerConfig struct {
 }
 
 func New(store *db.Store, cfg ServerConfig) *Server {
+	trustProxy = cfg.TrustProxy
+	publicBaseURL = strings.TrimRight(cfg.PublicURL, "/")
 	if cfg.Now == nil {
 		cfg.Now = time.Now
 	}
@@ -57,6 +68,9 @@ func New(store *db.Store, cfg ServerConfig) *Server {
 		now:          cfg.Now,
 		slaHrs:       time.Duration(cfg.SLATargetDefaultHours) * time.Hour,
 		sessionHours: time.Duration(cfg.SessionHours) * time.Hour,
+		loginLimiter: NewRateLimiter(),
+		qr:           newQrTicketMgr(),
+		clientGuard:  cfg.ClientGuard,
 		logger:       cfg.Logger,
 		hub:          newEventHub(),
 		config:       cfg,
@@ -69,6 +83,15 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /healthz", s.handleHealth)
 	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", s.requireAuth(s.handleLogout))
+	mux.HandleFunc("POST /api/v1/pair", s.handleClientPair)
+	mux.HandleFunc("POST /api/v1/launch", s.handleClientLaunch)
+	mux.HandleFunc("GET /api/v1/qr-login", s.handleQRLoginCreate)
+	mux.HandleFunc("GET /api/v1/qr-login/status", s.handleQRLoginStatus)
+	mux.HandleFunc("POST /api/v1/qr-login/approve", s.requireAuth(s.handleQRLoginApprove))
+	mux.HandleFunc("GET /api/v1/admin/pair-qr", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleAdminPairQR)))
+	mux.HandleFunc("POST /api/v1/admin/pair-code", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleAdminPairCode)))
+	mux.HandleFunc("GET /api/v1/admin/client-keys", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleListPairedClients)))
+	mux.HandleFunc("POST /api/v1/admin/client-keys/{id}/revoke", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleRevokePairedClient)))
 	mux.HandleFunc("GET /api/v1/auth/me", s.requireAuth(s.handleMe))
 	mux.HandleFunc("GET /api/v1/users", s.requireAuth(s.requirePerm(auth.PermUsersList, s.handleListUsers)))
 	mux.HandleFunc("POST /api/v1/users", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleCreateUser)))
@@ -204,7 +227,13 @@ func (s *Server) Handler() http.Handler {
 		static.ServeHTTP(w, r)
 	}))
 
-	return s.recoverMiddleware(s.logMiddleware(mux))
+	// Outermost: recover -> log -> security headers -> client-only guard
+	// (no-op unless COCKPIT_CLIENT_ONLY=1) -> same-origin mutation guard.
+	var top http.Handler = originGuard(mux)
+	if s.clientGuard != nil && s.clientGuard.Enabled() {
+		top = s.clientGuard.Wrap(top)
+	}
+	return s.recoverMiddleware(s.logMiddleware(securityHeaders(top)))
 }
 
 func (s *Server) handleAPINotFound(w http.ResponseWriter, r *http.Request) {
