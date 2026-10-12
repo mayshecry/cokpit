@@ -68,7 +68,7 @@ func (s *Server) handleQRLoginCreate(w http.ResponseWriter, r *http.Request) {
 	scheme, host := effectiveURL(r)
 	url := scheme + "://" + host + "/qr-approve.html?t=" + id
 
-	png, err := qrcode.Encode(url, qrcode.Medium, 300)
+	png, err := qrcode.Encode(url, qrcode.Highest, 320)
 	if err != nil {
 		s.qr.mu.Lock()
 		delete(s.qr.m, id)

@@ -34,6 +34,21 @@ CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at);
 CREATE INDEX IF NOT EXISTS idx_orders_barcode ON orders(barcode);
 CREATE INDEX IF NOT EXISTS idx_orders_omnitracker ON orders(omnitracker_ticket);
 
+CREATE TABLE IF NOT EXISTS prep_devices (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_key    TEXT    NOT NULL UNIQUE,
+    computer_name TEXT    NOT NULL,
+    summary       TEXT    NOT NULL,
+    raw           TEXT    NOT NULL,
+    file_name     TEXT    NOT NULL DEFAULT '',
+    uploader_ip   TEXT    NOT NULL DEFAULT '',
+    runs          INTEGER NOT NULL DEFAULT 1,
+    first_seen_at BIGINT  NOT NULL,
+    last_seen_at  BIGINT  NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_prep_devices_name ON prep_devices(computer_name);
+
 CREATE TABLE IF NOT EXISTS holds (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,

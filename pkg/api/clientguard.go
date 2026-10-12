@@ -530,7 +530,7 @@ func (s *Server) handleAdminPairQR(w http.ResponseWriter, r *http.Request) {
 	scheme, host := effectiveURL(r)
 	url := scheme + "://" + host + "/launch.html?code=" + code
 
-	png, err := qrcode.Encode(url, qrcode.Medium, 320)
+	png, err := qrcode.Encode(url, qrcode.Highest, 320)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "QR generation failed: "+err.Error())
 		return
