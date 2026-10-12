@@ -99,6 +99,8 @@
     $('#nav-orders').classList.toggle('hidden', !can('orders:list'));
     $('#nav-users').classList.toggle('hidden', !can('users:list'));
     $('#nav-config').classList.toggle('hidden', !can('config:manage'));
+    const navDevices = $('#nav-devices');
+    if (navDevices) navDevices.classList.toggle('hidden', !can('users:manage'));
     $('#nav-checklists').classList.toggle('hidden', !can('orders:view'));
     const navWorkload = $('#nav-workload');
     if (navWorkload) navWorkload.classList.toggle('hidden', !can('orders:transition'));

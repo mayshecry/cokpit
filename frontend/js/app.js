@@ -14,6 +14,8 @@
     if (bPane) bPane.classList.toggle('hidden', name !== 'qcbench');
     const wlPane = $('#view-workload');
     if (wlPane) wlPane.classList.toggle('hidden', name !== 'workload');
+    const devPane = $('#view-devices');
+    if (devPane) devPane.classList.toggle('hidden', name !== 'devices');
     $('#view-products').classList.toggle('hidden', name !== 'products');
     $('#view-manuals').classList.toggle('hidden', name !== 'manuals');
     $('#view-si').classList.toggle('hidden', name !== 'si');
@@ -151,6 +153,11 @@
       renderConfig();
       return;
     }
+    if (can('users:manage') && page === 'devices') {
+      showPane('devices');
+      Devices.open();
+      return;
+    }
     if (can('orders:transition') && page === 'workload') {
       showPane('workload');
       if (window.Workload) Workload.load();
@@ -273,6 +280,7 @@
     const needle = q.trim().toLowerCase();
     const items = [];
     const pages = [
+      ...(can('users:manage') ? [{ title: 'Ran devices', hash: '#/devices', kind: t('palette.pages') }] : []),
       { title: t('nav.home'), hash: '#/home', kind: t('palette.pages') },
       { title: t('nav.orders'), hash: '#/orders', kind: t('palette.pages') },
       { title: t('nav.pick'), hash: '#/checklists', kind: t('palette.pages') },
@@ -945,7 +953,7 @@
           hideConfirm: true,
           cancelLabel: 'Close',
           bodyHtml: `<div class="pd-body" style="padding:0">
-            <div class="pd-qr-wrap"><img src="${qr.dataUrl}" alt="Pairing QR" width="180" height="180"></div>
+            <div class="pd-qr-wrap"><img src="${qr.dataUrl}" alt="Pairing QR" width="180" height="180"><span class="qr-badge" aria-hidden="true"><svg viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="m138.91,137.39,16.77-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c10,5.78,10,20.02,0,25.8L0,225.25l20.77,34.18,81.26-46.94c6.16-3.56,13.99,1.54,13.99,8.66v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-15.13-8.74-15.13-30.42,0-39.16v.04Z"/></svg></span></div>
             <div class="pd-meta">
               <div class="pd-code">${esc(qr.code)}</div>
               <p class="muted">Show this QR to <strong>${esc(target.displayName || target.username)}</strong>. Their phone opens the link, the code pairs it <strong>as this account</strong> — they're instantly signed in, no password on the phone.</p>
