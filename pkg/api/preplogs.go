@@ -68,6 +68,9 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 		}
 		text = string(decoded)
 	}
+	// Windows PowerShell often writes a UTF-8 BOM; it would otherwise stick to
+	// the first line and make the "=== Starting ... ===" header unmatchable.
+	text = strings.TrimPrefix(text, "\uFEFF")
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
 
@@ -340,31 +343,33 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 				}
 			}
 			if hasStatus {
-				if strings.EqualFold(statusVal, "OK") {
+				switch prepStatusState(statusVal) {
+				case prepStatusPass:
 					checksOK++
-				} else {
+				case prepStatusFail:
 					checksFlag++
 					if nameVal != "" {
 						label += " — " + nameVal
 					}
 					issues = append(issues, prepIssue{Src: label, Text: "Status: " + statusVal})
+				default:
+					// "Unknown"/blank: the probe could not tell. Not a hardware fault.
 				}
 			}
 		}
 	}
 	for _, u := range updates {
 		code, _ := u["code"].(string)
-		if code != "0" {
+		if prepExitCodeOK(code) {
+			checksOK++
+		} else {
 			checksFlag++
 			issues = append(issues, prepIssue{
 				Src:  "Windows Update",
 				Text: fmt.Sprintf("%s exited with code %s", u["cmd"], code),
 			})
-		} else {
-			checksOK++
 		}
 	}
-
 	secOut := []map[string]any{}
 	for _, sec := range sections {
 		secOut = append(secOut, map[string]any{"name": sec.Name, "items": sec.Items})
@@ -400,6 +405,36 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 		"issues": issues,
 	}
 	return doc, host, nil
+}
+
+// prepStatusState classifies a WMI-style "Status" value.
+//   - OK                  → pass
+//   - blank / Unknown / N/A → not evaluated (the probe could not tell; not a fault)
+//   - anything else        → fail (e.g. Degraded, Pred Fail, Error)
+type prepStatus int
+
+const (
+	prepStatusNeutral prepStatus = iota
+	prepStatusPass
+	prepStatusFail
+)
+
+func prepStatusState(v string) prepStatus {
+	s := strings.TrimSpace(v)
+	switch {
+	case strings.EqualFold(s, "OK"):
+		return prepStatusPass
+	case s == "", strings.EqualFold(s, "Unknown"), strings.EqualFold(s, "N/A"):
+		return prepStatusNeutral
+	default:
+		return prepStatusFail
+	}
+}
+
+// prepExitCodeOK reports whether a Windows Update step's exit code is a success.
+// 0 = success; 3010 = success but a restart is required (not an error).
+func prepExitCodeOK(code string) bool {
+	return code == "0" || code == "3010"
 }
 
 func pick(m map[string]string, k, fallback string) string {
