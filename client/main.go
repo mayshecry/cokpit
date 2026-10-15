@@ -1,18 +1,4 @@
-// Cockpit client launcher ("Esprit ICT").
-//
-// A thin WebView2 shell around the Cockpit UI. In client-only mode
-// (COCKPIT_CLIENT_ONLY=1 on the server) only paired clients can load the UI:
-//
-//   - First launch   — no cockpit-client.json next to the exe: the app opens
-//     the pairing page and binds clientMachine()/clientPairSave()
-//     so the page can register this device. Pairing consumes the
-//     one-time code printed in the server's startup log.
-//   - Later launches — the app signs a launch: ?ckid&ts&mach&proof, where
-//     proof = HMAC-SHA256(clientKey, "ts|machineHash"), and the
-//     server exchanges it for a session cookie (HttpOnly,
-//     SameSite=Strict).
-//
-// Build (Windows):  go build -ldflags="-H windowsgui" -o CockpitClient.exe .
+
 package main
 
 import (
