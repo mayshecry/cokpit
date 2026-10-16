@@ -35,6 +35,7 @@ const samplePrepLog = `2026-10-12 09:00:00 - === Starting laptop prep on LAPTOP-
 2026-10-12 09:00:05 - Name: Internal Battery
 2026-10-12 09:00:05 - ChargePct: 87
 2026-10-12 09:00:05 - Status: Unknown
+2026-10-12 09:00:05 - TPM Activated=-1 Enabled=-1 Spec=2.0, 0, 1.38
 2026-10-12 09:00:06 - ----- GPU -----
 2026-10-12 09:00:06 - Name: Intel(R) UHD Graphics 620
 2026-10-12 09:00:06 - Status: OK
@@ -58,6 +59,18 @@ func parseForTest(t *testing.T, log string) (map[string]any, []prepIssue) {
 	}
 	issues, _ := doc["issues"].([]prepIssue)
 	return doc, issues
+}
+
+func TestPrepLogParsesWMITrueValuesAndFullTPMSpec(t *testing.T) {
+	doc, _ := parseForTest(t, samplePrepLog)
+	health := doc["health"].(map[string]any)
+	tpm := health["tpm"].(map[string]any)
+	if tpm["activated"] != true || tpm["enabled"] != true {
+		t.Errorf("TPM booleans = activated:%v enabled:%v, want both true", tpm["activated"], tpm["enabled"])
+	}
+	if tpm["spec"] != "2.0, 0, 1.38" {
+		t.Errorf("TPM spec = %q, want full version string", tpm["spec"])
+	}
 }
 
 func TestPrepLogStatusUnknownIsNotAnIssue(t *testing.T) {

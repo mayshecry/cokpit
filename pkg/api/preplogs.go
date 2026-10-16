@@ -29,6 +29,7 @@ var (
 	prepKV       = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9 /_().()-]{0,48}):\s(.*)$`)
 	prepRunCmd   = regexp.MustCompile(`^Run: (\S.*)$`)
 	prepExitCode = regexp.MustCompile(`^Exit code: (-?\d+)$`)
+	prepTPMLine  = regexp.MustCompile(`^TPM Activated=(\S+) Enabled=(\S+) Spec=(.*)$`)
 )
 
 type prepKVEntry struct {
@@ -152,9 +153,8 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 			continue
 		}
 
-		bodyLower := strings.ToLower(body)
-		if strings.HasPrefix(bodyLower, "tpm activated=") {
-			fmt.Sscanf(body, "TPM Activated=%s Enabled=%s Spec=%s", &tpmAct, &tpmEn, &tpmSpec)
+		if m := prepTPMLine.FindStringSubmatch(body); m != nil {
+			tpmAct, tpmEn, tpmSpec = m[1], m[2], strings.TrimSpace(m[3])
 			events = append(events, prepEvent{T: stamp, M: body})
 			continue
 		}
@@ -393,7 +393,7 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 		"network":    netw,
 		"health": map[string]any{
 			"power": power,
-			"tpm":   map[string]any{"activated": tpmAct == "True", "enabled": tpmEn == "True", "spec": tpmSpec},
+			"tpm":   map[string]any{"activated": prepBool(tpmAct), "enabled": prepBool(tpmEn), "spec": tpmSpec},
 		},
 		"updates":  updates,
 		"sections": secOut,
@@ -435,6 +435,17 @@ func prepStatusState(v string) prepStatus {
 // 0 = success; 3010 = success but a restart is required (not an error).
 func prepExitCodeOK(code string) bool {
 	return code == "0" || code == "3010"
+}
+
+// prepBool parses both textual booleans and WMI/Windows numeric booleans.
+// WMI commonly serializes TRUE as -1; some PowerShell paths emit 1 instead.
+func prepBool(v string) bool {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "true", "1", "-1", "yes":
+		return true
+	default:
+		return false
+	}
 }
 
 func pick(m map[string]string, k, fallback string) string {
