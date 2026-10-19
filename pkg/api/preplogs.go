@@ -197,7 +197,6 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 		events = append(events, prepEvent{T: stamp, M: body})
 	}
 
-	// ── strict validation: must look EXACTLY like a real prep log ──
 	if host == "" {
 		return nil, "", errors.New("missing '=== Starting laptop prep on <HOST> ===' header")
 	}

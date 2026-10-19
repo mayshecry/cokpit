@@ -75,7 +75,7 @@ func (s *Store) PrepDeviceByKey(ctx context.Context, key string) (PrepDevice, er
 func (s *Store) ListPrepDevices(ctx context.Context) ([]map[string]any, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, device_key, computer_name, file_name, runs, first_seen_at, last_seen_at, COALESCE(summary,'')
-		  FROM prep_devices ORDER BY last_seen_at DESC, id DESC LIMIT 500`)
+		  FROM prep_devices ORDER BY last_seen_at DESC, id DESC`)
 	if err != nil {
 		return nil, err
 	}
