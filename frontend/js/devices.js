@@ -3,7 +3,7 @@
 /* Ran devices — admin-only dashboard for refurb prep logs.
    Ingestion is public (POST /api/v1/prep-logs); viewing is users:manage. */
 const Devices = (() => {
-  const S = { list: [], selectedId: null, search: '', busy: false };
+  const S = { list: [], selectedId: null, search: '', filter: 'all', busy: false };
 
   const root = () => $('#view-devices');
   const $rd = (sel) => $(sel, root());
@@ -33,10 +33,11 @@ const Devices = (() => {
       const d = await api('GET', '/api/v1/admin/prep-devices');
       S.list = d.devices || [];
       renderKpis();
-      renderList();
-      if (!keepSelection || !S.list.some((x) => x.id === S.selectedId)) {
-        S.selectedId = S.list.length ? S.list[0].id : null;
+      const visible = filtered();
+      if (!keepSelection || !visible.some((x) => x.id === S.selectedId)) {
+        S.selectedId = visible.length ? visible[0].id : null;
       }
+      renderList();
       if (S.selectedId) await select(S.selectedId, true);
       else renderDetailEmpty();
     } catch (e) {
@@ -50,6 +51,7 @@ const Devices = (() => {
   async function select(id, silent) {
     S.selectedId = id;
     $$('.rd-row', $rd('#rd-list')).forEach((el) => el.classList.toggle('active', Number(el.dataset.id) === id));
+    $$('.rd-row', $rd('#rd-list')).forEach((el) => el.setAttribute('aria-pressed', String(Number(el.dataset.id) === id)));
     const det = $rd('#rd-detail');
     det.innerHTML = '<div class="rd-empty"><div class="sk sk-line" style="width:60%"></div><div class="sk sk-line" style="width:80%"></div><div class="sk sk-block"></div><div class="sk sk-block"></div></div>';
     try {
@@ -57,40 +59,95 @@ const Devices = (() => {
       if (S.selectedId !== id) return; // user moved on already
       renderDetail(d);
     } catch (e) {
+      if (S.selectedId !== id) return;
       det.innerHTML = `<div class="rd-empty"><p class="muted">Could not load device: ${esc(e.message)}</p></div>`;
     }
   }
 
   // ── list + kpis ──────────────────────────────────────────────────────
+  // Each machine contributes exactly once to the fleet chart. A flagged
+  // check takes priority over incomplete prep; no checks is not a pass.
+  const statuses = [
+    { key: 'ready', label: 'Prep complete', color: 'var(--good)' },
+    { key: 'issues', label: 'Needs attention', color: 'var(--bad)' },
+    { key: 'incomplete', label: 'Incomplete', color: 'var(--warn)' },
+    { key: 'unknown', label: 'No check data', color: 'var(--muted)' },
+  ];
+  function deviceStatus(x) {
+    if (x.checksFlag > 0) return 'issues';
+    if (!(x.checksOK > 0)) return 'unknown';
+    return x.complete ? 'ready' : 'incomplete';
+  }
+  const counts = () => Object.fromEntries(statuses.map((s) => [s.key, S.list.filter((x) => deviceStatus(x) === s.key).length]));
+
   function renderKpis() {
-    const dev = S.list.length;
-    let ok = 0, flag = 0, latestISO = null;
-    for (const x of S.list) {
-      ok += x.checksOK || 0;
-      flag += x.checksFlag || 0;
-      if (!latestISO || x.lastSeenAt > latestISO) latestISO = x.lastSeenAt;
-    }
+    const total = S.list.length, c = counts();
+    const runs = S.list.reduce((n, x) => n + (x.runs || 1), 0);
+    const ok = S.list.reduce((n, x) => n + (x.checksOK || 0), 0);
+    const flag = S.list.reduce((n, x) => n + (x.checksFlag || 0), 0);
+    const latest = S.list.reduce((v, x) => x.lastSeenAt > v ? x.lastSeenAt : v, '');
+    let offset = 0;
+    const segments = statuses.map((s) => {
+      const share = total ? c[s.key] / total * 100 : 0;
+      const arc = share ? `<circle class="rd-arc" cx="90" cy="90" r="68" pathLength="100" fill="none" stroke="${s.color}" stroke-width="17" stroke-dasharray="${share} ${100 - share}" stroke-dashoffset="${-offset}" transform="rotate(-90 90 90)"><title>${s.label}: ${c[s.key]}</title></circle>` : '';
+      offset += share;
+      return arc;
+    }).join('');
+    $rd('#rd-overview').innerHTML = `
+      <section class="card rd-fleet-card">
+        <div class="rd-card-heading"><div><span class="rd-eyebrow">FLEET OVERVIEW</span><h2>Every device. One view.</h2></div><span class="rd-scope">Latest report per device</span></div>
+        <div class="rd-fleet-body">
+          <div class="rd-donut" role="img" aria-label="${total} devices: ${statuses.map((s) => `${c[s.key]} ${s.label}`).join(', ')}">
+            <svg viewBox="0 0 180 180" aria-hidden="true"><circle cx="90" cy="90" r="68" fill="none" stroke="var(--border)" stroke-width="17"/>${segments}</svg>
+            <div class="rd-donut-center"><strong>${total}</strong><span>Total devices</span></div>
+          </div>
+          <div class="rd-legend">${statuses.map((s) => `<button type="button" data-status="${s.key}" aria-pressed="${S.filter === s.key}" class="rd-legend-row"><span class="rd-dot" style="background:${s.color}"></span><span>${s.label}</span><strong>${c[s.key]}</strong><small>${total ? Math.round(c[s.key] / total * 100) : 0}%</small></button>`).join('')}</div>
+        </div>
+        <p class="rd-chart-note">${total ? 'Devices with flagged checks appear under Needs attention, even if prep is incomplete.' : 'Upload a prep log to start building your fleet overview.'}</p>
+      </section>
+      <section class="card rd-health-card">
+        <span class="rd-eyebrow">PREP READINESS</span><div class="rd-readiness">${total ? Math.round(c.ready / total * 100) : '—'}<span>${total ? '%' : ''}</span></div>
+        <h2>Completed without flags</h2><p class="muted">${c.ready} of ${total} devices have a completed prep report with checks and no flagged issues.</p>
+        <div class="rd-health-track"><span style="width:${total ? c.ready / total * 100 : 0}%"></span></div>
+        <div class="rd-health-foot"><span>Last log received</span><strong>${esc(latest ? relTime(latest) : 'No logs yet')}</strong></div>
+      </section>`;
     $rd('#rd-kpis').innerHTML = `
-      <div class="rd-kpi"><span class="rd-kpi-n" data-count="${dev}">0</span><span class="rd-kpi-l">Devices seen</span></div>
-      <div class="rd-kpi good"><span class="rd-kpi-n" data-count="${ok}">0</span><span class="rd-kpi-l">Checks passed</span></div>
-      <div class="rd-kpi ${flag ? 'bad' : ''}"><span class="rd-kpi-n" data-count="${flag}">0</span><span class="rd-kpi-l">Issues flagged</span></div>
-      <div class="rd-kpi"><span class="rd-kpi-n">${esc(latestISO ? relTime(latestISO) : '—')}</span><span class="rd-kpi-l">Last log received</span></div>`;
-    if (window.hydrateCounts) window.hydrateCounts($rd('#rd-kpis'));
+      <div class="rd-kpi"><span class="rd-kpi-l">Prep runs recorded</span><span class="rd-kpi-n">${runs}</span><span class="muted">Including repeat runs</span></div>
+      <div class="rd-kpi good"><span class="rd-kpi-l">Checks passed</span><span class="rd-kpi-n">${ok}</span><span class="muted">Across latest reports</span></div>
+      <div class="rd-kpi ${flag ? 'bad' : ''}"><span class="rd-kpi-l">Checks flagged</span><span class="rd-kpi-n">${flag}</span><span class="muted">On ${c.issues} devices</span></div>`;
+    $rd('#rd-filters').innerHTML = [{key: 'all', label: 'All devices'}, ...statuses].map((s) => `<button type="button" class="rd-filter" data-status="${s.key}" aria-pressed="${S.filter === s.key}">${s.label}<span>${s.key === 'all' ? total : c[s.key]}</span></button>`).join('');
+    $$('[data-status]', root()).forEach((b) => b.addEventListener('click', () => {
+      S.filter = S.filter === b.dataset.status ? 'all' : b.dataset.status;
+      renderKpis();
+      syncSelection();
+    }));
   }
 
   function filtered() {
     const q = S.search.trim().toLowerCase();
-    if (!q) return S.list;
-    return S.list.filter((x) => [x.computerName, x.manufacturer, x.model, x.cpuName, x.os, x.fileName]
-      .filter(Boolean).some((v) => String(v).toLowerCase().includes(q)));
+    return S.list.filter((x) => (S.filter === 'all' || deviceStatus(x) === S.filter) &&
+      (!q || [x.computerName, x.manufacturer, x.model, x.cpuName, x.os, x.fileName]
+      .filter(Boolean).some((v) => String(v).toLowerCase().includes(q))));
+  }
+
+  function syncSelection() {
+    const rows = filtered();
+    const keep = rows.some((x) => x.id === S.selectedId);
+    if (!keep) S.selectedId = rows.length ? rows[0].id : null;
+    renderList();
+    if (!keep) {
+      if (S.selectedId) select(S.selectedId);
+      else renderDetailEmpty();
+    }
   }
 
   function renderList() {
     const el = $rd('#rd-list');
     const rows = filtered();
+    $rd('#rd-result-count').textContent = `${rows.length} / ${S.list.length}`;
     if (!rows.length) {
       el.innerHTML = S.list.length
-        ? '<div class="rd-empty small"><p class="muted">No devices match your search.</p></div>'
+        ? '<div class="rd-empty small"><p class="muted">No devices match these filters. Try another status or search.</p></div>'
         : `<div class="rd-empty">
              <div class="rd-empty-ico">🖥️</div>
              <h3>No devices yet</h3>
@@ -100,12 +157,10 @@ const Devices = (() => {
       return;
     }
     el.innerHTML = rows.map((x) => `
-      <button type="button" class="rd-row ${x.id === S.selectedId ? 'active' : ''}" data-id="${x.id}">
+      <button type="button" class="rd-row ${x.id === S.selectedId ? 'active' : ''}" data-id="${x.id}" aria-pressed="${x.id === S.selectedId}">
         <span class="rd-row-top">
           <strong>${esc(x.computerName)}</strong>
-          ${(x.checksFlag || 0) > 0
-            ? `<span class="rd-flag bad">${x.checksFlag} issue${x.checksFlag > 1 ? 's' : ''}</span>`
-            : `<span class="rd-flag good">All OK</span>`}
+          <span class="rd-flag rd-status-${deviceStatus(x)}">${statuses.find((s) => s.key === deviceStatus(x)).label}</span>
         </span>
         <span class="rd-row-sub">${esc([x.manufacturer, x.model].filter(Boolean).join(' · ') || 'Unknown machine')}</span>
         <span class="rd-row-sub">${esc(x.cpuName || '—')}${x.ramText ? ' · ' + esc(x.ramText) : ''}</span>
@@ -337,7 +392,7 @@ const Devices = (() => {
     const srch = $rd('#rd-search');
     if (srch && !srch.dataset.wired) {
       srch.dataset.wired = '1';
-      srch.addEventListener('input', () => { S.search = srch.value; renderList(); });
+      srch.addEventListener('input', () => { S.search = srch.value; syncSelection(); });
     }
     const ref = $rd('#rd-refresh');
     if (ref && !ref.dataset.wired) {

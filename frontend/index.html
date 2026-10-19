@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#ff8200">
 <title>Cockpit — Order Operations · Esprit ICT</title>
 <link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ff8200'/%3E%3Cpath d='m9 17 5 5 9-11' stroke='%23fff' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css?v=qcj">
+<link rel="stylesheet" href="styles.css?v=devices-v2">
 </head>
 <body>
 
@@ -696,18 +696,23 @@
       <header class="page-head">
         <div>
           <h1>Ran devices</h1>
-          <p class="muted">Every machine that ran the refurb prep script and posted its log. Ingestion is public (<code>POST /api/v1/prep-logs</code>) — the script just needs the server URL.</p>
+          <p class="muted">Your prep fleet, at a glance. Track completed runs, spot issues, and explore every machine.</p>
         </div>
         <div class="page-head-actions rd-head-actions">
           <input type="search" id="rd-search" class="input rd-search" placeholder="Search name, model, CPU…" autocomplete="off">
           <button type="button" class="btn btn-ghost" id="rd-refresh" title="Reload device list"><span aria-hidden="true">⟳</span> Refresh</button>
-          <button type="button" class="btn btn-primary" id="rd-upload">Test: upload a log</button>
+          <button type="button" class="btn btn-primary" id="rd-upload">Upload prep log</button>
           <input type="file" id="rd-file" class="hidden" accept=".log,.txt,text/plain">
         </div>
       </header>
+      <div class="rd-overview" id="rd-overview" aria-label="Device fleet overview"></div>
       <div class="rd-kpis" id="rd-kpis"></div>
+      <div class="rd-toolbar">
+        <div><h2>Device explorer <span id="rd-result-count" class="rd-result-count"></span></h2><p class="muted">Select a machine to inspect its latest prep report.</p></div>
+        <div id="rd-filters" class="rd-filters" role="group" aria-label="Filter devices by status"></div>
+      </div>
       <div class="rd-grid">
-        <div class="rd-list card" id="rd-list" role="listbox" aria-label="Devices"></div>
+        <div class="rd-list card" id="rd-list" role="group" aria-label="Devices"></div>
         <section class="rd-detail card" id="rd-detail" aria-live="polite"></section>
       </div>
     </main>
@@ -742,7 +747,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="js/core.js?v=qcj"></script>
   <script src="js/notifications.js?v=qcj"></script>
-  <script src="js/auth.js?v=qcj"></script>
+  <script src="js/auth.js?v=qr-private-poll-1"></script>
   <script src="js/orders.js?v=qcj"></script>
   <script src="js/ordercreate.js?v=qcj"></script>
   <script src="js/detail.js?v=qcj"></script>
@@ -756,9 +761,9 @@
   <script src="js/qcbench.js?v=qcj"></script>
   <script src="js/si.js?v=qcj"></script>
   <script src="js/users.js?v=qcj"></script>
-  <script src="js/devices.js?v=qcj"></script>
+  <script src="js/devices.js?v=devices-v2"></script>
   <script src="js/config.js?v=qcj"></script>
   <script src="js/app.js?v=qcj"></script>
   <script src="js/order-pages.js?v=qcj"></script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4ce9b18cceffac0',t:'MTc5MjQwMDU2Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
