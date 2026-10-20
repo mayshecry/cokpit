@@ -1,13 +1,4 @@
 'use strict';
-// Phone linking/launching page for client-only mode — a state machine that
-// never dead-ends:
-//   ?code=…    → pair (account-linked codes ALSO log you in)
-//   ?ticket=…  → after pairing, a pending QR-login approval is completed too
-//   paired     → refresh the session cookie and continue
-//   nothing    → manual code form
-// WebCrypto is used when available; on plain-http origins (phones on LAN IPs,
-// where window.crypto.subtle does not exist) we fall back to a bundled
-// SHA-256/HMAC implementation — the app works either way.
 (function () {
   const $ = (id) => document.getElementById(id);
   const codeEl = $('code'), goEl = $('go'), msgEl = $('msg'), leadEl = $('lead'), formEl = $('form');
@@ -17,7 +8,6 @@
   const ok = (t) => { msgEl.className = 'err ok'; msgEl.textContent = t; };
   const start = (t) => { msgEl.className = 'err'; msgEl.innerHTML = '<span class="spin"></span> ' + t; };
 
-  /* ---------- tiny SHA-256 + HMAC (fallback only; subtly verified below) */
   function sha256Bytes(data) {
     const K = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137, 139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199, 211, 223, 227, 229, 233, 239, 241, 251, 257, 263, 269, 271, 277, 281, 283, 293, 307, 311]
       .map(p => {
@@ -78,12 +68,11 @@
       try {
         const k = await crypto.subtle.importKey('raw', kb, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
         return hexOf(await crypto.subtle.sign('HMAC', k, utf8(msg)));
-      } catch (e) { /* fall through to the bundled implementation */ }
+      } catch (e) { }
     }
     return hexOf(hmacSha256Fallback(kb, utf8(msg)));
   }
 
-  /* ---------- pairing storage */
   let pairedUser = null;
   const machine = () => {
     let m = localStorage.getItem(LS_MACHINE);
@@ -97,7 +86,6 @@
   const loadPair = () => { try { return JSON.parse(localStorage.getItem(LS_PAIR) || 'null'); } catch { return null; } };
   const savePair = (p) => localStorage.setItem(LS_PAIR, JSON.stringify(p));
 
-  /* ---------- server ops */
   async function pair(code) {
     const r = await fetch('/api/v1/pair', {
       method: 'POST',
@@ -107,7 +95,6 @@
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((j.error && j.error.message) || 'Pairing failed.');
     savePair({ clientId: j.clientId, key: j.key, machine: machine(), savedAt: new Date().toISOString() });
-    // account-linked code → server logged us in already (and set the cookie)
     if (j.token && j.user) {
       localStorage.setItem('cockpit_token', j.token);
       localStorage.setItem('cockpit_user', JSON.stringify(j.user));
@@ -115,8 +102,6 @@
     }
   }
 
-  // Refresh the session cookie for an EXISTING pairing (after expiry or when
-  // pairing happened before v10's pair-sets-cookie upgrade).
   async function launch(p) {
     const ts = String(Math.floor(Date.now() / 1000));
     const proof = await hmacHex(p.key, ts + '|' + p.machine);
@@ -134,7 +119,7 @@
 
   async function approveTicket(ticket) {
     const token = localStorage.getItem('cockpit_token') || '';
-    if (!token) return; // generic-code pairing w/o account → let them log in
+    if (!token) return;
     const r = await fetch('/api/v1/qr-login/approve', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
@@ -146,7 +131,6 @@
     }
   }
 
-  /* ---------- flow */
   function successScreen(ticket) {
     formEl.hidden = true;
     ok(pairedUser
@@ -170,7 +154,7 @@
         const p = loadPair();
         if (p && p.clientId && p.key && p.machine) {
           start('Checking this device…');
-          await launch(p); // refresh cookie (works with or without WebCrypto)
+          await launch(p);
         }
       }
       const p = loadPair();
@@ -186,7 +170,6 @@
           if (pairedUser) setTimeout(() => location.replace('/'), 1500);
           return;
         } catch (e) {
-          // approve failed (expired ticket / stale token): land user in the app to log in
           ok('Device linked. Sign in once below, then re-scan the QR.');
           location.assign(ticket ? ('/qr-approve.html?t=' + encodeURIComponent(ticket)) : '/');
           return;
@@ -216,7 +199,7 @@
     try {
       await pair(c);
       if (ticket) {
-        try { await approveTicket(ticket); } catch (e2) { /* continue into app anyway */ }
+        try { await approveTicket(ticket); } catch (e2) { }
         ok(pairedUser ? ('Linked & signed in as ' + pairedUser.username + ' ✓') : 'Device linked ✓');
         leadEl.textContent = pairedUser ? 'Signed in — opening cockpit…' : 'Linked — opening cockpit…';
         location.assign('/');

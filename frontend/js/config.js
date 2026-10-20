@@ -9,7 +9,7 @@
       pop.classList.toggle('hidden');
       if (pop.classList.contains('hidden')) return;
       $('#pref-theme').value = localStorage.getItem('cockpit_theme') || 'system';
-      $('#pref-density').value = localStorage.getItem('cockpit_density') || 'cozy';
+      $('#pref-density').value = localStorage.getItem('cockpit_density') || 'spacious';
       $('#pref-lang').value = lang();
       $('#pref-alerts').checked = localStorage.getItem('cockpit_alerts') === 'on';
     });
@@ -431,10 +431,16 @@
   let custList = [];             // directory from /api/v1/customers
 
   async function refreshCustomersCard() {
+    if (window.SLA && typeof SLA.ensureDefaultCustomers === 'function') {
+      await SLA.ensureDefaultCustomers();
+    }
     try {
       const d = await api('GET', '/api/v1/customers');
-      custList = (d.customers || []).sort((a, b) => a.name.localeCompare(b.name));
-    } catch { custList = []; }
+      const raw = d.customers || [];
+      custList = window.SLA ? SLA.mergeCustomersWithDefaults(raw) : raw.sort((a, b) => a.name.localeCompare(b.name));
+    } catch {
+      custList = window.SLA ? SLA.mergeCustomersWithDefaults([]) : [];
+    }
     paintCustomersCard();
     fillScopeOptions();
   }
@@ -444,35 +450,60 @@
     if (!host) return;
     const cc = $('#cust-count');
     const withFlow = custList.filter((c) => c.hasFlow).length;
-    if (cc) cc.textContent = custList.length ? `${custList.length} total · ${withFlow} own flow` : '';
+    const withSla = custList.filter((c) => window.SLA && SLA.getCustomerDays(c.name)).length;
+    if (cc) cc.textContent = custList.length ? `${custList.length} total · ${withSla} SLA rules · ${withFlow} own flow` : '';
     if (!custList.length) { host.innerHTML = '<p class="muted cust-empty">No customers yet — create the first one above.</p>'; return; }
     const q = custFilter.trim().toLowerCase();
     const view = q ? custList.filter((c) => c.name.toLowerCase().includes(q)) : custList;
     if (!view.length) { host.innerHTML = `<p class="muted cust-empty">Nothing matches &ldquo;${esc(custFilter)}&rdquo;.</p>`; return; }
-    host.innerHTML = view.map((c) => `
+    const defDays = window.SLA ? SLA.getDefaults().defaultWorkdays : 2;
+    const skipWk = window.SLA ? SLA.excludeWeekends() : true;
+    host.innerHTML = view.map((c) => {
+      const slaDays = window.SLA ? SLA.getCustomerDays(c.name) : null;
+      const effDays = slaDays || defDays;
+      return `
       <div class="cust-row" data-cust="${esc(c.name)}">
         <span class="cust-name">${esc(c.name)}</span>
         ${c.number ? `<span class="chip mono cust-num">${esc(c.number)}</span>` : ''}
         ${c.custom ? '<span class="chip cust-chip">custom</span>' : ''}
         ${c.hasFlow ? '<span class="chip chip-ok cust-chip">own flow</span>' : ''}
+        <span class="cust-sla-wrap" title="Customer SLA in workdays (${skipWk ? 'weekends excluded' : 'calendar days'})">
+          <span class="cust-sla-lbl">SLA</span>
+          <input type="number" min="1" max="60" step="1" class="cust-sla-inp mono" data-cust-sla="${esc(c.name)}" value="${effDays}" aria-label="SLA workdays for ${esc(c.name)}">
+          <span class="cust-sla-unit">${effDays === 1 ? 'workday' : 'workdays'}${slaDays ? '' : ' (default)'}</span>
+        </span>
         <span class="cust-row-acts">
           ${c.custom && !c.managed ? '<button type="button" class="btn btn-ghost btn-sm cust-adopt" title="Add to the customer directory">Adopt</button>' : ''}
           <button type="button" class="btn btn-ghost btn-sm cust-edit">${c.hasFlow ? 'Edit flow' : 'Own flow'}</button>
         </span>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   let custFilter = '';
 
   function customersCardHtml() {
+    const defs = window.SLA ? SLA.getDefaults() : { defaultWorkdays: 2, excludeWeekends: true };
     return `
       <section class="card cust-card" id="cust-card">
         <div class="cfg-sec-head">
           <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.4 19.2a5.6 5.6 0 0 1 11.2 0"/><circle cx="17" cy="9.4" r="2.5"/><path d="M15.4 14.2a5 5 0 0 1 5.3 4.6"/></svg></div>
-          <div class="cfg-sec-txt"><h3>Customers</h3><p class="muted">Directory of customers known from orders and SIs. &ldquo;Custom&rdquo; names arrived via orders — adopt them into the directory, or give any customer its own guided work flow.</p></div>
+          <div class="cfg-sec-txt"><h3>Customers &amp; SLA Policies</h3><p class="muted">Directory of customers known from orders and SIs. Configure per-customer SLA in workdays (e.g. <strong>Kenter = 2 workdays</strong>, <strong>Dela = 5 workdays</strong>) with weekend exclusion.</p></div>
           <div class="cfg-sec-acts">
             <button type="button" class="btn btn-primary btn-sm" id="cust-new">+ New customer</button>
           </div>
+        </div>
+        <div class="cust-sla-bar">
+          <label class="cust-sla-toggle">
+            <input type="checkbox" id="sla-exclude-weekends" ${defs.excludeWeekends !== false ? 'checked' : ''}>
+            <span>Exclude weekends (Sat &amp; Sun do not count toward SLA)</span>
+          </label>
+          <div class="cust-sla-def">
+            <label for="sla-default-days">Default SLA:</label>
+            <input type="number" id="sla-default-days" class="cust-sla-inp mono" min="1" max="60" value="${defs.defaultWorkdays || 2}">
+            <span class="muted">workdays</span>
+          </div>
+          <span class="cfg-pill ok">Kenter: ${window.SLA ? SLA.effectiveDays('Kenter') : 2}d · Dela: ${window.SLA ? SLA.effectiveDays('Dela') : 5}d</span>
         </div>
         <div class="cust-tools">
           <input id="cust-filter" class="cfg-search" type="search" placeholder="Filter customers&hellip;" autocomplete="off" spellcheck="false">
@@ -483,22 +514,32 @@
   }
 
   async function newCustomerModal(prefillName) {
+    const defDays = window.SLA ? SLA.getDefaults().defaultWorkdays : 2;
     const vals = await modal({
       title: 'New customer',
-      description: 'Adds the customer to the directory. Order imports and the guided-flow editor can use it right away.',
+      description: 'Adds the customer to the directory with its SLA workday target (weekends excluded).',
       confirmLabel: 'Create customer',
       fields: [
-        { name: 'name', label: 'Name', placeholder: 'e.g. Gemeente Sittard', value: prefillName || '', required: true },
-        { name: 'number', label: 'Customer number (optional)', placeholder: 'e.g. 1042', hint: 'Leave empty for an automatic number.' },
+        { name: 'name', label: 'Name', placeholder: 'e.g. Kenter, Dela, Gemeente Sittard', value: prefillName || '', required: true },
+        { name: 'number', label: 'Customer number (optional)', placeholder: 'e.g. 1042', hint: 'Leave empty for an automatic number.', half: true },
+        { name: 'slaDays', label: 'SLA (workdays, excl. weekends)', type: 'number', value: String(defDays), placeholder: 'e.g. 2', hint: 'Saturdays and Sundays are skipped automatically.', half: true },
       ],
     });
     if (!vals) return;
+    const name = String(vals.name || '').trim();
+    const slaDays = Number(vals.slaDays);
+    if (window.SLA && name && slaDays > 0) {
+      SLA.setCustomerDays(name, slaDays, SLA.excludeWeekends());
+    }
     try {
-      const r = await api('POST', '/api/v1/customers', { name: String(vals.name || '').trim(), number: String(vals.number || '').trim() });
-      toast(`Customer "${r.customer.name}" created`);
+      const r = await api('POST', '/api/v1/customers', { name, number: String(vals.number || '').trim() });
+      toast(`Customer "${r.customer.name}" created` + (slaDays > 0 ? ` · SLA ${slaDays} workday${slaDays === 1 ? '' : 's'}` : ''));
       await refreshCustomersCard();
       switchScopeTo(r.customer.name);
-    } catch (err) { toast(err.message, true); }
+    } catch (err) {
+      await refreshCustomersCard();
+      toast(err.message, true);
+    }
   }
 
   function switchScopeTo(name) {
@@ -774,17 +815,44 @@
     fillScopeOptions();
     const newBtn = $('#cust-new');
     if (newBtn) newBtn.addEventListener('click', () => newCustomerModal());
-    const custHost = $('#cust-list');
-    if (custHost) custHost.addEventListener('click', async (e) => {
-      const row = e.target.closest('.cust-row');
-      if (!row) return;
-      const name = row.dataset.cust;
-      if (e.target.closest('.cust-edit')) { switchScopeTo(name); return; }
-      if (e.target.closest('.cust-adopt')) {
-        try { await api('POST', '/api/v1/customers', { name, number: '' }); toast(`"${name}" added to the directory`); refreshCustomersCard(); }
-        catch (err) { toast(err.message, true); }
-      }
+    const wkChk = $('#sla-exclude-weekends');
+    if (wkChk) wkChk.addEventListener('change', () => {
+      if (window.SLA) SLA.setDefaults({ excludeWeekends: wkChk.checked });
+      paintCustomersCard();
+      toast(wkChk.checked ? 'SLA now excludes weekends (Sat & Sun)' : 'SLA now counts calendar days');
     });
+    const defDayInp = $('#sla-default-days');
+    if (defDayInp) defDayInp.addEventListener('change', () => {
+      const v = Math.max(1, Math.min(60, Math.round(Number(defDayInp.value) || 2)));
+      defDayInp.value = String(v);
+      if (window.SLA) SLA.setDefaults({ defaultWorkdays: v });
+      paintCustomersCard();
+      toast(`Default SLA set to ${v} workday${v === 1 ? '' : 's'}`);
+    });
+    const custHost = $('#cust-list');
+    if (custHost) {
+      custHost.addEventListener('change', (e) => {
+        const inp = e.target.closest('[data-cust-sla]');
+        if (!inp || !window.SLA) return;
+        const name = inp.dataset.custSla;
+        const days = Math.max(1, Math.min(60, Math.round(Number(inp.value) || 2)));
+        inp.value = String(days);
+        SLA.setCustomerDays(name, days, SLA.excludeWeekends());
+        paintCustomersCard();
+        toast(`${name} SLA set to ${days} workday${days === 1 ? '' : 's'} (weekends excluded)`);
+      });
+      custHost.addEventListener('click', async (e) => {
+        if (e.target.closest('[data-cust-sla]')) return;
+        const row = e.target.closest('.cust-row');
+        if (!row) return;
+        const name = row.dataset.cust;
+        if (e.target.closest('.cust-edit')) { switchScopeTo(name); return; }
+        if (e.target.closest('.cust-adopt')) {
+          try { await api('POST', '/api/v1/customers', { name, number: '' }); toast(`"${name}" added to the directory`); refreshCustomersCard(); }
+          catch (err) { toast(err.message, true); }
+        }
+      });
+    }
     refreshCustomersCard();
     const custSearch = $('#cust-filter');
     if (custSearch) custSearch.addEventListener('input', () => { custFilter = custSearch.value; paintCustomersCard(); });

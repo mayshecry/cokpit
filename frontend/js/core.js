@@ -4,7 +4,7 @@
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
   
 
-  const state = {
+  const state = window.cockpitState = {
     token: localStorage.getItem('cockpit_token'),
     user: JSON.parse(localStorage.getItem('cockpit_user') || 'null'),
     orders: [],
@@ -367,17 +367,17 @@
   const BASE_TITLE = 'Cockpit — Order Operations';
 
   function applyPrefs() {
-    const theme = localStorage.getItem('cockpit_theme') || 'system';
-    const dark = theme === 'dark'
-      || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const theme = localStorage.getItem('cockpit_theme') || 'dark';
+    const dark = theme !== 'light'
+      && (theme === 'dark' || theme !== 'system' || window.matchMedia('(prefers-color-scheme: dark)').matches);
     if (dark) document.documentElement.setAttribute('data-theme', 'dark');
     else document.documentElement.removeAttribute('data-theme');
-    document.documentElement.setAttribute('data-density', localStorage.getItem('cockpit_density') || 'cozy');
+    document.documentElement.setAttribute('data-density', localStorage.getItem('cockpit_density') || 'spacious');
     const metaScheme = document.querySelector('meta[name="color-scheme"]');
     if (metaScheme) metaScheme.setAttribute('content', dark ? 'dark' : 'light');
   }
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if ((localStorage.getItem('cockpit_theme') || 'system') === 'system') applyPrefs();
+    if ((localStorage.getItem('cockpit_theme') || 'dark') === 'system') applyPrefs();
   });
 
   function drawFaviconBadge(n) {
@@ -491,13 +491,300 @@
 
   const statusClass = (s) => (typeof s === 'string' && s.startsWith('Held_')) ? 'On_Hold' : s;
 
+  /* ---------- Customer-specific Workday SLA Engine (weekend-excluding) ---------- */
+  const SLA_STORAGE_KEY = 'cockpit_customer_slas';
+  const SLA_DEFAULTS_KEY = 'cockpit_sla_defaults';
+  const BUILTIN_CUSTOMER_SLAS = {
+    'kenter': { name: 'Kenter', workdays: 2, excludeWeekends: true },
+    'dela':   { name: 'Dela',   workdays: 5, excludeWeekends: true },
+  };
+
+  const SLA = {
+    getDefaults() {
+      let saved = {};
+      try { saved = JSON.parse(localStorage.getItem(SLA_DEFAULTS_KEY) || '{}') || {}; } catch {}
+      return {
+        defaultWorkdays: Number(saved.defaultWorkdays) > 0 ? Number(saved.defaultWorkdays) : 2,
+        excludeWeekends: saved.excludeWeekends !== false,
+        endOfDayHour: Number.isFinite(Number(saved.endOfDayHour)) ? Number(saved.endOfDayHour) : 17,
+      };
+    },
+
+    setDefaults(patch) {
+      const next = { ...SLA.getDefaults(), ...(patch || {}) };
+      try { localStorage.setItem(SLA_DEFAULTS_KEY, JSON.stringify(next)); } catch {}
+      return next;
+    },
+
+    excludeWeekends() {
+      return SLA.getDefaults().excludeWeekends !== false;
+    },
+
+    _readMap() {
+      let raw = {};
+      try { raw = JSON.parse(localStorage.getItem(SLA_STORAGE_KEY) || '{}') || {}; } catch {}
+      const merged = {};
+      Object.keys(BUILTIN_CUSTOMER_SLAS).forEach((k) => {
+        merged[k] = { ...BUILTIN_CUSTOMER_SLAS[k] };
+      });
+      if (state && state.config && state.config.customerSlas && typeof state.config.customerSlas === 'object') {
+        Object.entries(state.config.customerSlas).forEach(([k, v]) => {
+          const key = String(k || '').trim().toLowerCase();
+          if (!key) return;
+          const wd = typeof v === 'number' ? v : Number(v && v.workdays);
+          if (wd > 0) {
+            merged[key] = {
+              name: (v && v.name) || (merged[key] && merged[key].name) || String(k).trim(),
+              workdays: wd,
+              excludeWeekends: v && v.excludeWeekends !== undefined ? !!v.excludeWeekends : true,
+            };
+          }
+        });
+      }
+      Object.entries(raw).forEach(([k, v]) => {
+        const key = String(k || '').trim().toLowerCase();
+        if (!key) return;
+        if (v && v.deleted && !BUILTIN_CUSTOMER_SLAS[key]) {
+          delete merged[key];
+          return;
+        }
+        const wd = typeof v === 'number' ? v : Number(v && v.workdays);
+        if (wd > 0) {
+          merged[key] = {
+            name: (v && v.name) || (merged[key] && merged[key].name) || String(k).trim(),
+            workdays: wd,
+            excludeWeekends: v && v.excludeWeekends !== undefined ? !!v.excludeWeekends : true,
+          };
+        }
+      });
+      return merged;
+    },
+
+    _writeMap(map) {
+      try { localStorage.setItem(SLA_STORAGE_KEY, JSON.stringify(map)); } catch {}
+      if (state && state.config) {
+        state.config.customerSlas = map;
+        try { localStorage.setItem('cockpit_config', JSON.stringify(state.config)); } catch {}
+      }
+    },
+
+    allCustomerRules() {
+      const m = SLA._readMap();
+      return Object.values(m).sort((a, b) => String(a.name).localeCompare(String(b.name)));
+    },
+
+    getCustomerRule(customerName) {
+      const key = String(customerName || '').trim().toLowerCase();
+      if (!key) return null;
+      const m = SLA._readMap();
+      return m[key] || null;
+    },
+
+    getCustomerDays(customerName) {
+      const r = SLA.getCustomerRule(customerName);
+      return r ? Number(r.workdays) : null;
+    },
+
+    effectiveDays(customerName) {
+      const d = SLA.getCustomerDays(customerName);
+      return d && d > 0 ? d : SLA.getDefaults().defaultWorkdays;
+    },
+
+    setCustomerDays(customerName, workdays, excludeWeekends = true) {
+      const cleanName = String(customerName || '').trim();
+      const key = cleanName.toLowerCase();
+      if (!key) return null;
+      const wd = Math.max(1, Math.min(60, Math.round(Number(workdays) || SLA.getDefaults().defaultWorkdays)));
+      const m = SLA._readMap();
+      m[key] = {
+        name: (m[key] && m[key].name) || cleanName,
+        workdays: wd,
+        excludeWeekends: excludeWeekends !== false,
+      };
+      SLA._writeMap(m);
+      return m[key];
+    },
+
+    removeCustomerDays(customerName) {
+      const key = String(customerName || '').trim().toLowerCase();
+      if (!key) return;
+      let raw = {};
+      try { raw = JSON.parse(localStorage.getItem(SLA_STORAGE_KEY) || '{}') || {}; } catch {}
+      if (BUILTIN_CUSTOMER_SLAS[key]) {
+        raw[key] = { ...BUILTIN_CUSTOMER_SLAS[key] };
+      } else {
+        delete raw[key];
+      }
+      SLA._writeMap(raw);
+    },
+
+    isWeekend(d) {
+      const dt = d instanceof Date ? d : new Date(d);
+      const day = dt.getDay();
+      return day === 0 || day === 6;
+    },
+
+    addWorkdays(fromDate, workdays, opts = {}) {
+      const defs = SLA.getDefaults();
+      const skipWeekends = opts.excludeWeekends !== undefined ? !!opts.excludeWeekends : defs.excludeWeekends;
+      const days = Math.max(0, Number(workdays) || 0);
+      const cur = new Date(fromDate ? new Date(fromDate).getTime() : Date.now());
+      let skippedWeekendDays = 0;
+
+      // If starting on a weekend and skipWeekends is active, move to Monday first.
+      if (skipWeekends) {
+        while (SLA.isWeekend(cur)) {
+          cur.setDate(cur.getDate() + 1);
+          skippedWeekendDays++;
+        }
+      }
+
+      let remaining = Math.round(days);
+      while (remaining > 0) {
+        cur.setDate(cur.getDate() + 1);
+        if (skipWeekends && SLA.isWeekend(cur)) {
+          skippedWeekendDays++;
+          continue;
+        }
+        remaining--;
+      }
+
+      if (!opts.preserveTime) {
+        const hr = Number.isFinite(Number(opts.endOfDayHour)) ? Number(opts.endOfDayHour) : defs.endOfDayHour;
+        cur.setHours(hr, 0, 0, 0);
+      }
+
+      return {
+        date: cur,
+        workdays: Math.round(days),
+        skippedWeekendDays,
+        excludeWeekends: skipWeekends,
+      };
+    },
+
+    targetForCustomer(customerName, fromDate, opts = {}) {
+      const rule = SLA.getCustomerRule(customerName);
+      const defs = SLA.getDefaults();
+      const workdays = rule ? rule.workdays : defs.defaultWorkdays;
+      const excludeWeekends = rule ? rule.excludeWeekends !== false : defs.excludeWeekends;
+      const res = SLA.addWorkdays(fromDate || new Date(), workdays, {
+        ...opts,
+        excludeWeekends,
+      });
+      return {
+        ...res,
+        customerName: String(customerName || '').trim(),
+        hasCustomRule: !!rule,
+        rule,
+      };
+    },
+
+    // Computes milliseconds between startMs and endMs excluding Sat/Sun intervals.
+    workingMsBetween(startMs, endMs, excludeWeekends) {
+      const skip = excludeWeekends !== undefined ? !!excludeWeekends : SLA.excludeWeekends();
+      const t0 = Number(startMs);
+      const t1 = Number(endMs);
+      if (!Number.isFinite(t0) || !Number.isFinite(t1)) return NaN;
+      if (!skip) return t1 - t0;
+      if (t0 === t1) return 0;
+
+      const sign = t1 >= t0 ? 1 : -1;
+      let a = Math.min(t0, t1);
+      const b = Math.max(t0, t1);
+      let total = 0;
+
+      while (a < b) {
+        const d = new Date(a);
+        const nextMidnight = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0).getTime();
+        const segEnd = Math.min(b, nextMidnight);
+        const day = d.getDay();
+        if (day !== 0 && day !== 6) {
+          total += (segEnd - a);
+        }
+        a = segEnd;
+      }
+      return sign * total;
+    },
+
+    countBetween(startDate, endDate) {
+      const a = new Date(startDate ? new Date(startDate).getTime() : Date.now());
+      const b = new Date(endDate ? new Date(endDate).getTime() : Date.now());
+      a.setHours(0, 0, 0, 0);
+      b.setHours(0, 0, 0, 0);
+      const forward = b >= a;
+      const cur = new Date(forward ? a : b);
+      const target = new Date(forward ? b : a);
+      let workdays = 0;
+      let weekendDays = 0;
+      while (cur < target) {
+        cur.setDate(cur.getDate() + 1);
+        if (SLA.isWeekend(cur)) weekendDays++;
+        else workdays++;
+      }
+      return { workdays: forward ? workdays : -workdays, weekendDays };
+    },
+
+    mergeCustomersWithDefaults(customers) {
+      const list = Array.isArray(customers) ? customers.slice() : [];
+      const seen = new Set(list.map((c) => String(c.name || '').trim().toLowerCase()));
+      const rules = SLA.allCustomerRules();
+      const defaultNumbers = { kenter: '1010', dela: '1020' };
+      rules.forEach((r) => {
+        const k = String(r.name || '').trim().toLowerCase();
+        if (k && !seen.has(k)) {
+          seen.add(k);
+          list.push({
+            name: r.name,
+            number: defaultNumbers[k] || '',
+            managed: true,
+            custom: false,
+            hasFlow: false,
+            slaDays: r.workdays,
+          });
+        }
+      });
+      return list.map((c) => ({
+        ...c,
+        slaDays: SLA.getCustomerDays(c.name),
+      })).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+    },
+
+    _seeded: false,
+    async ensureDefaultCustomers() {
+      if (SLA._seeded || !state || !state.token) return;
+      SLA._seeded = true;
+      try {
+        const d = await api('GET', '/api/v1/customers');
+        const existing = new Set((d.customers || []).map((c) => String(c.name || '').trim().toLowerCase()));
+        const toSeed = [
+          { name: 'Kenter', number: '1010' },
+          { name: 'Dela', number: '1020' },
+        ];
+        for (const item of toSeed) {
+          if (!existing.has(item.name.toLowerCase())) {
+            try { await api('POST', '/api/v1/customers', item); } catch {}
+          }
+        }
+      } catch {}
+    },
+  };
+  window.SLA = SLA;
+
   const slaOf = (o) => {
-    
+    if (!o) return 'ON_TIME';
+    if (o.status === 'Completed') return 'ON_TIME';
+    const targetMs = o.targetCompletionAt ? new Date(o.targetCompletionAt).getTime() : NaN;
+    if (!Number.isNaN(targetMs)) {
+      const rule = o.customerName ? SLA.getCustomerRule(o.customerName) : null;
+      const skipWeekends = rule ? (rule.excludeWeekends !== false) : SLA.excludeWeekends();
+      const rem = SLA.workingMsBetween(Date.now(), targetMs, skipWeekends);
+      if (!Number.isNaN(rem)) {
+        if (rem < 0) return 'BREACHED';
+        if (rem <= 4 * 3600 * 1000) return 'WARNING';
+        return 'ON_TIME';
+      }
+    }
     if (o.sla && o.sla.status) return o.sla.status;
-    const rem = new Date(o.targetCompletionAt).getTime() - Date.now();
-    if (Number.isNaN(rem)) return 'ON_TIME';
-    if (rem < 0) return 'BREACHED';
-    if (rem <= 4 * 3600 * 1000) return 'WARNING';
     return 'ON_TIME';
   };
 

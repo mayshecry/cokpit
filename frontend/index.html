@@ -1,29 +1,35 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark" data-density="spacious" data-surface="glass" data-width="wide">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light dark">
-<meta name="theme-color" content="#ff8200">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#060913">
+<meta name="description" content="Cockpit — order operations: pipeline, SLA, QC, pick lists, manuals and workload for Esprit ICT.">
 <title>Cockpit — Order Operations · Esprit ICT</title>
-<link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ff8200'/%3E%3Cpath d='m9 17 5 5 9-11' stroke='%23fff' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css?v=devices-v2">
+<link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ee6d05'/%3E%3Cpath d='m9 17 5 5 9-11' stroke='%23fff' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css?v=r6">
 </head>
-<body>
+<body data-nav-layout="topbar">
+
+<a class="skip-link" href="#main-content">Skip to content</a>
 
 <noscript>
-  <div style="margin:0;padding:16px 20px;background:#fdeeec;border-bottom:1px solid #f6cfca;color:#c0392f;font:14px/1.5 system-ui,sans-serif">
+  <div style="margin:0;padding:16px 20px;background:#fdeeec;border-bottom:1px solid #f2cbc6;color:#bf3a30;font:14px/1.5 system-ui,sans-serif">
     <strong>JavaScript is required.</strong> Cockpit is a client-rendered dashboard — enable JavaScript to sign in.
   </div>
 </noscript>
 
-<div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="false"></div>
+<!-- ============================== overlay roots ============================ -->
+<div id="toast-stack" class="toast-stack" role="status" aria-live="polite" aria-atomic="false"></div>
+
 <div id="modal-root" class="modal-root hidden"></div>
+
 <div id="palette-root" class="palette-root hidden" role="dialog" aria-modal="true" aria-label="Command palette">
   <div class="palette-card">
     <input id="palette-input" type="text" autocomplete="off" spellcheck="false"
            placeholder="Jump to an order, page or action…" aria-label="Command palette">
-    <div id="palette-list" class="palette-list" role="listbox"></div>
+    <div id="palette-list" class="palette-list" role="listbox" aria-label="Results"></div>
     <div class="palette-foot">
       <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
       <span><kbd>↵</kbd> select</span>
@@ -31,28 +37,128 @@
     </div>
   </div>
 </div>
-<div id="settings-pop" class="settings-pop hidden" role="dialog" aria-label="Preferences">
-  <h3>Preferences</h3>
-  <label class="pref-row"><span>Theme</span>
-    <select id="pref-theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select>
-  </label>
-  <label class="pref-row"><span>Density</span>
-    <select id="pref-density"><option value="cozy">Comfortable</option><option value="compact">Compact</option></select>
-  </label>
-  <label class="pref-row"><span>Language</span>
-    <select id="pref-lang"><option value="en">English</option><option value="nl">Nederlands</option></select>
-  </label>
-  <label class="pref-row"><span>Desktop alerts</span>
-    <input type="checkbox" id="pref-alerts">
-  </label>
-  <p class="muted pref-hint">Alerts &amp; a soft beep when you are mentioned while the tab is in the background.</p>
+
+<div id="settings-pop" class="settings-pop hidden" role="dialog" aria-label="Customize workspace">
+  <div class="pref-head">
+    <div>
+      <h3>Customize Workspace</h3>
+      <p class="muted pref-sub">Tailor layout, spacing, navigation &amp; appearance.</p>
+    </div>
+    <button type="button" class="btn btn-ghost btn-sm" id="pref-reset" data-ui="pref-reset" title="Reset all preferences to defaults">Reset</button>
+  </div>
+
+  <div class="pref-body">
+    <div class="pref-section">
+      <span class="pref-sec-title">Appearance</span>
+      <label class="pref-row"><span>Theme</span>
+        <select id="pref-theme">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </label>
+      <div class="pref-row pref-row-stack">
+        <span>Accent color</span>
+        <div class="pref-swatches" role="radiogroup" aria-label="Accent color">
+          <button type="button" class="pref-swatch active" data-ui="accent" data-accent="orange" title="Esprit Orange" aria-label="Esprit Orange" style="--sw-color:#ee6d05"></button>
+          <button type="button" class="pref-swatch" data-ui="accent" data-accent="amber" title="Warm Amber" aria-label="Warm Amber" style="--sw-color:#d97706"></button>
+          <button type="button" class="pref-swatch" data-ui="accent" data-accent="blue" title="Operations Blue" aria-label="Operations Blue" style="--sw-color:#2563eb"></button>
+          <button type="button" class="pref-swatch" data-ui="accent" data-accent="emerald" title="Emerald Green" aria-label="Emerald Green" style="--sw-color:#059669"></button>
+          <button type="button" class="pref-swatch" data-ui="accent" data-accent="violet" title="Royal Violet" aria-label="Royal Violet" style="--sw-color:#7c3aed"></button>
+          <button type="button" class="pref-swatch" data-ui="accent" data-accent="rose" title="Signal Rose" aria-label="Signal Rose" style="--sw-color:#e11d48"></button>
+        </div>
+      </div>
+      <label class="pref-row"><span>Card style</span>
+        <select id="pref-surface">
+          <option value="elevated">Soft elevated</option>
+          <option value="bordered">Clean flat border</option>
+          <option value="glass">Translucent glass</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="pref-section">
+      <span class="pref-sec-title">Layout &amp; Spacing</span>
+      <label class="pref-row"><span>Spacing / Density</span>
+        <select id="pref-density">
+          <option value="spacious">Spacious (Airy)</option>
+          <option value="cozy">Comfortable</option>
+          <option value="compact">Compact</option>
+        </select>
+      </label>
+      <label class="pref-row"><span>Navigation bar</span>
+        <select id="pref-nav-layout">
+          <option value="topbar" selected>Floating Top Dock (Bento)</option>
+          <option value="both">Sidebar + Top Bar</option>
+          <option value="rail">Compact Rail + Top Bar</option>
+          <option value="sidebar">Left Sidebar only</option>
+        </select>
+      </label>
+      <label class="pref-row"><span>Page width</span>
+        <select id="pref-width">
+          <option value="wide">Balanced (1680px)</option>
+          <option value="contained">Focused (1440px)</option>
+          <option value="fluid">Full width (100%)</option>
+        </select>
+      </label>
+      <label class="pref-row"><span>Text size</span>
+        <select id="pref-scale">
+          <option value="md">Standard (100%)</option>
+          <option value="lg">Large (107%)</option>
+          <option value="sm">Compact (94%)</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="pref-section">
+      <span class="pref-sec-title">Declutter Workspace</span>
+      <label class="pref-row"><span>Show KPI summary strip</span>
+        <input type="checkbox" id="pref-show-kpis" checked>
+      </label>
+      <label class="pref-row"><span>Show dashboard charts</span>
+        <input type="checkbox" id="pref-show-charts" checked>
+      </label>
+      <label class="pref-row"><span>Show inline barcode scanner</span>
+        <input type="checkbox" id="pref-show-scanner" checked>
+      </label>
+    </div>
+
+    <div class="pref-section">
+      <span class="pref-sec-title">Locale &amp; Alerts</span>
+      <label class="pref-row"><span>Language</span>
+        <select id="pref-lang">
+          <option value="en">English</option>
+          <option value="nl">Nederlands</option>
+        </select>
+      </label>
+      <label class="pref-row"><span>Desktop alerts</span>
+        <input type="checkbox" id="pref-alerts">
+      </label>
+    </div>
+  </div>
+  <p class="muted pref-hint">Tip: Scroll with your mouse wheel or use the arrows on the top navigation bar to glide through sections.</p>
 </div>
 
+<div id="notif-panel" class="notif-panel hidden" role="dialog" aria-modal="false" aria-label="Notifications">
+  <div class="notif-head">
+    <h2>Notifications</h2>
+    <div class="notif-head-actions">
+      <button type="button" id="notif-mark" class="btn btn-secondary btn-sm">Mark all read</button>
+      <button type="button" id="notif-close" class="icon-btn" aria-label="Close notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <div id="notif-list" class="notif-list"></div>
+</div>
 
+<!-- ================================== login =============================== -->
 <section id="view-login" class="auth">
   <div class="auth-aside">
     <div class="auth-aside-inner">
-      <div class="brand brand-lg on-dark"><svg class="logo" viewBox="0 0 1446 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Esprit ICT"><path fill="#ff8200" d="m138.91,137.39c16.77-9.68,27.09-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c17.33,10,17.33,35.02,0,45.04L0,225.25l20.77,34.18,81.26-46.94c10.65-6.16,23.99,1.54,23.99,13.86v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-17.33-10-17.33-35.02,0-45.04v.04Z"/><path fill="currentColor" d="m986,60h-40v200h40V60Z"/><path fill="currentColor" d="m1066,220v-120h40v-40h-40V20h-40v40h-20v40h20v112.5c0,26.23,21.03,47.5,47,47.5h53v-40h-60Z"/><path fill="currentColor" d="m866.11,100v160h-40.5V107.63c0-26.31,21.22-47.63,47.39-47.63h53v40h-59.89Z"/><path fill="currentColor" d="m946,0h40v40h-40V0Z"/><path fill="currentColor" d="m1386.19,260l-.19-140h-40v-20h100v20h-40v140h-19.81Z"/><path fill="currentColor" d="m1166,100v160h20V100h-20Z"/><path fill="currentColor" d="m514.78,141.56c13.64,2.62,26.4,5.92,37.94,9.85l.06.02c11.66,3.96,21.36,9.72,28.84,17.13,7.54,7.49,11.37,18.54,11.37,32.86.27,12.16-3.02,23.12-9.81,32.53-6.77,9.39-16.47,16.84-28.86,22.13-12.37,5.26-27.28,7.93-44.33,7.93s-32.61-2.81-46.18-8.32c-13.62-5.53-24.65-13.36-32.82-23.26-7.59-9.22-12.45-20.11-14.44-32.42h44.92c1.7,4.89,4.26,9.43,7.61,13.51,4.04,4.95,9.6,9,16.51,12.05,6.91,3.06,15.37,4.6,24.38,4.6s16.45-1.22,22.11-3.63c5.62-2.37,9.81-5.61,12.47-9.6,2.67-3.98,4.02-8.3,4.02-12.78,0-6.75-1.87-11.91-5.54-15.36-3.77-3.53-9.31-6.34-16.47-8.38-7.31-2.06-16.2-4.17-26.44-6.25-8.33-1.82-17.07-4.07-26.01-6.69-8.95-2.62-17.18-6.01-24.47-10.09-7.35-4.11-13.37-9.37-17.89-15.6-4.56-6.3-6.87-14.2-6.87-23.53,0-11.39,3.23-21.82,9.58-30.96,6.35-9.14,15.58-16.39,27.4-21.55,11.79-5.14,26.01-7.74,42.25-7.74,22.99,0,41.98,5.28,56.45,15.71,14.51,10.47,23.03,25.68,25.28,45.22l.12,1.14h-42.29l-.14-.89c-1.35-8.57-5.43-15.34-12.12-20.1-6.72-4.81-16.35-7.25-27.73-7.25s-20.24,2.17-26.28,6.46c-6.04,4.27-8.97,9.78-8.97,16.82,0,4.19,1.73,7.86,5.31,11.23,3.62,3.41,8.97,6.3,15.89,8.59,7.04,2.33,15.51,4.56,25.15,6.63Z"/><path fill="currentColor" d="m308.65,57c19.79,0,37.21,4.38,51.75,13.03h-.04c14.52,8.63,25.9,20.15,33.77,34.24,7.88,14.09,11.88,29.97,11.88,47.23v8.71c0,3.15-.15,6.5-.42,9.98l-.08.96h-157.52c.75,11.42,3.48,21.28,8.15,29.32,5.54,9.57,12.96,16.96,22.06,21.99,9.1,5.04,19.06,7.59,29.62,7.59,12.4,0,22.94-2.86,31.35-8.52,8.12-5.47,14.26-12.7,18.22-21.52h42.82c-3.55,12.38-9.58,23.52-17.93,33.15-8.42,9.71-19.02,17.53-31.52,23.24-12.5,5.71-26.96,8.61-42.94,8.61-19.77,0-37.52-4.38-52.73-13.01-15.21-8.63-27.31-20.82-36-36.24-8.69-15.38-13.08-33.68-13.08-54.36s4.33-39.02,12.88-54.54c8.56-15.55,20.69-27.86,36.02-36.64,15.33-8.77,33.96-13.21,53.75-13.21Zm-30.46,41.98c-9.08,4.65-16.5,11.5-22.04,20.4-3.83,6.15-6.35,12.64-7.54,21.12h114.75c-1-14.96-6.58-26.14-16.58-34.94-10.27-9.02-23.38-13.59-38.94-13.59-10.56,0-20.54,2.36-29.65,7Z"/><path fill="currentColor" d="m712.09,58c18.62,0,35.13,4.54,49.08,13.5v.02c13.91,8.94,24.99,21.34,32.91,36.86,7.92,15.5,11.92,33.33,11.92,53.02s-4.01,37.46-11.92,52.84c-7.92,15.38-19.06,27.66-33.11,36.47-14.07,8.81-30.64,13.29-49.26,13.29-15.05,0-28.54-3.14-40.06-9.33-10.03-5.4-19.21-12.72-25.65-21.83v87.16h-40V60h40v29.99c3.75-4.73,8.79-9.31,13.65-13.68,6.15-5.55,13.63-10.03,22.21-13.33,8.58-3.3,18.76-4.97,30.24-4.97Zm45.75,137.99c5.11-9.86,7.69-21.65,7.7-34.99,0-13.1-2.59-24.8-7.7-34.81-5.09-9.99-12.21-17.89-21.14-23.53-8.94-5.63-19.64-8.48-31.08-8.48s-21.84,2.85-30.9,8.48c-9.06,5.61-16.17,13.54-21.14,23.51-4.99,9.99-7.52,21.71-7.52,34.82s2.54,24.83,7.52,34.82c4.97,9.99,12.08,17.89,21.14,23.51,9.06,5.64,19.22,8.48,30.9,8.48s22.14-2.85,31.08-8.48c8.94-5.61,16.05-13.46,21.14-23.32Z"/><path fill="currentColor" d="m1237.83,253.74c10.33,6.17,22.57,9.26,36.72,9.26,16.73,0,30.33-3.98,40.8-11.94,9.86-7.62,16.34-17.97,19.45-31.06h-22.39c-2.24,7.08-6.3,12.84-12.15,17.27-6.4,4.8-15.03,7.2-25.91,7.2-9.66,0-18.09-2.19-25.3-6.59-7.07-4.53-12.58-10.98-16.53-19.35-3.81-8.37-5.71-27.38-5.71-39.05s1.9-28.47,5.71-36.84c3.95-8.51,9.46-14.95,16.53-19.34,7.21-4.53,15.64-6.79,25.3-6.79,10.88,0,19.45,2.54,25.7,7.61,5.54,4.28,9.45,9.9,11.72,16.86h22.86c-3.18-13.1-9.6-23.38-19.28-30.86-10.47-8.1-24.07-12.14-40.8-12.14-14.15,0-26.32,3.16-36.52,9.47-10.2,6.17-18.09,14.89-23.67,26.14-5.57,11.25-8.36,31.22-8.36,45.9s2.72,36.85,8.16,48.1c5.58,11.11,13.47,19.83,23.67,26.14Z"/></svg></div>
+      <div class="brand brand-lg on-dark">
+        <svg class="logo" viewBox="0 0 1446 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Esprit ICT"><path fill="#ff8200" d="m138.91,137.39c16.77-9.68,27.09-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c17.33,10,17.33,35.02,0,45.04L0,225.25l20.77,34.18,81.26-46.94c10.65-6.16,23.99,1.54,23.99,13.86v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-17.33-10-17.33-35.02,0-45.04v.04Z"/><path fill="currentColor" d="m986,60h-40v200h40V60Z"/><path fill="currentColor" d="m1066,220v-120h40v-40h-40V20h-40v40h-20v40h20v112.5c0,26.23,21.03,47.5,47,47.5h53v-40h-60Z"/><path fill="currentColor" d="m866.11,100v160h-40.5V107.63c0-26.31,21.22-47.63,47.39-47.63h53v40h-59.89Z"/><path fill="currentColor" d="m946,0h40v40h-40V0Z"/><path fill="currentColor" d="m1386.19,260l-.19-140h-40v-20h100v20h-40v140h-19.81Z"/><path fill="currentColor" d="m1166,100v160h20V100h-20Z"/><path fill="currentColor" d="m514.78,141.56c13.64,2.62,26.4,5.92,37.94,9.85l.06.02c11.66,3.96,21.36,9.72,28.84,17.13,7.54,7.49,11.37,18.54,11.37,32.86.27,12.16-3.02,23.12-9.81,32.53-6.77,9.39-16.47,16.84-28.86,22.13-12.37,5.26-27.28,7.93-44.33,7.93s-32.61-2.81-46.18-8.32c-13.62-5.53-24.65-13.36-32.82-23.26-7.59-9.22-12.45-20.11-14.44-32.42h44.92c1.7,4.89,4.26,9.43,7.61,13.51,4.04,4.95,9.6,9,16.51,12.05,6.91,3.06,15.37,4.6,24.38,4.6s16.45-1.22,22.11-3.63c5.62-2.37,9.81-5.61,12.47-9.6,2.67-3.98,4.02-8.3,4.02-12.78,0-6.75-1.87-11.91-5.54-15.36-3.77-3.53-9.31-6.34-16.47-8.38-7.31-2.06-16.2-4.17-26.44-6.25-8.33-1.82-17.07-4.07-26.01-6.69-8.95-2.62-17.18-6.01-24.47-10.09-7.35-4.11-13.37-9.37-17.89-15.6-4.56-6.3-6.87-14.2-6.87-23.53,0-11.39,3.23-21.82,9.58-30.96,6.35-9.14,15.58-16.39,27.4-21.55,11.79-5.14,26.01-7.74,42.25-7.74,22.99,0,41.98,5.28,56.45,15.71,14.51,10.47,23.03,25.68,25.28,45.22l.12,1.14h-42.29l-.14-.89c-1.35-8.57-5.43-15.34-12.12-20.1-6.72-4.81-16.35-7.25-27.73-7.25s-20.24,2.17-26.28,6.46c-6.04,4.27-8.97,9.78-8.97,16.82,0,4.19,1.73,7.86,5.31,11.23,3.62,3.41,8.97,6.3,15.89,8.59,7.04,2.33,15.51,4.56,25.15,6.63Z"/><path fill="currentColor" d="m308.65,57c19.79,0,37.21,4.38,51.75,13.03h-.04c14.52,8.63,25.9,20.15,33.77,34.24,7.88,14.09,11.88,29.97,11.88,47.23v8.71c0,3.15-.15,6.5-.42,9.98l-.08.96h-157.52c.75,11.42,3.48,21.28,8.15,29.32,5.54,9.57,12.96,16.96,22.06,21.99,9.1,5.04,19.06,7.59,29.62,7.59,12.4,0,22.94-2.86,31.35-8.52,8.12-5.47,14.26-12.7,18.22-21.52h42.82c-3.55,12.38-9.58,23.52-17.93,33.15-8.42,9.71-19.02,17.53-31.52,23.24-12.5,5.71-26.96,8.61-42.94,8.61-19.77,0-37.52-4.38-52.73-13.01-15.21-8.63-27.31-20.82-36-36.24-8.69-15.38-13.08-33.68-13.08-54.36s4.33-39.02,12.88-54.54c8.56-15.55,20.69-27.86,36.02-36.64,15.33-8.77,33.96-13.21,53.75-13.21Zm-30.46,41.98c-9.08,4.65-16.5,11.5-22.04,20.4-3.83,6.15-6.35,12.64-7.54,21.12h114.75c-1-14.96-6.58-26.14-16.58-34.94-10.27-9.02-23.38-13.59-38.94-13.59-10.56,0-20.54,2.36-29.65,7Z"/><path fill="currentColor" d="m712.09,58c18.62,0,35.13,4.54,49.08,13.5v.02c13.91,8.94,24.99,21.34,32.91,36.86,7.92,15.5,11.92,33.33,11.92,53.02s-4.01,37.46-11.92,52.84c-7.92,15.38-19.06,27.66-33.11,36.47-14.07,8.81-30.64,13.29-49.26,13.29-15.05,0-28.54-3.14-40.06-9.33-10.03-5.4-19.21-12.72-25.65-21.83v87.16h-40V60h40v29.99c3.75-4.73,8.79-9.31,13.65-13.68,6.15-5.55,13.63-10.03,22.21-13.33,8.58-3.3,18.76-4.97,30.24-4.97Zm45.75,137.99c5.11-9.86,7.69-21.65,7.7-34.99,0-13.1-2.59-24.8-7.7-34.81-5.09-9.99-12.21-17.89-21.14-23.53-8.94-5.63-19.64-8.48-31.08-8.48s-21.84,2.85-30.9,8.48c-9.06,5.61-16.17,13.54-21.14,23.51-4.99,9.99-7.52,21.71-7.52,34.82s2.54,24.83,7.52,34.82c4.97,9.99,12.08,17.89,21.14,23.51,9.06,5.64,19.22,8.48,30.9,8.48s22.14-2.85,31.08-8.48c8.94-5.61,16.05-13.46,21.14-23.32Z"/><path fill="currentColor" d="m1237.83,253.74c10.33,6.17,22.57,9.26,36.72,9.26,16.73,0,30.33-3.98,40.8-11.94,9.86-7.62,16.34-17.97,19.45-31.06h-22.39c-2.24,7.08-6.3,12.84-12.15,17.27-6.4,4.8-15.03,7.2-25.91,7.2-9.66,0-18.09-2.19-25.3-6.59-7.07-4.53-12.58-10.98-16.53-19.35-3.81-8.37-5.71-27.38-5.71-39.05s1.9-28.47,5.71-36.84c3.95-8.51,9.46-14.95,16.53-19.34,7.21-4.53,15.64-6.79,25.3-6.79,10.88,0,19.45,2.54,25.7,7.61,5.54,4.28,9.45,9.9,11.72,16.86h22.86c-3.18-13.1-9.6-23.38-19.28-30.86-10.47-8.1-24.07-12.14-40.8-12.14-14.15,0-26.32,3.16-36.52,9.47-10.2,6.17-18.09,14.89-23.67,26.14-5.57,11.25-8.36,31.22-8.36,45.9s2.72,36.85,8.16,48.1c5.58,11.11,13.47,19.83,23.67,26.14Z"/></svg>
+      </div>
       <h1 class="auth-headline">Elke order,<br>onder controle.</h1>
       <p class="auth-sub">Van intake tot QC-akkoord: volg de voortgang, zie SLA-risico voordat het een overschrijding wordt, en houd een sluitend audit trail bij van elke handeling.</p>
       <ul class="auth-points">
@@ -66,7 +172,9 @@
 
   <div class="auth-main">
     <form id="login-form" class="auth-card" novalidate>
-      <div class="brand brand-sm auth-card-brand"><svg class="logo" viewBox="0 0 1446 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Esprit ICT"><path fill="#ff8200" d="m138.91,137.39c16.77-9.68,27.09-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c17.33,10,17.33,35.02,0,45.04L0,225.25l20.77,34.18,81.26-46.94c10.65-6.16,23.99,1.54,23.99,13.86v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-17.33-10-17.33-35.02,0-45.04v.04Z"/><path fill="currentColor" d="m986,60h-40v200h40V60Z"/><path fill="currentColor" d="m1066,220v-120h40v-40h-40V20h-40v40h-20v40h20v112.5c0,26.23,21.03,47.5,47,47.5h53v-40h-60Z"/><path fill="currentColor" d="m866.11,100v160h-40.5V107.63c0-26.31,21.22-47.63,47.39-47.63h53v40h-59.89Z"/><path fill="currentColor" d="m946,0h40v40h-40V0Z"/><path fill="currentColor" d="m1386.19,260l-.19-140h-40v-20h100v20h-40v140h-19.81Z"/><path fill="currentColor" d="m1166,100v160h20V100h-20Z"/><path fill="currentColor" d="m514.78,141.56c13.64,2.62,26.4,5.92,37.94,9.85l.06.02c11.66,3.96,21.36,9.72,28.84,17.13,7.54,7.49,11.37,18.54,11.37,32.86.27,12.16-3.02,23.12-9.81,32.53-6.77,9.39-16.47,16.84-28.86,22.13-12.37,5.26-27.28,7.93-44.33,7.93s-32.61-2.81-46.18-8.32c-13.62-5.53-24.65-13.36-32.82-23.26-7.59-9.22-12.45-20.11-14.44-32.42h44.92c1.7,4.89,4.26,9.43,7.61,13.51,4.04,4.95,9.6,9,16.51,12.05,6.91,3.06,15.37,4.6,24.38,4.6s16.45-1.22,22.11-3.63c5.62-2.37,9.81-5.61,12.47-9.6,2.67-3.98,4.02-8.3,4.02-12.78,0-6.75-1.87-11.91-5.54-15.36-3.77-3.53-9.31-6.34-16.47-8.38-7.31-2.06-16.2-4.17-26.44-6.25-8.33-1.82-17.07-4.07-26.01-6.69-8.95-2.62-17.18-6.01-24.47-10.09-7.35-4.11-13.37-9.37-17.89-15.6-4.56-6.3-6.87-14.2-6.87-23.53,0-11.39,3.23-21.82,9.58-30.96,6.35-9.14,15.58-16.39,27.4-21.55,11.79-5.14,26.01-7.74,42.25-7.74,22.99,0,41.98,5.28,56.45,15.71,14.51,10.47,23.03,25.68,25.28,45.22l.12,1.14h-42.29l-.14-.89c-1.35-8.57-5.43-15.34-12.12-20.1-6.72-4.81-16.35-7.25-27.73-7.25s-20.24,2.17-26.28,6.46c-6.04,4.27-8.97,9.78-8.97,16.82,0,4.19,1.73,7.86,5.31,11.23,3.62,3.41,8.97,6.3,15.89,8.59,7.04,2.33,15.51,4.56,25.15,6.63Z"/><path fill="currentColor" d="m308.65,57c19.79,0,37.21,4.38,51.75,13.03h-.04c14.52,8.63,25.9,20.15,33.77,34.24,7.88,14.09,11.88,29.97,11.88,47.23v8.71c0,3.15-.15,6.5-.42,9.98l-.08.96h-157.52c.75,11.42,3.48,21.28,8.15,29.32,5.54,9.57,12.96,16.96,22.06,21.99,9.1,5.04,19.06,7.59,29.62,7.59,12.4,0,22.94-2.86,31.35-8.52,8.12-5.47,14.26-12.7,18.22-21.52h42.82c-3.55,12.38-9.58,23.52-17.93,33.15-8.42,9.71-19.02,17.53-31.52,23.24-12.5,5.71-26.96,8.61-42.94,8.61-19.77,0-37.52-4.38-52.73-13.01-15.21-8.63-27.31-20.82-36-36.24-8.69-15.38-13.08-33.68-13.08-54.36s4.33-39.02,12.88-54.54c8.56-15.55,20.69-27.86,36.02-36.64,15.33-8.77,33.96-13.21,53.75-13.21Zm-30.46,41.98c-9.08,4.65-16.5,11.5-22.04,20.4-3.83,6.15-6.35,12.64-7.54,21.12h114.75c-1-14.96-6.58-26.14-16.58-34.94-10.27-9.02-23.38-13.59-38.94-13.59-10.56,0-20.54,2.36-29.65,7Z"/><path fill="currentColor" d="m712.09,58c18.62,0,35.13,4.54,49.08,13.5v.02c13.91,8.94,24.99,21.34,32.91,36.86,7.92,15.5,11.92,33.33,11.92,53.02s-4.01,37.46-11.92,52.84c-7.92,15.38-19.06,27.66-33.11,36.47-14.07,8.81-30.64,13.29-49.26,13.29-15.05,0-28.54-3.14-40.06-9.33-10.03-5.4-19.21-12.72-25.65-21.83v87.16h-40V60h40v29.99c3.75-4.73,8.79-9.31,13.65-13.68,6.15-5.55,13.63-10.03,22.21-13.33,8.58-3.3,18.76-4.97,30.24-4.97Zm45.75,137.99c5.11-9.86,7.69-21.65,7.7-34.99,0-13.1-2.59-24.8-7.7-34.81-5.09-9.99-12.21-17.89-21.14-23.53-8.94-5.63-19.64-8.48-31.08-8.48s-21.84,2.85-30.9,8.48c-9.06,5.61-16.17,13.54-21.14,23.51-4.99,9.99-7.52,21.71-7.52,34.82s2.54,24.83,7.52,34.82c4.97,9.99,12.08,17.89,21.14,23.51,9.06,5.64,19.22,8.48,30.9,8.48s22.14-2.85,31.08-8.48c8.94-5.61,16.05-13.46,21.14-23.32Z"/><path fill="currentColor" d="m1237.83,253.74c10.33,6.17,22.57,9.26,36.72,9.26,16.73,0,30.33-3.98,40.8-11.94,9.86-7.62,16.34-17.97,19.45-31.06h-22.39c-2.24,7.08-6.3,12.84-12.15,17.27-6.4,4.8-15.03,7.2-25.91,7.2-9.66,0-18.09-2.19-25.3-6.59-7.07-4.53-12.58-10.98-16.53-19.35-3.81-8.37-5.71-27.38-5.71-39.05s1.9-28.47,5.71-36.84c3.95-8.51,9.46-14.95,16.53-19.34,7.21-4.53,15.64-6.79,25.3-6.79,10.88,0,19.45,2.54,25.7,7.61,5.54,4.28,9.45,9.9,11.72,16.86h22.86c-3.18-13.1-9.6-23.38-19.28-30.86-10.47-8.1-24.07-12.14-40.8-12.14-14.15,0-26.32,3.16-36.52,9.47-10.2,6.17-18.09,14.89-23.67,26.14-5.57,11.25-8.36,31.22-8.36,45.9s2.72,36.85,8.16,48.1c5.58,11.11,13.47,19.83,23.67,26.14Z"/></svg></div>
+      <div class="brand brand-sm auth-card-brand">
+        <svg class="logo" viewBox="0 0 1446 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Esprit ICT"><path fill="#ff8200" d="m138.91,137.39c16.77-9.68,27.09-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c17.33,10,17.33,35.02,0,45.04L0,225.25l20.77,34.18,81.26-46.94c10.65-6.16,23.99,1.54,23.99,13.86v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-17.33-10-17.33-35.02,0-45.04v.04Z"/><path fill="currentColor" d="m986,60h-40v200h40V60Z"/><path fill="currentColor" d="m1066,220v-120h40v-40h-40V20h-40v40h-20v40h20v112.5c0,26.23,21.03,47.5,47,47.5h53v-40h-60Z"/><path fill="currentColor" d="m866.11,100v160h-40.5V107.63c0-26.31,21.22-47.63,47.39-47.63h53v40h-59.89Z"/><path fill="currentColor" d="m946,0h40v40h-40V0Z"/><path fill="currentColor" d="m1386.19,260l-.19-140h-40v-20h100v20h-40v140h-19.81Z"/><path fill="currentColor" d="m1166,100v160h20V100h-20Z"/><path fill="currentColor" d="m514.78,141.56c13.64,2.62,26.4,5.92,37.94,9.85l.06.02c11.66,3.96,21.36,9.72,28.84,17.13,7.54,7.49,11.37,18.54,11.37,32.86.27,12.16-3.02,23.12-9.81,32.53-6.77,9.39-16.47,16.84-28.86,22.13-12.37,5.26-27.28,7.93-44.33,7.93s-32.61-2.81-46.18-8.32c-13.62-5.53-24.65-13.36-32.82-23.26-7.59-9.22-12.45-20.11-14.44-32.42h44.92c1.7,4.89,4.26,9.43,7.61,13.51,4.04,4.95,9.6,9,16.51,12.05,6.91,3.06,15.37,4.6,24.38,4.6s16.45-1.22,22.11-3.63c5.62-2.37,9.81-5.61,12.47-9.6,2.67-3.98,4.02-8.3,4.02-12.78,0-6.75-1.87-11.91-5.54-15.36-3.77-3.53-9.31-6.34-16.47-8.38-7.31-2.06-16.2-4.17-26.44-6.25-8.33-1.82-17.07-4.07-26.01-6.69-8.95-2.62-17.18-6.01-24.47-10.09-7.35-4.11-13.37-9.37-17.89-15.6-4.56-6.3-6.87-14.2-6.87-23.53,0-11.39,3.23-21.82,9.58-30.96,6.35-9.14,15.58-16.39,27.4-21.55,11.79-5.14,26.01-7.74,42.25-7.74,22.99,0,41.98,5.28,56.45,15.71,14.51,10.47,23.03,25.68,25.28,45.22l.12,1.14h-42.29l-.14-.89c-1.35-8.57-5.43-15.34-12.12-20.1-6.72-4.81-16.35-7.25-27.73-7.25s-20.24,2.17-26.28,6.46c-6.04,4.27-8.97,9.78-8.97,16.82,0,4.19,1.73,7.86,5.31,11.23,3.62,3.41,8.97,6.3,15.89,8.59,7.04,2.33,15.51,4.56,25.15,6.63Z"/><path fill="currentColor" d="m308.65,57c19.79,0,37.21,4.38,51.75,13.03h-.04c14.52,8.63,25.9,20.15,33.77,34.24,7.88,14.09,11.88,29.97,11.88,47.23v8.71c0,3.15-.15,6.5-.42,9.98l-.08.96h-157.52c.75,11.42,3.48,21.28,8.15,29.32,5.54,9.57,12.96,16.96,22.06,21.99,9.1,5.04,19.06,7.59,29.62,7.59,12.4,0,22.94-2.86,31.35-8.52,8.12-5.47,14.26-12.7,18.22-21.52h42.82c-3.55,12.38-9.58,23.52-17.93,33.15-8.42,9.71-19.02,17.53-31.52,23.24-12.5,5.71-26.96,8.61-42.94,8.61-19.77,0-37.52-4.38-52.73-13.01-15.21-8.63-27.31-20.82-36-36.24-8.69-15.38-13.08-33.68-13.08-54.36s4.33-39.02,12.88-54.54c8.56-15.55,20.69-27.86,36.02-36.64,15.33-8.77,33.96-13.21,53.75-13.21Zm-30.46,41.98c-9.08,4.65-16.5,11.5-22.04,20.4-3.83,6.15-6.35,12.64-7.54,21.12h114.75c-1-14.96-6.58-26.14-16.58-34.94-10.27-9.02-23.38-13.59-38.94-13.59-10.56,0-20.54,2.36-29.65,7Z"/><path fill="currentColor" d="m712.09,58c18.62,0,35.13,4.54,49.08,13.5v.02c13.91,8.94,24.99,21.34,32.91,36.86,7.92,15.5,11.92,33.33,11.92,53.02s-4.01,37.46-11.92,52.84c-7.92,15.38-19.06,27.66-33.11,36.47-14.07,8.81-30.64,13.29-49.26,13.29-15.05,0-28.54-3.14-40.06-9.33-10.03-5.4-19.21-12.72-25.65-21.83v87.16h-40V60h40v29.99c3.75-4.73,8.79-9.31,13.65-13.68,6.15-5.55,13.63-10.03,22.21-13.33,8.58-3.3,18.76-4.97,30.24-4.97Zm45.75,137.99c5.11-9.86,7.69-21.65,7.7-34.99,0-13.1-2.59-24.8-7.7-34.81-5.09-9.99-12.21-17.89-21.14-23.53-8.94-5.63-19.64-8.48-31.08-8.48s-21.84,2.85-30.9,8.48c-9.06,5.61-16.17,13.54-21.14,23.51-4.99,9.99-7.52,21.71-7.52,34.82s2.54,24.83,7.52,34.82c4.97,9.99,12.08,17.89,21.14,23.51,9.06,5.64,19.22,8.48,30.9,8.48s22.14-2.85,31.08-8.48c8.94-5.61,16.05-13.46,21.14-23.32Z"/><path fill="currentColor" d="m1237.83,253.74c10.33,6.17,22.57,9.26,36.72,9.26,16.73,0,30.33-3.98,40.8-11.94,9.86-7.62,16.34-17.97,19.45-31.06h-22.39c-2.24,7.08-6.3,12.84-12.15,17.27-6.4,4.8-15.03,7.2-25.91,7.2-9.66,0-18.09-2.19-25.3-6.59-7.07-4.53-12.58-10.98-16.53-19.35-3.81-8.37-5.71-27.38-5.71-39.05s1.9-28.47,5.71-36.84c3.95-8.51,9.46-14.95,16.53-19.34,7.21-4.53,15.64-6.79,25.3-6.79,10.88,0,19.45,2.54,25.7,7.61,5.54,4.28,9.45,9.9,11.72,16.86h22.86c-3.18-13.1-9.6-23.38-19.28-30.86-10.47-8.1-24.07-12.14-40.8-12.14-14.15,0-26.32,3.16-36.52,9.47-10.2,6.17-18.09,14.89-23.67,26.14-5.57,11.25-8.36,31.22-8.36,45.9s2.72,36.85,8.16,48.1c5.58,11.11,13.47,19.83,23.67,26.14Z"/></svg>
+      </div>
 
       <div class="auth-card-head">
         <h2>Sign in</h2>
@@ -88,140 +196,206 @@
 
       <p id="login-error" class="form-error hidden" role="alert"></p>
 
-      <button type="submit" class="btn btn-primary btn-block" id="login-submit">Sign in</button>
+      <button type="submit" class="btn btn-primary btn-block btn-lg" id="login-submit">Sign in</button>
       <p class="auth-legal muted">Protected system. Activity is logged against your account.</p>
     </form>
+
     <div class="auth-card auth-qr hidden" id="qr-login-card">
       <div class="auth-card-head">
         <h2>Scan to sign in</h2>
         <p class="muted">Point your <strong>paired phone</strong> at this code and confirm — this screen signs in as you, no password needed.</p>
       </div>
-      <div class="auth-qr-img"><img id="qr-login-img" alt="Sign-in QR code" width="212" height="212"><span class="qr-badge" aria-hidden="true"><svg viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="m138.91,137.39,16.77-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c10,5.78,10,20.02,0,25.8L0,225.25l20.77,34.18,81.26-46.94c6.16-3.56,13.99,1.54,13.99,8.66v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-15.13-8.74-15.13-30.42,0-39.16v.04Z"/></svg></span></div>
+      <div class="auth-qr-img">
+        <img id="qr-login-img" alt="Sign-in QR code" width="212" height="212">
+        <span class="qr-badge" aria-hidden="true"><svg viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="m138.91,137.39,16.77-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c10,5.78,10,20.02,0,25.8L0,225.25l20.77,34.18,81.26-46.94c6.16-3.56,13.99,1.54,13.99,8.66v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-15.13-8.74-15.13-30.42,0-39.16v.04Z"/></svg></span>
+      </div>
       <p class="auth-qr-meta muted" id="qr-login-status">Preparing code…</p>
     </div>
   </div>
 </section>
 
-
+<!-- =================================== app ================================ -->
 <section id="view-app" class="app hidden">
 
-  <header class="topbar">
-    <div class="tb-brand">
-      <svg class="mark" viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="m138.91,137.39,16.77-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c10,5.78,10,20.02,0,25.8L0,225.25l20.77,34.18,81.26-46.94c6.16-3.56,13.99,1.54,13.99,8.66v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-15.13-8.74-15.13-30.42,0-39.16v.04Z"/></svg>
-      <span class="product-name">Cockpit</span>
+  <!-- ---------------------------------------------------------- sidebar -->
+  <aside class="sidebar" aria-label="Sections">
+    <div class="side-head">
+      <a class="side-brand" href="#/home" aria-label="Cockpit home">
+        <svg class="mark" viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="currentColor" d="m138.91,137.39,16.77-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c10,5.78,10,20.02,0,25.8L0,225.25l20.77,34.18,81.26-46.94c6.16-3.56,13.99,1.54,13.99,8.66v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-15.13-8.74-15.13-30.42,0-39.16v.04Z"/></svg>
+        <span class="side-brand-text">
+          <strong>Cockpit</strong>
+          <span>Order operations</span>
+        </span>
+      </a>
+      <button type="button" class="side-toggle" data-ui="nav-rail" aria-label="Collapse navigation" title="Collapse navigation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
     </div>
-    <nav class="nav tb-nav" aria-label="Main">
-      <a href="#/home" class="nav-link" data-nav="home" id="nav-home">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path>
-        </svg>
-        <span>My Work</span>
-      </a>
-      <a href="#/workload" class="nav-link" data-nav="workload" id="nav-workload">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>
-        <span>Workload</span>
-      </a>
-      <a href="#/quality" class="nav-link" data-nav="quality" id="nav-quality">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-        <span>Quality</span>
-      </a>
-    <a href="#/qcbench" class="nav-link" data-nav="qcbench" id="nav-qcbench">
-      <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6v3H9z"/><path d="M10 6H7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3"/><path d="M9 13l2 2 4-4"/></svg>
-      <span>QC bench</span>
-    </a>
-      <a href="#/orders" class="nav-link" data-nav="orders" id="nav-orders">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M3 9h18"></path><path d="M8 14h8"></path>
-        </svg>
-        <span>Orders</span>
-      </a>
-      <a href="#/checklists" class="nav-link" data-nav="checklists" id="nav-checklists">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="m8.5 12 2.5 2.5 4.5-5"></path>
-        </svg>
-        <span>Pick lists</span>
-      </a>
-      <a href="#/products" class="nav-link" data-nav="products" id="nav-products">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m7.5 4.27 9 5.15"></path><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"></path><path d="m3.3 7 8.7 5 8.7-5"></path><path d="M12 22V12"></path>
-        </svg>
-        <span>Products</span>
-      </a>
-      <a href="#/manuals" class="nav-link" data-nav="manuals" id="nav-manuals">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"></path><path d="m9 8 1.5 1.5L13 7"></path><path d="m9 13 1.5 1.5L13 12"></path>
-        </svg>
-        <span>Manuals</span>
-      </a>
-      <a href="#/users" class="nav-link hidden" data-nav="users" id="nav-users">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"></path><circle cx="9" cy="7.5" r="3.5"></circle><path d="M17 11.5a3.5 3.5 0 1 0-2-6.4"></path><path d="M22 20v-1.5a4 4 0 0 0-3-3.87"></path>
-        </svg>
-        <span>Users</span>
-      </a>
-      <a href="#/devices" class="nav-link hidden" data-nav="devices" id="nav-devices">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="4" width="18" height="11" rx="1.6"></rect><path d="M8 19h8M12 15v4"></path>
-        </svg>
-        <span>Ran devices</span>
-      </a>
-      <a href="#/config" class="nav-link hidden" data-nav="config" id="nav-config">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="3"></circle>
-          <path d="M12 1v6m0 10v6"></path>
-          <path d="M4.93 4.93 9.17 9.17"></path>
-          <path d="M14.83 14.83 19.07 19.07"></path>
-          <path d="M19.07 4.93 14.83 9.17"></path>
-          <path d="M4.93 19.07 9.17 14.83"></path>
-        </svg>
-        <span>Config</span>
-      </a>
-      <a href="#/si" class="nav-link hidden" data-nav="si" id="nav-si">
-        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path>
-          <path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"></path>
-          <path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"></path>
-          <path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"></path>
-        </svg>
-        <span>SI Management</span>
-      </a>
+
+    <nav class="side-scroll tb-nav" aria-label="Main">
+      <div class="side-group">
+        <p class="side-label">Operations</p>
+        <a href="#/home" class="nav-link" data-nav="home" id="nav-home">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+          <span>My Work</span>
+        </a>
+        <a href="#/orders" class="nav-link" data-nav="orders" id="nav-orders">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M8 14h8"/></svg>
+          <span>Orders</span>
+        </a>
+        <a href="#/workload" class="nav-link hidden" data-nav="workload" id="nav-workload">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/></svg>
+          <span>Workload</span>
+        </a>
+        <a href="#/checklists" class="nav-link hidden" data-nav="checklists" id="nav-checklists">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>
+          <span>Pick lists</span>
+        </a>
+      </div>
+
+      <div class="side-group">
+        <p class="side-label">Quality</p>
+        <a href="#/quality" class="nav-link hidden" data-nav="quality" id="nav-quality">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>Quality</span>
+        </a>
+        <a href="#/qcbench" class="nav-link hidden" data-nav="qcbench" id="nav-qcbench">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6v3H9z"/><path d="M10 6H7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3"/><path d="M9 13l2 2 4-4"/></svg>
+          <span>QC bench</span>
+        </a>
+        <a href="#/manuals" class="nav-link hidden" data-nav="manuals" id="nav-manuals">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="m9 8 1.5 1.5L13 7"/><path d="m9 13 1.5 1.5L13 12"/></svg>
+          <span>Manuals</span>
+        </a>
+      </div>
+
+      <div class="side-group">
+        <p class="side-label">Catalog</p>
+        <a href="#/products" class="nav-link hidden" data-nav="products" id="nav-products">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          <span>Products</span>
+        </a>
+      </div>
+
+      <div class="side-group">
+        <p class="side-label">Integrations</p>
+        <a href="#/si" class="nav-link hidden" data-nav="si" id="nav-si">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>
+          <span>SI management</span>
+        </a>
+      </div>
+
+      <div class="side-group">
+        <p class="side-label">Administration</p>
+        <a href="#/users" class="nav-link hidden" data-nav="users" id="nav-users">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"/><circle cx="9" cy="7.5" r="3.5"/><path d="M17 11.5a3.5 3.5 0 1 0-2-6.4"/><path d="M22 20v-1.5a4 4 0 0 0-3-3.87"/></svg>
+          <span>Users</span>
+        </a>
+        <a href="#/devices" class="nav-link hidden" data-nav="devices" id="nav-devices">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="11" rx="1.6"/><path d="M8 19h8M12 15v4"/></svg>
+          <span>Ran devices</span>
+        </a>
+        <a href="#/config" class="nav-link hidden" data-nav="config" id="nav-config">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 1v6m0 10v6"/><path d="M4.93 4.93 9.17 9.17"/><path d="M14.83 14.83 19.07 19.07"/><path d="M19.07 4.93 14.83 9.17"/><path d="M4.93 19.07 9.17 14.83"/></svg>
+          <span>Config</span>
+        </a>
+      </div>
     </nav>
-    <div class="tb-right">
-      <button type="button" id="palette-btn" class="tb-cmd" title="Command palette">
+
+    <div class="side-foot">
+      <button type="button" class="nav-link" data-ui="shortcuts">
+        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M7 10h.01M11 10h.01M15 10h.01M17 14H7"/></svg>
+        <span>Keyboard shortcuts</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="side-scrim" data-ui="nav-close" aria-hidden="true"></div>
+
+  <!-- ----------------------------------------------------------- topbar -->
+  <header class="topbar">
+    <div class="tb-deck-primary">
+      <button type="button" class="tb-nav-toggle" data-ui="nav-toggle" aria-label="Open navigation" aria-expanded="false" title="Open navigation menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+
+      <a class="tb-brand" href="#/home" aria-label="Cockpit home">
+        <span class="tb-brand-orb" aria-hidden="true">
+          <svg class="mark" viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="m138.91,137.39,16.77-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c10,5.78,10,20.02,0,25.8L0,225.25l20.77,34.18,81.26-46.94c6.16-3.56,13.99,1.54,13.99,8.66v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-15.13-8.74-15.13-30.42,0-39.16v.04Z"/></svg>
+        </span>
+        <span class="tb-brand-copy">
+          <strong>Cockpit</strong>
+          <small>Esprit ICT</small>
+        </span>
+      </a>
+
+      <div class="tb-context">
+        <span class="tb-crumb">Cockpit</span>
+        <span class="tb-title" id="tb-context-title" aria-live="polite">My Work</span>
+      </div>
+
+      <div class="tb-scroll-shell" id="tb-scroll-shell">
+        <button type="button" class="tb-scroll-btn" data-ui="tb-scroll-left" aria-label="Scroll navigation left" title="Scroll left">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <nav class="tb-scroll-track" id="tb-scroll-track" aria-label="Quick navigation">
+          <a href="#/home" class="tb-pill active" data-tb-nav="home"><span>My Work</span></a>
+          <a href="#/orders" class="tb-pill" data-tb-nav="orders"><span>Orders</span></a>
+          <a href="#/workload" class="tb-pill hidden" data-tb-nav="workload"><span>Workload</span></a>
+          <a href="#/checklists" class="tb-pill hidden" data-tb-nav="checklists"><span>Pick lists</span></a>
+          <a href="#/quality" class="tb-pill hidden" data-tb-nav="quality"><span>Quality</span></a>
+          <a href="#/qcbench" class="tb-pill hidden" data-tb-nav="qcbench"><span>QC bench</span></a>
+          <a href="#/manuals" class="tb-pill hidden" data-tb-nav="manuals"><span>Manuals</span></a>
+          <a href="#/products" class="tb-pill hidden" data-tb-nav="products"><span>Products</span></a>
+          <a href="#/si" class="tb-pill hidden" data-tb-nav="si"><span>SI management</span></a>
+          <a href="#/users" class="tb-pill hidden" data-tb-nav="users"><span>Users</span></a>
+          <a href="#/devices" class="tb-pill hidden" data-tb-nav="devices"><span>Ran devices</span></a>
+          <a href="#/config" class="tb-pill hidden" data-tb-nav="config"><span>Config</span></a>
+        </nav>
+        <button type="button" class="tb-scroll-btn" data-ui="tb-scroll-right" aria-label="Scroll navigation right" title="Scroll right">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+
+      <button type="button" id="palette-btn" class="tb-cmd" title="Command palette (Ctrl K)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <span>Search or jump to…</span>
         <kbd>Ctrl K</kbd>
       </button>
-      <button type="button" id="bell-btn" class="bell-btn" aria-label="Notifications" aria-expanded="false">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
-        </svg>
-        <span id="bell-badge" class="bell-badge hidden" aria-hidden="true"></span>
-      </button>
-      <button type="button" class="icon-btn tb-icon" id="shortcuts-btn" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M7 10h.01M11 10h.01M15 10h.01M17 14H7"/></svg>
-      </button>
-      <button type="button" class="icon-btn tb-icon" id="settings-btn" title="Preferences" aria-label="Preferences">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
-      <div class="user-chip">
-        <span class="avatar" id="user-avatar" aria-hidden="true"></span>
-        <span class="user-chip-text">
-          <strong id="user-name"></strong>
-          <span id="user-role" class="muted"></span>
-        </span>
-        <button id="logout-btn" type="button" class="icon-btn" title="Sign out" aria-label="Sign out">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M15 17l5-5-5-5"></path><path d="M20 12H9"></path><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"></path>
-          </svg>
+
+      <div class="tb-right">
+        <button type="button" id="bell-btn" class="bell-btn" aria-label="Notifications" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          <span id="bell-badge" class="bell-badge hidden" aria-hidden="true"></span>
         </button>
+
+        <button type="button" class="icon-btn tb-icon" id="shortcuts-btn" title="Keyboard shortcuts" aria-label="Keyboard shortcuts">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><path d="M7 10h.01M11 10h.01M15 10h.01M17 14H7"/></svg>
+        </button>
+
+        <button type="button" class="icon-btn tb-icon tb-customize-btn" id="settings-btn" title="Customize workspace &amp; preferences" aria-label="Customize workspace">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>
+          <span class="tb-customize-label">Customize</span>
+        </button>
+
+        <div class="user-chip">
+          <span class="avatar" id="user-avatar" aria-hidden="true"></span>
+          <span class="user-chip-text">
+            <strong id="user-name"></strong>
+            <span id="user-role" class="muted"></span>
+          </span>
+          <button id="logout-btn" type="button" class="icon-btn" title="Sign out" aria-label="Sign out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 17l5-5-5-5"/><path d="M20 12H9"/><path d="M12 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h6"/></svg>
+          </button>
+        </div>
       </div>
     </div>
   </header>
 
-  <div class="main">
+  <!-- ------------------------------------------------------------- main -->
+  <div class="main" id="main-content">
 
-    
+    <!-- ======================================================= My Work -->
     <main id="view-home" class="pane hidden">
       <header class="page-head">
         <div>
@@ -230,7 +404,8 @@
         </div>
         <div class="page-head-actions">
           <button type="button" class="btn btn-primary hidden" id="home-new-order-btn" data-perm="orders:create">
-            <span aria-hidden="true">+</span> New order
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            New order
           </button>
           <span class="refresh-note" id="home-note" title="Auto-refreshes every 20 seconds">
             <span class="pulse" aria-hidden="true"></span><span id="home-refresh-text">Live</span>
@@ -238,34 +413,44 @@
         </div>
       </header>
 
-      <section class="dash" id="dash" aria-label="Operations dashboard"></section>
-
-      <div class="attention-summary" id="attention-summary"></div>
-
-      <section class="scan-panel" aria-label="Barcode scanner">
-        <div class="scan-head">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"></path><path d="M17 3h2a2 2 0 0 1 2 2v2"></path><path d="M21 17v2a2 2 0 0 1-2 2h-2"></path><path d="M7 21H5a2 2 0 0 1-2-2v-2"></path><path d="M7 12h10"></path></svg>
-          <h2>Scanner</h2>
-          <span class="muted">Scan or type an order number, then press Enter.</span>
+      <div class="home-bento-top">
+        <div class="home-bento-cell home-bento-triage">
+          <div class="bento-cell-head">
+            <span class="bento-eyebrow">Attention Overview</span>
+            <span class="bento-sub">Filter by status</span>
+          </div>
+          <div class="attention-summary" id="attention-summary"></div>
         </div>
-        <form id="scan-form" class="scan-row" autocomplete="off">
-          <input id="scan-input" class="scan-input" placeholder="e.g. ORD-10432" spellcheck="false" aria-label="Barcode">
-          <button type="submit" class="btn btn-primary">Look up</button>
-        </form>
-        <p id="scan-feedback" class="scan-feedback" role="status"></p>
-        <div id="scan-result" class="scan-result"></div>
-      </section>
+
+        <section class="scan-panel home-bento-cell home-bento-scanner" aria-label="Barcode scanner">
+          <div class="scan-head">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/></svg>
+            <h2>Quick Scanner</h2>
+            <span class="muted">Scan or type an order number, then press Enter.</span>
+          </div>
+          <form id="scan-form" class="scan-row" autocomplete="off">
+            <input id="scan-input" class="scan-input" placeholder="e.g. ORD-10432" spellcheck="false" aria-label="Barcode">
+            <button type="submit" class="btn btn-primary">Look up</button>
+          </form>
+          <p id="scan-feedback" class="scan-feedback" role="status"></p>
+          <div id="scan-result" class="scan-result"></div>
+        </section>
+      </div>
+
+      <section class="dash" id="dash" aria-label="Operations dashboard"></section>
 
       <div id="attention-cards" class="cards-grid"></div>
 
       <div id="home-empty" class="empty hidden">
-        <div class="empty-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V10"></path><path d="M18 20V4"></path><path d="M6 20v-4"></path></svg></div>
+        <div class="empty-ico">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+        </div>
         <h3>Nothing needs attention</h3>
         <p>No SLA breaches, warnings, holds or fresh orders right now.</p>
       </div>
     </main>
 
-    
+    <!-- ======================================================== Orders -->
     <main id="view-orders" class="pane hidden">
       <header class="page-head">
         <div>
@@ -277,9 +462,10 @@
             <span class="pulse" aria-hidden="true"></span><span id="refresh-text">Loading…</span>
           </span>
           <button type="button" class="btn btn-ghost" id="export-btn" title="Download the current view as CSV">Export CSV</button>
-          <button type="button" class="btn btn-ghost" id="refresh-btn">Refresh</button>
+          <button type="button" class="btn btn-secondary" id="refresh-btn">Refresh</button>
           <button type="button" class="btn btn-primary" id="new-order-btn" data-perm="orders:create">
-            <span aria-hidden="true">+</span> New order
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            New order
           </button>
         </div>
       </header>
@@ -290,11 +476,9 @@
         <div class="chipbar" id="status-chips" role="tablist" aria-label="Filter by status"></div>
         <button type="button" class="chip mine-chip" id="mine-chip" aria-pressed="false" title="Only orders assigned to me">Mine</button>
         <div class="search-wrap">
-          <svg class="search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.2-3.2"></path>
-          </svg>
+          <svg class="search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
           <input id="search-input" placeholder="Search order number or ID" aria-label="Search orders" spellcheck="false">
-          <kbd class="search-kbd">/</kbd>
+          <kbd> / </kbd>
         </div>
       </div>
 
@@ -319,12 +503,12 @@
               <thead>
                 <tr>
                   <th class="chk"><input type="checkbox" id="sel-all" aria-label="Select all visible orders"></th>
-                  <th class="sortable num" data-sort="id" style="width:76px">ID</th>
-                  <th class="sortable" data-sort="orderNumber">Order number</th>
+                  <th class="sortable num" data-sort="id" style="width:74px">ID</th>
+                  <th class="sortable" data-sort="orderNumber">Order</th>
                   <th class="sortable" data-sort="status">Status</th>
                   <th class="sortable" data-sort="customerName">Customer</th>
                   <th class="sortable" data-sort="assignee">Assignee</th>
-                  <th class="sortable" data-sort="targetCompletionAt">Target completes</th>
+                  <th class="sortable" data-sort="targetCompletionAt">Target</th>
                   <th class="sortable" data-sort="sla">SLA</th>
                   <th class="sortable" data-sort="createdAt">Created</th>
                   <th class="quick-col" title="Move to next state">Move</th>
@@ -338,55 +522,57 @@
             <button type="button" id="load-more" class="btn btn-ghost btn-sm hidden">Load more</button>
           </div>
         </div>
-
       </div>
     </main>
 
-    
+    <!-- ====================================================== Workload -->
     <main id="view-workload" class="pane hidden">
       <header class="page-head">
         <div>
           <h1>Workload</h1>
-          <p>Drag orders between people to balance the load — dropping assigns instantly. Clocked-in sessions tick live.</p>
+          <p class="muted">Drag orders between people to balance the load — dropping assigns instantly. Clocked-in sessions tick live.</p>
         </div>
         <div class="page-head-actions">
           <span class="refresh-note"><span id="workload-text"></span></span>
-          <button type="button" class="btn btn-ghost" id="workload-refresh">Refresh</button>
+          <button type="button" class="btn btn-secondary" id="workload-refresh">Refresh</button>
         </div>
       </header>
       <section class="card dayplan" id="dayplan" aria-label="Day plan"></section>
       <div id="workload-board" class="wl-board"></div>
     </main>
 
+    <!-- ======================================================= Quality -->
     <main id="view-quality" class="pane hidden">
       <header class="page-head">
         <div>
           <h1>Quality</h1>
-          <p>QC results for the month — pass rate, rework and who needs a hand.</p>
+          <p class="muted">QC results for the month — pass rate, rework and who needs a hand.</p>
         </div>
         <div class="page-head-actions">
-          <button type="button" class="btn btn-ghost" id="qc-prev" aria-label="Previous month">‹</button>
+          <button type="button" class="btn btn-secondary" id="qc-prev" aria-label="Previous month">‹</button>
           <span class="qc-month mono" id="qc-month"></span>
-          <button type="button" class="btn btn-ghost" id="qc-next" aria-label="Next month">›</button>
+          <button type="button" class="btn btn-secondary" id="qc-next" aria-label="Next month">›</button>
         </div>
       </header>
       <div id="quality-content"></div>
     </main>
 
+    <!-- ====================================================== QC bench -->
     <main id="view-qcbench" class="pane hidden">
       <header class="page-head">
         <div>
           <h1>QC bench</h1>
-          <p>Work the review queue in one flow — tick the process, call the verdict, next order slides in.</p>
+          <p class="muted">Work the review queue in one flow — tick the process, call the verdict, next order slides in.</p>
         </div>
         <div class="page-head-actions">
           <span class="qcb-sit mono" id="qcb-sit" title="This sitting">0 checks</span>
-          <button type="button" class="btn btn-ghost" id="qcb-refresh" aria-label="Refresh queue">⟳</button>
+          <button type="button" class="btn btn-secondary" id="qcb-refresh" aria-label="Refresh queue">⟳</button>
         </div>
       </header>
       <div id="qcbench-content" class="qcb-content"></div>
     </main>
 
+    <!-- ===================================================== Pick lists -->
     <main id="view-checklists" class="pane hidden">
       <header class="page-head">
         <div>
@@ -414,7 +600,10 @@
       <div id="checklist-modal-wrap">
         <aside id="checklist-panel" class="card detail-card hidden" aria-label="Pick list">
           <form id="pick-scan-form" class="pick-scan" autocomplete="off">
-            <input id="pick-scan-input" placeholder="Scan barcode → artikel, locatie of ordernummer" spellcheck="false" aria-label="Scan barcode voor pickregel">
+            <div class="field" style="margin-bottom:0">
+              <label for="pick-scan-input">Scan</label>
+              <input id="pick-scan-input" placeholder="Scan barcode → artikel, locatie of ordernummer" spellcheck="false" aria-label="Scan barcode voor pickregel">
+            </div>
             <div id="pick-scan-feedback" class="scan-feedback" aria-live="polite"></div>
             <p class="scan-hint">artikel → vinkt de regel af · locatie → highlight · ordernummer → wissel van picklijst</p>
           </form>
@@ -428,10 +617,10 @@
             <table id="checklists-table">
               <thead>
                 <tr>
-                  <th class="num" style="width:76px">ID</th>
+                  <th class="num" style="width:74px">ID</th>
                   <th>Order</th>
                   <th>Status</th>
-                  <th style="min-width:140px">Progress</th>
+                  <th style="min-width:150px">Progress</th>
                   <th class="num" style="width:84px">Picked</th>
                 </tr>
               </thead>
@@ -442,11 +631,10 @@
             <span id="checklist-row-count" class="muted"></span>
           </div>
         </div>
-
       </div>
     </main>
 
-    
+    <!-- ====================================================== Products -->
     <main id="view-products" class="pane hidden">
       <header class="page-head">
         <div>
@@ -455,7 +643,10 @@
         </div>
         <div class="page-head-actions">
           <button type="button" class="btn btn-secondary hidden" id="quick-manual-btn" data-perm="manuals:manage" title="Create a manual from a pasted step list">⚡ Quick manual</button>
-          <button type="button" class="btn btn-primary hidden" id="new-product-btn" data-perm="manuals:manage"><span aria-hidden="true">+</span> New product</button>
+          <button type="button" class="btn btn-primary hidden" id="new-product-btn" data-perm="manuals:manage">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            New product
+          </button>
         </div>
       </header>
 
@@ -495,11 +686,10 @@
             <span id="product-row-count" class="muted"></span>
           </div>
         </div>
-
       </div>
     </main>
 
-    
+    <!-- ======================================================= Manuals -->
     <main id="view-manuals" class="pane hidden">
       <header class="page-head">
         <div>
@@ -537,7 +727,7 @@
                   <th>Order</th>
                   <th>Product</th>
                   <th>Status</th>
-                  <th style="min-width:140px">Progress</th>
+                  <th style="min-width:150px">Progress</th>
                   <th class="num" style="width:84px">Done</th>
                 </tr>
               </thead>
@@ -545,15 +735,15 @@
             </table>
           </div>
           <div class="table-foot">
-            <label class="muted" style="display:inline-flex;align-items:center;gap:6px">
+            <label class="checkbox-label">
               <input type="checkbox" id="manuals-mine"> Only my blocks
             </label>
           </div>
         </div>
-
       </div>
     </main>
 
+    <!-- ============================================= System integrations -->
     <main id="view-si" class="pane hidden">
       <header class="page-head">
         <div>
@@ -561,37 +751,35 @@
           <p class="muted">Manage SI lifecycle across customers and projects.</p>
         </div>
         <div class="page-head-actions">
-          <button type="button" class="btn btn-ghost" id="si-refresh-btn"><span aria-hidden="true">⟳</span> Refresh</button>
-          <button type="button" class="btn btn-secondary" id="si-new-customer-btn" data-perm="si:manage"><span aria-hidden="true">+</span> New Customer</button>
-          <button type="button" class="btn btn-secondary" id="si-new-project-btn" data-perm="si:create"><span aria-hidden="true">+</span> New Project</button>
-          <button type="button" class="btn btn-secondary" id="si-seed-btn" data-perm="si:create" title="Seed demo data">Seed Demo</button>
-          <button type="button" class="btn btn-primary" id="si-new-btn" data-perm="si:create"><span aria-hidden="true">+</span> New SI</button>
+          <button type="button" class="btn btn-secondary" id="si-refresh-btn">⟳ Refresh</button>
+          <button type="button" class="btn btn-secondary" id="si-new-customer-btn" data-perm="si:manage">+ New customer</button>
+          <button type="button" class="btn btn-secondary" id="si-new-project-btn" data-perm="si:create">+ New project</button>
+          <button type="button" class="btn btn-ghost" id="si-seed-btn" data-perm="si:create" title="Seed demo data">Seed demo</button>
+          <button type="button" class="btn btn-primary" id="si-new-btn" data-perm="si:create">+ New SI</button>
         </div>
       </header>
 
       <div class="detail-scrim" aria-hidden="true"></div>
       <div class="detail-modal-wrap">
-        <aside id="si-detail" class="card detail-card hidden" aria-label="SI Detail">
+        <aside id="si-detail" class="card detail-card hidden" aria-label="SI detail">
           <div id="si-detail-body"></div>
         </aside>
       </div>
 
       <div class="si-layout">
         <div class="card si-sidebar">
-          <div class="si-sidebar-head">
-            <h3>Customers</h3>
-          </div>
+          <div class="si-sidebar-head"><h3>Customers</h3></div>
           <div id="si-customer-list" class="si-customer-list"></div>
         </div>
 
         <div class="si-main">
           <div class="si-toolbar">
             <div class="si-filter-group">
-              <label for="si-status-filter">Status:</label>
+              <label for="si-status-filter">Status</label>
               <select id="si-status-filter"></select>
             </div>
             <div class="si-filter-group">
-              <label for="si-project-filter">Project:</label>
+              <label for="si-project-filter">Project</label>
               <select id="si-project-filter"></select>
             </div>
             <span id="si-count" class="muted"></span>
@@ -601,7 +789,7 @@
               <table id="si-table">
                 <thead>
                   <tr>
-                    <th class="num" style="width:60px">ID</th>
+                    <th class="num" style="width:58px">ID</th>
                     <th>Code</th>
                     <th>Name</th>
                     <th>Status</th>
@@ -617,10 +805,10 @@
             </div>
           </div>
         </div>
-
       </div>
     </main>
 
+    <!-- ======================================================== Users -->
     <main id="view-users" class="pane hidden">
       <header class="page-head">
         <div>
@@ -629,20 +817,31 @@
         </div>
         <div class="page-head-actions">
           <button type="button" class="btn btn-ghost" id="backup-btn" title="Download a consistent snapshot of the database">⬇ Backup</button>
-          <button type="button" class="btn btn-primary" id="new-user-btn"><span aria-hidden="true">+</span> Add user</button>
+          <button type="button" class="btn btn-primary" id="new-user-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            Add user
+          </button>
         </div>
       </header>
 
       <section class="card pd-card hidden" id="pair-device-card">
         <div class="cfg-sec-head">
-          <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><path d="M13.5 13.5h3v3h-3z"/><path d="M20.5 13.5v7h-4"/><path d="M17 20.5h3.5"/></svg></div>
-          <div class="cfg-sec-txt"><h3>Pair a desktop client / device</h3><p class="muted">Generic device code for the desktop client (<em>CockpitClient.exe</em>) — no account attached. For PHONES use the <strong>📱 Pair phone</strong> button on a user below: that code pairs the phone <em>and signs it in as that account</em> in one go.</p></div>
+          <div class="cfg-sec-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1"/><rect x="13.5" y="3.5" width="7" height="7" rx="1"/><rect x="3.5" y="13.5" width="7" height="7" rx="1"/><path d="M13.5 13.5h3v3h-3z"/><path d="M20.5 13.5v7h-4"/><path d="M17 20.5h3.5"/></svg>
+          </div>
+          <div class="cfg-sec-txt">
+            <h3>Pair a desktop client / device</h3>
+            <p>Generic device code for the desktop client (<em>CockpitClient.exe</em>) — no account attached. For PHONES use the <strong>📱 Pair phone</strong> button on a user below: that code pairs the phone <em>and signs it in as that account</em> in one go.</p>
+          </div>
           <div class="cfg-sec-acts">
-            <button type="button" class="btn btn-ghost" id="pair-refresh-btn" title="Discard the current code and issue a fresh one"><span aria-hidden="true">&orarr;</span> New code</button>
+            <button type="button" class="btn btn-ghost" id="pair-refresh-btn" title="Discard the current code and issue a fresh one">↻ New code</button>
           </div>
         </div>
         <div class="pd-body">
-          <div class="pd-qr-wrap"><img id="pair-qr-img" alt="Pairing QR code" width="180" height="180"><span class="qr-badge" aria-hidden="true"><svg viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="m138.91,137.39,16.77-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c10,5.78,10,20.02,0,25.8L0,225.25l20.77,34.18,81.26-46.94c6.16-3.56,13.99,1.54,13.99,8.66v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-15.13-8.74-15.13-30.42,0-39.16v.04Z"/></svg></span></div>
+          <div class="pd-qr-wrap">
+            <img id="pair-qr-img" alt="Pairing QR code" width="180" height="180">
+            <span class="qr-badge" aria-hidden="true"><svg viewBox="0 0 166 320" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="m138.91,137.39,16.77-27.58,27.09-46.96V0h-39.98v93.65c0,12.32-13.33,20.02-23.99,13.86L20.77,60.56,0,94.75l73.98,42.74c10,5.78,10,20.02,0,25.8L0,225.25l20.77,34.18,81.26-46.94c6.16-3.56,13.99,1.54,13.99,8.66v93.65h39.98v-90.65c0-19.38-10.34-37.26-27.09-46.96-15.13-8.74-15.13-30.42,0-39.16v.04Z"/></svg></span>
+          </div>
           <div class="pd-meta">
             <div class="pd-code" id="pair-code">&hellip;</div>
             <p class="muted" id="pair-url"></p>
@@ -653,11 +852,16 @@
 
       <section class="card ud-card">
         <div class="cfg-sec-head">
-          <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.4 19.2a5.6 5.6 0 0 1 11.2 0"/><circle cx="17" cy="9.4" r="2.5"/><path d="M15.4 14.2a5 5 0 0 1 5.3 4.6"/></svg></div>
-          <div class="cfg-sec-txt"><h3>Users</h3><p class="muted">Accounts, roles and department membership. Hover a row to manage it.</p></div>
+          <div class="cfg-sec-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.2"/><path d="M3.4 19.2a5.6 5.6 0 0 1 11.2 0"/><circle cx="17" cy="9.4" r="2.5"/><path d="M15.4 14.2a5 5 0 0 1 5.3 4.6"/></svg>
+          </div>
+          <div class="cfg-sec-txt">
+            <h3>Users</h3>
+            <p>Accounts, roles and department membership. Hover a row to manage it.</p>
+          </div>
           <div class="cfg-sec-acts">
             <span class="cfg-pill neutral" id="user-count"></span>
-            <input id="user-filter" class="cfg-search" type="search" placeholder="Filter users&hellip;" autocomplete="off" spellcheck="false">
+            <input id="user-filter" class="cfg-search" type="search" placeholder="Filter users…" autocomplete="off" spellcheck="false">
           </div>
         </div>
         <div class="table-scroll ud-scroll">
@@ -679,8 +883,13 @@
 
       <section class="card ud-card">
         <div class="cfg-sec-head">
-          <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4.5 6v5.2c0 4.6 3.2 8.9 7.5 9.8 4.3-.9 7.5-5.2 7.5-9.8V6Z"/><path d="m9.2 11.8 2.1 2.1 3.4-3.9"/></svg></div>
-          <div class="cfg-sec-txt"><h3>Role capabilities</h3><p class="muted">What every role unlocks. Expand a row for the full permission list.</p></div>
+          <div class="cfg-sec-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4.5 6v5.2c0 4.6 3.2 8.9 7.5 9.8 4.3-.9 7.5-5.2 7.5-9.8V6Z"/><path d="m9.2 11.8 2.1 2.1 3.4-3.9"/></svg>
+          </div>
+          <div class="cfg-sec-txt">
+            <h3>Role capabilities</h3>
+            <p>What every role unlocks. Expand a row for the full permission list.</p>
+          </div>
         </div>
         <div class="role-legend" id="role-legend"></div>
       </section>
@@ -691,32 +900,28 @@
       </div>
     </main>
 
-
+    <!-- ================================================= Ran devices -->
     <main id="view-devices" class="pane hidden">
       <header class="page-head">
         <div>
           <h1>Ran devices</h1>
-          <p class="muted">Your prep fleet, at a glance. Track completed runs, spot issues, and explore every machine.</p>
+          <p class="muted">Every machine that ran the refurb prep script and posted its log. Ingestion is public (<code>POST /api/v1/prep-logs</code>) — the script just needs the server URL.</p>
         </div>
         <div class="page-head-actions rd-head-actions">
           <input type="search" id="rd-search" class="input rd-search" placeholder="Search name, model, CPU…" autocomplete="off">
-          <button type="button" class="btn btn-ghost" id="rd-refresh" title="Reload device list"><span aria-hidden="true">⟳</span> Refresh</button>
-          <button type="button" class="btn btn-primary" id="rd-upload">Upload prep log</button>
+          <button type="button" class="btn btn-secondary" id="rd-refresh" title="Reload device list">⟳ Refresh</button>
+          <button type="button" class="btn btn-primary" id="rd-upload">Test: upload a log</button>
           <input type="file" id="rd-file" class="hidden" accept=".log,.txt,text/plain">
         </div>
       </header>
-      <div class="rd-overview" id="rd-overview" aria-label="Device fleet overview"></div>
       <div class="rd-kpis" id="rd-kpis"></div>
-      <div class="rd-toolbar">
-        <div><h2>Device explorer <span id="rd-result-count" class="rd-result-count"></span></h2><p class="muted">Select a machine to inspect its latest prep report.</p></div>
-        <div id="rd-filters" class="rd-filters" role="group" aria-label="Filter devices by status"></div>
-      </div>
       <div class="rd-grid">
-        <div class="rd-list card" id="rd-list" role="group" aria-label="Devices"></div>
+        <div class="rd-list card" id="rd-list" role="listbox" aria-label="Devices"></div>
         <section class="rd-detail card" id="rd-detail" aria-live="polite"></section>
       </div>
     </main>
 
+    <!-- ======================================================= Config -->
     <main id="view-config" class="pane hidden">
       <header class="page-head">
         <div>
@@ -727,43 +932,59 @@
       <div id="config-content"></div>
     </main>
 
-    <div id="notif-panel" class="notif-panel hidden" role="dialog" aria-modal="false" aria-label="Notifications">
-      <div class="notif-head">
-        <h2>Notifications</h2>
-        <div class="notif-head-actions">
-          <button type="button" id="notif-mark" class="btn btn-secondary btn-sm">Mark all read</button>
-          <button type="button" id="notif-close" class="icon-btn" aria-label="Close notifications">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
-        </div>
-      </div>
-      <div id="notif-list" class="notif-list"></div>
-    </div>
-
   </div>
+
+  <!-- ----------------------------------------- floating bottom quick dock -->
+  <aside class="bento-dock" id="bento-dock" aria-label="Quick command dock">
+    <a href="#/home" class="bd-item active" data-bd-nav="home" title="My Work">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <span>My Work</span>
+    </a>
+    <a href="#/orders" class="bd-item" data-bd-nav="orders" title="Orders">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
+      <span>Orders</span>
+    </a>
+    <button type="button" class="bd-item bd-cta" data-ui="quick-new-order" title="Create New Order (N)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      <span>New order</span>
+    </button>
+    <a href="#/qcbench" class="bd-item" data-bd-nav="qcbench" title="QC bench">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      <span>QC bench</span>
+    </a>
+    <a href="#/devices" class="bd-item" data-bd-nav="devices" title="Ran devices">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      <span>Devices</span>
+    </a>
+    <a href="#/config" class="bd-item" data-bd-nav="config" title="Configuration">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <span>Config</span>
+    </a>
+  </aside>
 </section>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="js/core.js?v=qcj"></script>
-  <script src="js/notifications.js?v=qcj"></script>
-  <script src="js/auth.js?v=qr-private-poll-1"></script>
-  <script src="js/orders.js?v=qcj"></script>
-  <script src="js/ordercreate.js?v=qcj"></script>
-  <script src="js/detail.js?v=qcj"></script>
-  <script src="js/checklists.js?v=qcj"></script>
-  <script src="js/manuals.js?v=qcj"></script>
-  <script src="js/work.js?v=qcj"></script>
-  <script src="js/workload.js?v=qcj"></script>
-  <script src="js/dashboard.js?v=qcj"></script>
-  <script src="js/dayplan.js?v=qcj"></script>
-  <script src="js/quality.js?v=qcj"></script>
-  <script src="js/qcbench.js?v=qcj"></script>
-  <script src="js/si.js?v=qcj"></script>
-  <script src="js/users.js?v=qcj"></script>
-  <script src="js/devices.js?v=devices-v2"></script>
-  <script src="js/config.js?v=qcj"></script>
-  <script src="js/app.js?v=qcj"></script>
-  <script src="js/order-pages.js?v=qcj"></script>
-<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4ce9b18cceffac0',t:'MTc5MjQwMDU2Nw=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="js/core.js?v=r6"></script>
+<script src="js/notifications.js?v=r6"></script>
+<script src="js/auth.js?v=r6"></script>
+<script src="js/orders.js?v=r6"></script>
+<script src="js/ordercreate.js?v=r6"></script>
+<script src="js/detail.js?v=r6"></script>
+<script src="js/checklists.js?v=r6"></script>
+<script src="js/manuals.js?v=r6"></script>
+<script src="js/work.js?v=r6"></script>
+<script src="js/workload.js?v=r6"></script>
+<script src="js/dashboard.js?v=r6"></script>
+<script src="js/dayplan.js?v=r6"></script>
+<script src="js/quality.js?v=r6"></script>
+<script src="js/qcbench.js?v=r6"></script>
+<script src="js/si.js?v=r6"></script>
+<script src="js/users.js?v=r6"></script>
+<script src="js/devices.js?v=r6"></script>
+<script src="js/config.js?v=r6"></script>
+<script src="js/app.js?v=r6"></script>
+<script src="js/order-pages.js?v=r6"></script>
+<script src="js/ui.js?v=r6"></script>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a4d7227c1e530cb6',t:'MTc5MjQ4OTk5OA=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

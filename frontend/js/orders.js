@@ -551,9 +551,13 @@
     if (typeof OrderCreate !== 'undefined' && OrderCreate) {
       let customers = [];
       try {
+        if (window.SLA && typeof SLA.ensureDefaultCustomers === 'function') {
+          await SLA.ensureDefaultCustomers();
+        }
         const d = await api('GET', '/api/v1/customers');
         customers = (d.customers || []).sort((a, b) => a.name.localeCompare(b.name));
       } catch (e) { /* free-text path still works */ }
+      if (window.SLA) customers = SLA.mergeCustomersWithDefaults(customers);
       let nextNum = '';
       let mx = 0;
       (state.orders || []).forEach((o) => {
@@ -561,8 +565,9 @@
         if (m) mx = Math.max(mx, Number(m[1]));
       });
       if (mx) nextNum = 'ORD-' + String(mx + 1).padStart(Math.max(4, String(mx + 1).length));
-      const def = new Date(Date.now() + 24 * 3600 * 1000);
-      def.setHours(17, 0, 0, 0);
+      const def = window.SLA
+        ? SLA.addWorkdays(new Date(), SLA.getDefaults().defaultWorkdays).date
+        : (() => { const d = new Date(Date.now() + 24 * 3600 * 1000); d.setHours(17, 0, 0, 0); return d; })();
       OrderCreate.open({ customers, nextNum, defaultTarget: def });
       OrderCreate.onDone = null;
       return;
