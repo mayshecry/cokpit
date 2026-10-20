@@ -9,16 +9,12 @@ type Order struct {
 	TargetCompletion time.Time `json:"targetCompletionAt"`
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
-
 	Assignee string `json:"assignee,omitempty"`
-
 	PausedSeconds int64      `json:"pausedSeconds,omitempty"`
 	HoldSince     *time.Time `json:"holdSince,omitempty"`
-
 	SLA *SLA `json:"sla,omitempty"`
-
 	DebitNumber       string `json:"debitNumber,omitempty"`
-	CustomerName      string `json:"customerName,omitempty"`
+	CustomerName      string `json:"customerName,omitempty"`	
 	OmnitrackerTicket string `json:"omnitrackerTicket,omitempty"`
 	Device            string `json:"device,omitempty"`
 	AssetNumber       string `json:"assetNumber,omitempty"`
@@ -119,22 +115,15 @@ type NotificationsResponse struct {
 
 type OrderDetail struct {
 	Order
-
 	ActiveHolds []Hold `json:"activeHolds"`
-
 	QCChecks []QCCheck `json:"qcChecks"`
-
 	SLA SLA `json:"sla"`
-
 	OnHold bool `json:"onHold"`
 }
 
 type CreateOrderRequest struct {
 	OrderNumber string `json:"orderNumber"`
-
 	TargetCompletion *time.Time `json:"targetCompletionAt"`
-
-	// Optional order data captured at creation time.
 	CustomerName      string `json:"customerName"`
 	DebitNumber       string `json:"debitNumber"`
 	OmnitrackerTicket string `json:"omnitrackerTicket"`
@@ -145,16 +134,13 @@ type CreateOrderRequest struct {
 
 type TransitionRequest struct {
 	Status Status `json:"status"`
-
 	PerformedBy string `json:"performedBy"`
-
 	ExpectedUpdatedAt *time.Time `json:"expectedUpdatedAt,omitempty"`
 }
 
 type HoldRequest struct {
 	Reason    string `json:"reason"`
 	CreatedBy string `json:"createdBy"`
-
 	ExpectedUpdatedAt *time.Time `json:"expectedUpdatedAt,omitempty"`
 }
 

@@ -9,13 +9,11 @@ import (
 	"time"
 )
 
-// PrepDevice is one laptop/workstation that ran the refurb "prep" script
-// and POSTed its log to the public ingestion endpoint.
 type PrepDevice struct {
 	ID           int64     `json:"id"`
 	DeviceKey    string    `json:"deviceKey"`
 	ComputerName string    `json:"computerName"`
-	Summary      string    `json:"-"` // parsed JSON blob
+	Summary      string    `json:"-"`
 	Raw          string    `json:"-"`
 	FileName     string    `json:"fileName"`
 	UploaderIP   string    `json:"-"`
@@ -24,8 +22,6 @@ type PrepDevice struct {
 	LastSeenAt   time.Time `json:"lastSeenAt"`
 }
 
-// UpsertPrepDevice inserts or updates (same device_key) a prep device and
-// returns its row. runs is bumped on re-post so you can see repeats.
 func (s *Store) UpsertPrepDevice(ctx context.Context, d PrepDevice, now time.Time) (PrepDevice, error) {
 	res, err := s.db.ExecContext(ctx, `
 		INSERT INTO prep_devices (device_key, computer_name, summary, raw, file_name, uploader_ip, runs, first_seen_at, last_seen_at)
@@ -70,8 +66,6 @@ func (s *Store) PrepDeviceByKey(ctx context.Context, key string) (PrepDevice, er
 	return d, nil
 }
 
-// ListPrepDevices returns newest-first rows; summary/raw excluded for speed —
-// callers get a small JSON summary object instead.
 func (s *Store) ListPrepDevices(ctx context.Context) ([]map[string]any, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT id, device_key, computer_name, file_name, runs, first_seen_at, last_seen_at, COALESCE(summary,'')
@@ -98,7 +92,6 @@ func (s *Store) ListPrepDevices(ctx context.Context) ([]map[string]any, error) {
 			"firstSeenAt":  time.Unix(fa, 0).UTC().Format(time.RFC3339),
 			"lastSeenAt":   time.Unix(la, 0).UTC().Format(time.RFC3339),
 		}
-		// lift a few display fields out of the parsed summary (kept small)
 		var blob struct {
 			Overview struct {
 				Manufacturer string `json:"manufacturer"`
