@@ -1,9 +1,9 @@
 'use strict';
 
-/* Quality menu — QC cockpit for one month: precision KPIs with month-over-month
-   deltas and six-month sparklines, daily pass/fail trend with rolling rate line
-   and hover tooltip, animated donut, rework-per-tech table, fail-reason
-   breakdown and a latest-checks feed. Month switches slide; numbers morph. */
+                                                                                
+                                                                                
+                                                                        
+                                                                              
 
 const Quality = {
   month: null,
@@ -17,7 +17,7 @@ const Quality = {
   liveRefresh() {
     const now = Date.now();
     if (Quality._lastLive && now - Quality._lastLive < 1500) return;
-    if (!Quality.data) return; // not initialised — normal load handles it
+    if (!Quality.data) return;                                            
     Quality._lastLive = now;
     Quality.load(0);
   },
@@ -348,7 +348,7 @@ const Quality = {
     Quality.bindTip(box);
     Quality.bindDonut(box, { pass, fail, rate, prevRate });
 
-    // animate donut arc + rolling-rate line + sparklines once mounted
+                                                                      
     requestAnimationFrame(() => {
       const arcs = box.querySelectorAll('.qc-donut-arc, .seg-fail');
       arcs.forEach((arc) => {

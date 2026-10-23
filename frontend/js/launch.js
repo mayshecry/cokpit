@@ -95,8 +95,9 @@
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error((j.error && j.error.message) || 'Pairing failed.');
     savePair({ clientId: j.clientId, key: j.key, machine: machine(), savedAt: new Date().toISOString() });
-    if (j.token && j.user) {
-      localStorage.setItem('cockpit_token', j.token);
+    if (j.user) {
+                                                                      
+      localStorage.removeItem('cockpit_token');
       localStorage.setItem('cockpit_user', JSON.stringify(j.user));
       pairedUser = j.user;
     }
@@ -119,10 +120,10 @@
 
   async function approveTicket(ticket) {
     const token = localStorage.getItem('cockpit_token') || '';
-    if (!token) return;
     const r = await fetch('/api/v1/qr-login/approve', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
       body: JSON.stringify({ ticket, action: 'approve' }),
     });
     if (!r.ok) {

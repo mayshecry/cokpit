@@ -127,7 +127,7 @@
     const prevStatus = cur ? cur.status : null;
     const body = { status };
     if (cur && cur.updatedAt) body.expectedUpdatedAt = cur.updatedAt;
-    // Offer a one-click undo whenever the reverse transition is legal.
+                                                                       
     const undoable = prevStatus && prevStatus !== status && nextStates(status).includes(prevStatus);
     await act('POST', `/api/v1/orders/${id}/transition`, body, t('toast.moved'), {
       orderId: id,
@@ -145,16 +145,42 @@
       feedbackEl.className = 'scan-feedback bad';
       return null;
     }
+    const offline = window.OfflineScanner;
+    const pending = offline ? offline.create(code) : null;
+    const saveOffline = () => {
+      const item = pending && offline.enqueue(pending);
+      state.lastScan = null;
+      if (!item) {
+        feedbackEl.textContent = 'Could not save this scan locally. Check browser storage and queue capacity.';
+        feedbackEl.className = 'scan-feedback bad';
+        return null;
+      }
+      const count = offline.count();
+      feedbackEl.textContent = `Saved offline — ${count} scan${count === 1 ? '' : 's'} waiting to sync`;
+      feedbackEl.className = 'scan-feedback pending';
+      if (feedbackEl.id === 'scan-feedback') {
+        $('#scan-result').innerHTML = `<div class="scan-hit scan-queued"><span class="strong mono">${esc(item.code)}</span><span class="muted">Captured ${esc(new Date(item.scannedAt).toLocaleTimeString())} · syncs automatically</span></div>`;
+      }
+      return { queued: true, item };
+    };
+    if (offline && offline.isOffline()) return saveOffline();
+
     feedbackEl.textContent = 'Looking up…';
     feedbackEl.className = 'scan-feedback';
     try {
-      const d = await api('POST', '/api/v1/scan', { code });
+      const body = pending ? { code, clientEventId: pending.id, scannedAt: pending.scannedAt } : { code };
+      const d = await api('POST', '/api/v1/scan', body);
+      if (offline) offline.markOnline();
       state.lastScan = { code, id: d.order.id };
       feedbackEl.textContent = `Matched ${d.order.orderNumber} — press Enter to open`;
       feedbackEl.className = 'scan-feedback ok';
       if (onHit) onHit(d);
       return d;
     } catch (err) {
+      if (offline && offline.queueableError(err)) {
+        offline.markUnreachable();
+        return saveOffline();
+      }
       state.lastScan = null;
       feedbackEl.textContent = err.status === 404 ? `No order matches “${code}”` : err.message;
       feedbackEl.className = 'scan-feedback bad';
@@ -173,7 +199,7 @@
         </div>
         <div class="acard-mid">
           <span>${badge('status-' + esc(statusClass(o.status)), statusLabel(o.status))}</span>
-          <span class="muted">Scanned by ${esc(d.event.scannedBy)} · ${esc(relTime(d.event.scannedAt))}</span>
+          <span class="muted">Scanned by ${esc(d.event.scannedBy)} · ${esc(relTime(d.event.createdAt))}</span>
         </div>
       </div>`;
   }
@@ -196,8 +222,8 @@
       const d = await api('GET', '/api/v1/orders?limit=2000');
       const raw = JSON.stringify(d.orders || []);
       state.lastSync = Date.now();
-      // Skip the whole DOM rebuild when the payload did not actually change:
-      // no flicker, no lost scroll position, no clobbered focus.
+                                                                             
+                                                                 
       if (!force && raw === state.ordersRaw) { updateSyncLabel(); return; }
       state.ordersRaw = raw;
       state.orders = d.orders || [];
@@ -215,7 +241,7 @@
     }
   }
 
-  // Toast with a Start Work action when an order gets assigned to me.
+                                                                      
   function detectAssignments(list) {
     const seen = state.assigneeSeen || (state.assigneeSeen = {});
     (list || []).forEach((o) => {
@@ -355,7 +381,7 @@
     </select>`;
   }
 
-  /* Quick assign: popover on the assignee cell, with Undo in the toast. */
+                                                                           
   async function assignOrder(id, user) {
     const o = (state.orders || []).find((x) => x.id === id);
     const prev = o ? (o.assignee || '') : '';
@@ -547,7 +573,7 @@
   }
 
   async function openCreateOrder() {
-    // Dedicated new-order experience: real customer menu + guided basics.
+                                                                          
     if (typeof OrderCreate !== 'undefined' && OrderCreate) {
       let customers = [];
       try {
@@ -556,7 +582,7 @@
         }
         const d = await api('GET', '/api/v1/customers');
         customers = (d.customers || []).sort((a, b) => a.name.localeCompare(b.name));
-      } catch (e) { /* free-text path still works */ }
+      } catch (e) {                                  }
       if (window.SLA) customers = SLA.mergeCustomersWithDefaults(customers);
       let nextNum = '';
       let mx = 0;
@@ -577,7 +603,7 @@
     try {
       custOpts = await orderCustomerOptions();
       custHint = custOpts.length ? `Pick one of ${custOpts.length} known customers or type a new one.` : 'No known customers yet — type the name.';
-    } catch (e) { /* keep free-text fallback */ }
+    } catch (e) {                               }
     const now = new Date(Date.now() + 24 * 3600 * 1000 - new Date().getTimezoneOffset() * 60000);
     const res = await modal({
       title: 'Create order',

@@ -1,14 +1,14 @@
 'use strict';
 
-/* ============================================================================
-   ui.js — Floating Top Command Deck, Bento Dock, Live Telemetry Ribbon &
-           Midnight Glass Workspace Customization.
-   ----------------------------------------------------------------------------
-   Purely additive: drives the Floating Top Dock (no left sidebar by default),
-   horizontally-scrollable module pills with SVG icons, live SLA/pipeline
-   telemetry ribbon, bottom quick-action dock, and workspace customization.
-   Every existing module and DOM contract keeps working unchanged.
-   ========================================================================= */
+                                                                               
+                                                                         
+                                                  
+                                                                               
+                                                                              
+                                                                         
+                                                                           
+                                                                  
+                                                                               
 (function () {
   const docEl = document.documentElement;
   const body = document.body;
@@ -43,6 +43,8 @@
     users: 'MOD-10 // OPERATORS & ROLES',
     devices: 'MOD-11 // RAN PREP TELEMETRY',
     config: 'MOD-12 // SYSTEM & SLA ENGINE',
+    capa: 'MOD-13 // CORRECTIVE ACTIONS',
+    automations: 'MOD-14 // WORKFLOW AUTOMATION',
   };
 
   const isMobile = () => window.innerWidth <= MOBILE;
@@ -63,7 +65,7 @@
     } catch { }
   }
 
-  /* ---------------------------------------------------------------- rail ---- */
+                                                                                  
   function applyRail(rail) {
     body.classList.toggle('nav-rail', !!rail);
     const btn = $('[data-ui="nav-rail"]');
@@ -76,7 +78,7 @@
     }
   }
 
-  /* ------------------------------------------------ customization prefs ---- */
+                                                                                 
   function applyUIPrefs() {
     const prefs = loadUIPrefs();
     docEl.setAttribute('data-accent', prefs.accent || 'orange');
@@ -154,7 +156,7 @@
     applyUIPrefs();
   }
 
-  /* ------------------------------------------------------ mobile drawer ---- */
+                                                                                 
   function setDrawer(open) {
     body.classList.toggle('nav-open', open);
     const btn = $('[data-ui="nav-toggle"]');
@@ -184,7 +186,7 @@
     });
   }
 
-  /* ------------------------------------------- scrollable topbar strip ---- */
+                                                                                
   function updateTopbarScrollState() {
     const shell = $('#tb-scroll-shell');
     const track = $('#tb-scroll-track');
@@ -223,7 +225,7 @@
       const sideLink = $('#nav-' + key);
       if (sideLink) {
         pill.classList.toggle('hidden', sideLink.classList.contains('hidden'));
-        // Clone SVG icon from sidebar item if not yet in topbar pill
+                                                                     
         if (!pill.querySelector('svg')) {
           const sideSvg = sideLink.querySelector('svg');
           if (sideSvg) {
@@ -244,7 +246,7 @@
       else pill.removeAttribute('aria-current');
     });
 
-    // Sync floating bottom dock items
+                                      
     $$('.bd-item[data-bd-nav]').forEach((bd) => {
       const key = bd.dataset.bdNav;
       const sideLink = $('#nav-' + key);
@@ -288,22 +290,22 @@
     }
   }
 
-  /* ------------------------------------- clean header & dock sync ---- */
+                                                                           
   function decoratePageHeaders() {
-    // Remove any legacy techy eyebrows if present
+                                                  
     $$('.page-eyebrow').forEach((el) => el.remove());
   }
 
   function updateTelemetryRibbon() {
-    // Telemetry ribbon removed for clean glass-black aesthetic
+                                                               
   }
 
-  /* -------------------------------------------------------- context bar ---- */
+                                                                                 
   const CRUMBS = {
     home: 'Operations', orders: 'Operations', workload: 'Operations', checklists: 'Operations',
-    quality: 'Quality', qcbench: 'Quality', manuals: 'Quality',
+    quality: 'Quality', capa: 'Quality', qcbench: 'Quality', manuals: 'Quality',
     products: 'Catalog', si: 'Integrations',
-    users: 'Administration', devices: 'Administration', config: 'Administration',
+    automations: 'Administration', users: 'Administration', devices: 'Administration', config: 'Administration',
   };
 
   function currentPage() {
@@ -334,7 +336,7 @@
     if (main) main.scrollTop = 0;
   }
 
-  /* ------------------------------------------------ self-healing IDs ---- */
+                                                                              
   function ensureRequiredIds() {
     const pairs = [
       ['#view-checklists table', 'checklists-table'],
@@ -363,7 +365,7 @@
     if (btn) btn.click();
   }
 
-  /* ------------------------------------------------------------- events ---- */
+                                                                                 
   function init() {
     ensureRequiredIds();
     decoratePageHeaders();

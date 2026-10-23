@@ -1,38 +1,38 @@
-/* ============================================================================
-   Cockpit — Order Operations
-   Redesign stylesheet · Esprit ICT
-   ----------------------------------------------------------------------------
-   Structure
-     01. Design tokens (light / dark / density) + legacy aliases
-     02. Reset & base typography
-     03. Utilities & primitives
-     04. App shell — sidebar, topbar, content, mobile drawer
-     05. Navigation
-     06. Buttons, inputs, forms
-     07. Cards, tables, toolbars, chips, badges, pills
-     08. Avatars, kv rows, progress, timeline, empty & skeleton states
-     09. Login / QR sign-in
-     10. My Work — KPIs, charts, attention, scanner
-     11. Orders — stats, filters, table, drawer, workbench, order pages
-     12. Workload board & day plan
-     13. Quality & QC bench
-     14. Pick lists
-     15. Products & manuals
-     16. System integrations
-     17. Users & permissions
-     18. Ran devices
-     19. Configuration
-     20. Overlays — modals, palette, notifications, toasts, popovers
-     21. Responsive
-     22. Motion, print, accessibility
-   ========================================================================= */
+                                                                               
+                             
+                                   
+                                                                               
+            
+                                                                
+                                
+                               
+                                                            
+                   
+                               
+                                                      
+                                                                      
+                           
+                                                   
+                                                                       
+                                  
+                           
+                   
+                           
+                            
+                            
+                    
+                      
+                                                                    
+                   
+                                     
+                                                                               
 
-/* ------------------------------------------------------------------ 01 --- */
-/* Tokens: light (default) --------------------------------------------------- */
+                                                                               
+                                                                                 
 :root {
   color-scheme: light;
 
-  /* Brand — Esprit orange, refined for UI use */
+                                                 
   --brand: #ee6d05;
   --brand-bright: #ff8a1f;
   --brand-hover: #dd6200;
@@ -40,11 +40,11 @@
   --brand-soft: rgba(238, 109, 5, .10);
   --brand-soft-2: rgba(238, 109, 5, .18);
   --brand-line: rgba(238, 109, 5, .34);
-  --brand-ink: #2b1600;             /* text on solid brand surfaces */
+  --brand-ink: #2b1600;                                               
   --brand-glow: rgba(238, 109, 5, .30);
   --shadow-brand: 0 8px 20px -8px rgba(238, 109, 5, .55);
 
-  /* Surfaces — warm neutrals */
+                                
   --bg: #f5f4f1;
   --bg-alt: #efedE9;
   --surface: #ffffff;
@@ -55,20 +55,20 @@
   --tb-bg: rgba(255, 255, 255, .88);
   --side-bg: #fbfaf8;
 
-  /* Text */
+            
   --text: #191510;
   --text-2: #4a443c;
   --muted: #6d665d;
   --faint: #8d867c;
 
-  /* Lines */
+             
   --border: #e6e2db;
   --border-strong: #d3cec6;
   --line: var(--border);
   --inner-hi: rgba(255, 255, 255, .9);
   --scrim: rgba(28, 24, 20, .42);
 
-  /* Semantic */
+                
   --good: #0f7c47;
   --good-soft: #e7f6ee;
   --good-line: #b4e0c6;
@@ -87,7 +87,7 @@
   --neutral-soft: #f1efeb;
   --neutral-line: #e2ddd5;
 
-  /* Geometry */
+                
   --r-xs: 6px;
   --r-sm: 9px;
   --r-md: 12px;
@@ -98,18 +98,18 @@
   --radius-lg: var(--r-lg);
   --radius-pill: 999px;
 
-  /* Elevation */
+                 
   --shadow-xs: 0 1px 2px rgba(24, 20, 16, .05);
   --shadow-sm: 0 1px 2px rgba(24, 20, 16, .05), 0 2px 8px -4px rgba(24, 20, 16, .08);
   --shadow-md: 0 2px 4px -2px rgba(24, 20, 16, .07), 0 10px 24px -10px rgba(24, 20, 16, .16);
   --shadow-lg: 0 4px 8px -4px rgba(24, 20, 16, .08), 0 24px 48px -16px rgba(24, 20, 16, .24);
 
-  /* Type */
+            
   --font-body: Inter, "Inter var", "Noto Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-head: "Space Grotesk", Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
-  /* Layout */
+              
   --sidebar-w: 268px;
   --sidebar-rail: 72px;
   --topbar-h: 60px;
@@ -118,7 +118,7 @@
   --ease-in-out: cubic-bezier(.4, 0, .2, 1);
   --speed: .16s;
 
-  /* Legacy aliases kept for JS-generated SVG charts & older hooks */
+                                                                     
   --acc: var(--brand);
   --accent: var(--brand);
   --accent-soft: var(--brand-soft);
@@ -131,7 +131,7 @@
   --glow-2: rgba(28, 106, 208, .07);
 }
 
-/* Tokens: dark -------------------------------------------------------------- */
+                                                                                 
 html[data-theme="dark"] {
   color-scheme: dark;
 
@@ -194,7 +194,7 @@ html[data-theme="dark"] {
   --glow-2: rgba(122, 182, 255, .05);
 }
 
-/* Density ------------------------------------------------------------------- */
+                                                                                 
 html[data-density="compact"] {
   --gutter: 18px;
   --topbar-h: 54px;
@@ -206,8 +206,8 @@ html[data-density="compact"] {
   --pad-card: 18px;
 }
 
-/* ------------------------------------------------------------------ 02 --- */
-/* Fonts -------------------------------------------------------------------- */
+                                                                               
+                                                                                
 @font-face {
   font-family: Inter;
   src: url("fonts/Inter-var.woff2") format("woff2-variations"),
@@ -239,7 +239,7 @@ html[data-density="compact"] {
   font-display: swap;
 }
 
-/* Reset -------------------------------------------------------------------- */
+                                                                                
 *, *::before, *::after { box-sizing: border-box; }
 * { margin: 0; }
 
@@ -295,8 +295,8 @@ h4 { font-size: 13.5px; }
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--faint); background-clip: content-box; }
 
-/* ------------------------------------------------------------------ 03 --- */
-/* Utilities ---------------------------------------------------------------- */
+                                                                               
+                                                                                
 .muted  { color: var(--muted); }
 .strong { font-weight: 620; }
 .mono   { font-family: var(--font-mono); font-size: .92em; font-variant-numeric: tabular-nums; }
@@ -392,8 +392,8 @@ h4 { font-size: 13.5px; }
 .cnt { font-variant-numeric: tabular-nums; color: var(--muted); }
 .no-detail { grid-template-columns: minmax(0, 1fr) !important; }
 
-/* ------------------------------------------------------------------ 04 --- */
-/* App shell ---------------------------------------------------------------- */
+                                                                               
+                                                                                
 body.app-shell {
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
@@ -407,12 +407,12 @@ body.app-shell {
   background: var(--bg);
 }
 
-/* the app section is the grid host, not the body, when both are present */
+                                                                           
 body.app-shell > #view-app {
   display: contents;
 }
 
-/* ------------------------------------------------------- sidebar ---------- */
+                                                                                
 .sidebar {
   grid-area: side;
   display: flex;
@@ -488,7 +488,7 @@ body.app-shell > #view-app {
   color: var(--faint);
 }
 
-/* ---------------------------------------------------------- topbar -------- */
+                                                                                
 .topbar {
   grid-area: top;
   display: flex;
@@ -514,7 +514,7 @@ body.app-shell > #view-app {
 .tb-nav-toggle:hover { background: var(--surface-hover); }
 .tb-nav-toggle svg { width: 18px; height: 18px; }
 
-/* breadcrumb context */
+                        
 .tb-context {
   display: flex;
   align-items: baseline;
@@ -534,7 +534,7 @@ body.app-shell > #view-app {
   white-space: nowrap;
 }
 
-/* global search trigger */
+                           
 .tb-cmd {
   display: flex;
   align-items: center;
@@ -571,7 +571,7 @@ body.app-shell > #view-app {
 
 .tb-right { display: flex; align-items: center; gap: 6px; }
 
-/* ---------------------------------------------------------- content ------- */
+                                                                                
 .main {
   grid-area: main;
   min-width: 0;
@@ -600,8 +600,8 @@ body.app-shell > #view-app {
 }
 .pane.entering > .detail-scrim { animation: none; }
 
-/* ------------------------------------------------------------------ 05 --- */
-/* Navigation --------------------------------------------------------------- */
+                                                                               
+                                                                                
 .nav-link {
   position: relative;
   display: flex;
@@ -667,7 +667,7 @@ body.app-shell > #view-app {
   color: var(--brand);
 }
 
-/* rail (collapsed) mode */
+                           
 body.nav-rail { grid-template-columns: var(--sidebar-rail) minmax(0, 1fr); }
 body.nav-rail .side-brand-text,
 body.nav-rail .side-label,
@@ -701,8 +701,8 @@ body.nav-rail .nav-link.active::before { left: -8px; }
   transition: opacity .2s ease;
 }
 
-/* ------------------------------------------------------------------ 06 --- */
-/* Buttons ------------------------------------------------------------------ */
+                                                                               
+                                                                                
 .btn {
   display: inline-flex;
   align-items: center;
@@ -796,7 +796,7 @@ body.nav-rail .nav-link.active::before { left: -8px; }
 .tb-icon { width: 36px; height: 36px; }
 .tb-icon:hover { border-color: var(--border); background: var(--surface); }
 
-/* ---------------------------------------------------------- fields -------- */
+                                                                                
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 13px; }
 .field > label,
 .label {
@@ -913,8 +913,8 @@ input[type="checkbox"], input[type="radio"] {
   padding: 1px 5px;
 }
 
-/* ------------------------------------------------------------------ 07 --- */
-/* Cards -------------------------------------------------------------------- */
+                                                                               
+                                                                                
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -924,7 +924,7 @@ input[type="checkbox"], input[type="radio"] {
 .card + .card { margin-top: 14px; }
 .cards-grid .acard + .acard { margin-top: 0; }
 
-/* Page head — sticky context bar + actions */
+                                              
 .page-head {
   position: sticky;
   top: 0;
@@ -970,7 +970,7 @@ html[data-theme="dark"] .page-head { box-shadow: 0 6px 14px -12px rgba(0, 0, 0, 
   white-space: nowrap;
 }
 
-/* Tables ------------------------------------------------------------------- */
+                                                                                
 .table-card { overflow: hidden; }
 .table-scroll {
   overflow: auto;
@@ -1060,7 +1060,7 @@ th.chk input { margin: 0 auto; }
 .paged { }
 .stale { color: var(--warn); }
 
-/* Toolbars, chips, filters ------------------------------------------------- */
+                                                                                
 .controls {
   display: flex;
   align-items: center;
@@ -1137,7 +1137,7 @@ th.chk input { margin: 0 auto; }
 @keyframes barIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: none; } }
 .bulk-bar .strong { color: var(--brand); }
 
-/* Badges, pills, tags ------------------------------------------------------ */
+                                                                                
 .badge {
   display: inline-flex;
   align-items: center;
@@ -1152,8 +1152,8 @@ th.chk input { margin: 0 auto; }
   font-weight: 580;
   white-space: nowrap;
 }
-/* JS emits an explicit <span class="dot"> inside badges — style that, and only
-   synthesise a dot for badges rendered without one. */
+                                                                               
+                                                       
 .badge > .dot {
   width: 6px; height: 6px;
   border-radius: 50%;
@@ -1167,7 +1167,7 @@ th.chk input { margin: 0 auto; }
   background: currentColor;
   flex: none;
 }
-/* status / SLA / severity / role variants (classes emitted by core.js badge()) */
+                                                                                  
 .badge.status-received   { background: var(--info-soft);  border-color: var(--info-line);  color: var(--info); }
 .badge.status-processing { background: var(--brand-soft); border-color: var(--brand-line); color: var(--brand); }
 .badge.status-qc_review,
@@ -1267,7 +1267,7 @@ th.chk input { margin: 0 auto; }
 .env-badge.ACCEPTATIE { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn); }
 .env-badge.TEST { background: var(--info-soft); border-color: var(--info-line); color: var(--info); }
 
-/* meta lists --------------------------------------------------------------- */
+                                                                                
 .meta { display: flex; flex-wrap: wrap; gap: 10px 22px; }
 .meta .item { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .meta .item .k {
@@ -1294,8 +1294,8 @@ th.chk input { margin: 0 auto; }
 .kv dt { font-size: 12px; color: var(--muted); }
 .kv dd { font-size: 13px; color: var(--text); text-align: right; }
 
-/* ------------------------------------------------------------------ 08 --- */
-/* Avatars ------------------------------------------------------------------ */
+                                                                               
+                                                                                
 .avatar {
   display: inline-grid;
   place-items: center;
@@ -1335,7 +1335,7 @@ th.chk input { margin: 0 auto; }
 .user-chip #logout-btn { width: 32px; height: 32px; }
 .user-chip #logout-btn svg { width: 16px; height: 16px; }
 
-/* Progress ----------------------------------------------------------------- */
+                                                                                
 .progress, .cfg-progress-track {
   position: relative;
   height: 7px;
@@ -1371,7 +1371,7 @@ rect.bar-a { display: inline; fill: var(--good); }
 rect.bar-b { display: inline; fill: var(--border-strong); }
 rect.bar-c { display: inline; fill: var(--info); }
 
-/* Timeline ----------------------------------------------------------------- */
+                                                                                
 .timeline { position: relative; }
 .timeline .audit-item {
   position: relative;
@@ -1402,7 +1402,7 @@ rect.bar-c { display: inline; fill: var(--info); }
 .action-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .action-block { display: flex; flex-direction: column; gap: 8px; }
 
-/* Empty & skeleton states -------------------------------------------------- */
+                                                                                
 .empty {
   display: grid;
   place-items: center;
@@ -1483,8 +1483,8 @@ rect.bar-c { display: inline; fill: var(--info); }
   .sk, .pulse::after, .spin, .spinner { animation: none !important; }
 }
 
-/* ------------------------------------------------------------------ 09 --- */
-/* Login / QR sign-in ------------------------------------------------------- */
+                                                                               
+                                                                                
 .auth {
   display: grid;
   grid-template-columns: minmax(340px, 1.05fr) minmax(360px, .95fr);
@@ -1643,8 +1643,8 @@ rect.bar-c { display: inline; fill: var(--info); }
 }
 .auth-qr-url + code { font-size: 11px; }
 
-/* ------------------------------------------------------------------ 10 --- */
-/* My Work — KPI row -------------------------------------------------------- */
+                                                                               
+                                                                                
 .dash { margin-bottom: 16px; }
 .dash-kpis {
   display: grid;
@@ -1735,7 +1735,7 @@ div.dash-grid {
   background: var(--surface-sunk);
 }
 
-/* Donut --------------------------------------------------------------- */
+                                                                           
 .donut-wrap { display: flex; flex-wrap: wrap; gap: 22px; align-items: center; }
 .donut { width: 148px; height: 148px; flex: none; }
 .donut-n {
@@ -1780,7 +1780,7 @@ div.dash-grid {
   text-align: right;
 }
 
-/* Attention cards ------------------------------------------------------ */
+                                                                            
 .attention-summary {
   display: flex;
   align-items: stretch;
@@ -1882,7 +1882,7 @@ div.dash-grid {
 .acard-foot .worst { color: var(--bad); font-weight: 620; }
 .acard-foot .rate { font-variant-numeric: tabular-nums; }
 
-/* Scanner -------------------------------------------------------------- */
+                                                                            
 .scan-panel {
   padding: 16px 18px;
   margin-bottom: 16px;
@@ -1939,8 +1939,8 @@ div.dash-grid {
   100% { background: transparent; }
 }
 
-/* ------------------------------------------------------------------ 11 --- */
-/* Orders — stat strip ------------------------------------------------------ */
+                                                                               
+                                                                                
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
@@ -2007,7 +2007,7 @@ div.dash-grid {
 .stat.hold .num { color: var(--hold); }
 
 
-/* Orders — split view ------------------------------------------------- */
+                                                                           
 .split {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -2016,7 +2016,7 @@ div.dash-grid {
 }
 .split.no-detail { grid-template-columns: minmax(0, 1fr); }
 
-/* Orders — rows inside the table */
+                                    
 td .order-open { color: var(--text); font-weight: 600; font-family: var(--font-mono); }
 .assignee-btn {
   display: inline-flex;
@@ -2048,7 +2048,7 @@ td.time .rel { display: block; margin-top: 1px; }
 td.time .rel.sla-BREACHED { font-weight: 600; }
 #orders-table tr:has(.sla-BREACHED) .time { color: var(--bad); font-weight: 600; }
 
-/* Order detail — drawer ----------------------------------------------------- */
+                                                                                 
 .detail-scrim {
   position: fixed;
   inset: 0;
@@ -2145,7 +2145,7 @@ td.time .rel.sla-BREACHED { font-weight: 600; }
 .mentions .pill { cursor: pointer; }
 .no-detail-card { padding: 34px 20px; }
 
-/* Order detail — centred workspace (order-open) */
+                                                   
 #view-orders.order-open .detail-head {
   padding: 17px 22px 14px;
   background: var(--surface-sunk);
@@ -2165,7 +2165,7 @@ td.time .rel.sla-BREACHED { font-weight: 600; }
   min-height: 0;
 }
 
-/* order tabs / pages */
+                        
 .order-workspace { min-height: 0; }
 .order-tabs {
   display: flex;
@@ -2282,7 +2282,7 @@ td.time .rel.sla-BREACHED { font-weight: 600; }
 .order-pager-mid { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
 .order-pager-foot .btn svg { width: 14px; height: 14px; }
 
-/* Centred modal wrappers for order detail & pick list */
+                                                         
 #order-modal-wrap,
 #checklist-modal-wrap {
   position: fixed;
@@ -2316,7 +2316,7 @@ td.time .rel.sla-BREACHED { font-weight: 600; }
 }
 body.order-workspace .toast-stack { z-index: 160; }
 
-/* Drawer modal variant (products / manuals / si panels centred) */
+                                                                   
 .detail-modal-wrap {
   position: fixed;
   inset: 0;
@@ -2354,8 +2354,8 @@ body.app-shell .detail-card:not(#detail-panel) { max-height: calc(100dvh - 44px)
   body.app-shell .detail-card:not(#detail-panel) { inset: 0 !important; width: 100% !important; }
 }
 
-/* ------------------------------------------------------------------ 12 --- */
-/* Workbench / guided flow -------------------------------------------------- */
+                                                                               
+                                                                                
 .wb-backdrop,
 .modal-backdrop {
   position: fixed;
@@ -2599,7 +2599,7 @@ body.app-shell .detail-card:not(#detail-panel) { max-height: calc(100dvh - 44px)
 .wb-done-actions { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; justify-content: center; }
 .wb-wait { font-size: 13px; color: var(--muted); }
 
-/* Workflow editor blocks ---------------------------------------------------- */
+                                                                                 
 .wf-editor { display: grid; gap: 12px; }
 .wf-head-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .wf-step {
@@ -2644,7 +2644,7 @@ body.app-shell .detail-card:not(#detail-panel) { max-height: calc(100dvh - 44px)
 .wf-scope-select { max-width: 260px; }
 .wf-scope-desc { font-size: 12.2px; color: var(--muted); flex: 1 1 200px; }
 
-/* Order creation modal (.oc-*) --------------------------------------------- */
+                                                                                
 .oc-modal {
   width: min(820px, 100%);
   max-height: calc(100dvh - 36px);
@@ -3023,8 +3023,8 @@ html[data-theme="dark"] .barcode-display { background: #f7f7f7; }
 .barcode-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
 .barcode-qr { display: grid; place-items: center; }
 
-/* ------------------------------------------------------------------ 12b -- */
-/* Workload board ----------------------------------------------------------- */
+                                                                               
+                                                                                
 .wl-board {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
@@ -3119,7 +3119,7 @@ html[data-theme="dark"] .barcode-display { background: #f7f7f7; }
 }
 .wl-col.sb-dragging { opacity: .6; }
 
-/* Day plan ----------------------------------------------------------------- */
+                                                                                
 .dayplan {
   padding: 16px 18px;
   margin-bottom: 14px;
@@ -3137,7 +3137,7 @@ html[data-theme="dark"] .barcode-display { background: #f7f7f7; }
 .dp-goal label { font-size: 12.4px; color: var(--muted); }
 .dp-goal input { width: 88px; min-height: 34px; text-align: center; font-family: var(--font-mono); }
 .dp-rows { display: grid; gap: 7px; }
-/* avatar · who · [goal input] · save · send · sent-at */
+                                                         
 .dp-row {
   display: grid;
   grid-template-columns: auto minmax(132px, 210px) minmax(180px, 1fr) auto auto auto;
@@ -3204,8 +3204,8 @@ html[data-theme="dark"] .barcode-display { background: #f7f7f7; }
 }
 .dp-sent { color: var(--good); font-size: 12.4px; font-weight: 560; }
 
-/* ------------------------------------------------------------------ 13 --- */
-/* Quality analytics -------------------------------------------------------- */
+                                                                               
+                                                                                
 .qc-wrap { display: grid; gap: 14px; }
 .qc-kpis {
   display: grid;
@@ -3296,7 +3296,7 @@ html[data-theme="dark"] .barcode-display { background: #f7f7f7; }
 }
 .lg.mute { background: var(--border-strong); opacity: .7; }
 .qc-barcol { min-width: 132px; }
-/* inline-width bar used in tables: <span class="qc-minibar"><i style="width:..%"></i></span> */
+                                                                                                
 .qc-minibar {
   display: inline-block;
   vertical-align: middle;
@@ -3414,7 +3414,7 @@ html[data-theme="dark"] .barcode-display { background: #f7f7f7; }
 }
 .qc-skel { display: grid; gap: 10px; }
 
-/* QC bench ----------------------------------------------------------------- */
+                                                                                
 .qcb-content { display: grid; gap: 14px; }
 .qcb-wrap {
   display: grid;
@@ -3623,7 +3623,7 @@ div.qcb-sitbar > i { display: block; height: 100%; background: linear-gradient(9
 }
 .qcb-step.done { background: var(--good-soft); border-color: var(--good-line); color: var(--good); }
 .qcb-step-n { font: 640 11px var(--font-mono); flex: none; }
-/* tick-off checklist inside the bench */
+                                         
 .qcb-checks { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
 .qcb-checks > li { display: block; }
 .qcb-keycap {
@@ -3810,8 +3810,8 @@ div.qcb-sitbar > i { display: block; height: 100%; background: linear-gradient(9
 .qcb-in, .qcb-q { display: grid; gap: 12px; }
 .qcb-pos { font: 620 12px var(--font-mono); color: var(--muted); }
 
-/* ------------------------------------------------------------------ 14 --- */
-/* Pick lists --------------------------------------------------------------- */
+                                                                               
+                                                                                
 .pick-scan {
   flex: none;
   padding: 14px 18px;
@@ -3870,8 +3870,8 @@ div.qcb-sitbar > i { display: block; height: 100%; background: linear-gradient(9
 .checklist-highlight { animation: flashBg 1.2s var(--ease-out); }
 .cl-panel-progress .progress { height: 8px; }
 
-/* ------------------------------------------------------------------ 15 --- */
-/* Products & manuals ------------------------------------------------------- */
+                                                                               
+                                                                                
 .manual-head { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
 .manual-title { font-size: 19px; letter-spacing: -.03em; }
 .manual-side { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
@@ -4028,7 +4028,7 @@ div.qcb-sitbar > i { display: block; height: 100%; background: linear-gradient(9
 .manual-log-note { font-size: 11.6px; color: var(--text-2); flex: 1 1 200px; }
 .manual-q { display: flex; align-items: center; gap: 8px; font-size: 12.4px; color: var(--muted); }
 
-/* Manual / step builder (sb-*) --------------------------------------------- */
+                                                                                
 .sb-wrap { display: grid; gap: 13px; }
 .sb-title { font-size: 15px; }
 .sb-tools { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
@@ -4113,8 +4113,8 @@ div.qcb-sitbar > i { display: block; height: 100%; background: linear-gradient(9
 .sb-drop { border-color: var(--brand) !important; border-style: dashed !important; }
 .sb-ghost { }
 
-/* ------------------------------------------------------------------ 16 --- */
-/* System integrations ------------------------------------------------------ */
+                                                                               
+                                                                                
 .si-layout {
   display: grid;
   grid-template-columns: 272px minmax(0, 1fr);
@@ -4205,7 +4205,7 @@ div.qcb-sitbar > i { display: block; height: 100%; background: linear-gradient(9
 }
 .si-del-item-btn { color: var(--bad); }
 
-/* Customer list rows (cust-*) ------------------------------------------------ */
+                                                                                  
 .cust-card { display: grid; gap: 10px; }
 .cust-name { font-size: 13.4px; font-weight: 600; }
 .cust-num { font: 600 11.5px var(--font-mono); color: var(--muted); }
@@ -4246,14 +4246,14 @@ div.qcb-sitbar > i { display: block; height: 100%; background: linear-gradient(9
 .projectClickable { cursor: pointer; }
 .projectClickable:hover { color: var(--brand); }
 
-/* ------------------------------------------------------------------ 17 --- */
-/* Users & permissions ------------------------------------------------------ */
+                                                                               
+                                                                                
 .ud-card { padding: var(--pad-card); margin-bottom: 14px; }
 .ud-card > h3 { font-size: 15px; margin-bottom: 4px; }
 .ud-scroll { max-height: 460px; margin-top: 12px; border: 1px solid var(--border); border-radius: var(--r-md); }
 .ud-id { width: 64px; color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
 .ud-row { cursor: pointer; }
-/* list variant (not used in a <table>) */
+                                          
 .u-row:not(tr) {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -4265,7 +4265,7 @@ div.qcb-sitbar > i { display: block; height: 100%; background: linear-gradient(9
   background: var(--surface-sunk);
   margin-bottom: 7px;
 }
-/* the users page renders <tr class="u-row"> — never break the table layout */
+                                                                              
 tr.u-row { display: table-row; }
 tr.u-row > td { height: auto; padding: 10px 14px; vertical-align: middle; }
 .u-user { display: flex; align-items: center; gap: 11px; min-width: 0; }
@@ -4335,7 +4335,7 @@ tr.u-row .ud-ava.role-sc { background: var(--good-soft); border-color: var(--goo
   .u-role-perms { grid-column: 1 / -1; }
 }
 
-/* Permission picker ------------------------------------------------------- */
+                                                                               
 .perm {
   display: inline-flex;
   align-items: center;
@@ -4386,7 +4386,7 @@ tr.u-row .ud-ava.role-sc { background: var(--good-soft); border-color: var(--goo
 .perm-opt.on .perm-opt-label { color: var(--brand); }
 .dept-perm { accent-color: var(--brand); }
 
-/* Departments ------------------------------------------------------------- */
+                                                                               
 .dept-card { padding: var(--pad-card); }
 .dept-card-head {
   display: flex;
@@ -4450,7 +4450,7 @@ html[data-theme="dark"] .pd-qr-wrap { background: #f7f7f7; }
 }
 .pd-meta .muted { font-size: 12.2px; max-width: 46ch; }
 
-/* Config section headers (cfg-*) ------------------------------------------ */
+                                                                               
 .cfg-card { padding: var(--pad-card); margin-bottom: 14px; }
 .cfg-sec-head {
   display: flex;
@@ -4542,8 +4542,8 @@ html[data-theme="dark"] .pd-qr-wrap { background: #f7f7f7; }
 .config-card { padding: var(--pad-card); }
 .config-meta { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 
-/* ------------------------------------------------------------------ 18 --- */
-/* Ran devices -------------------------------------------------------------- */
+                                                                               
+                                                                                
 .rd-kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -4684,7 +4684,7 @@ html[data-theme="dark"] .pd-qr-wrap { background: #f7f7f7; }
 }
 .rd-kv td { padding: 5px 0; text-align: right; font-weight: 540; overflow-wrap: anywhere; }
 .rd-kv + .rd-item-h { margin-top: 12px; }
-/* a parsed item with no key/values yet — nothing to show */
+                                                            
 .rd-kv:empty { display: none; }
 .rd-item-h:has(+ .rd-kv:empty) { display: none; }
 .rd-sec-body:has(> .rd-kv:empty:only-child) { display: none; }
@@ -4692,7 +4692,7 @@ html[data-theme="dark"] .pd-qr-wrap { background: #f7f7f7; }
 .rd-kv dd { text-align: right; font-weight: 540; }
 .rd-sec { margin-top: 18px; border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; }
 .rd-sec-body { padding: 13px 14px; }
-/* the bar is the <summary>; .rd-sec-name is only the label inside it */
+                                                                        
 .rd-sec > summary {
   display: flex;
   align-items: center;
@@ -4847,8 +4847,8 @@ html[data-theme="dark"] .pd-qr-wrap { background: #f7f7f7; }
   color: var(--faint);
 }
 
-/* ------------------------------------------------------------------ 19 --- */
-/* Configuration ------------------------------------------------------------ */
+                                                                               
+                                                                                
 #config-content { display: grid; gap: 14px; }
 .qr-code-container {
   display: grid;
@@ -4861,8 +4861,8 @@ html[data-theme="dark"] .pd-qr-wrap { background: #f7f7f7; }
 .qr-url { font: 600 11.5px var(--font-mono); color: var(--muted); word-break: break-all; }
 .qr-modal-content { display: grid; gap: 14px; justify-items: center; text-align: center; }
 
-/* ------------------------------------------------------------------ 20 --- */
-/* Overlay roots ------------------------------------------------------------ */
+                                                                               
+                                                                                
 .modal-root {
   position: fixed;
   inset: 0;
@@ -4892,7 +4892,7 @@ html[data-theme="dark"] .pd-qr-wrap { background: #f7f7f7; }
 .modal.wide .modal-body:has(.field.half) .field:not(.half),
 .modal.wide .modal-body:has(.field.half) .form-error { grid-column: 1 / -1; }
 
-/* Command palette ---------------------------------------------------------- */
+                                                                                
 .palette-root {
   position: fixed;
   inset: 0;
@@ -5003,7 +5003,7 @@ kbd,
   color: var(--text-2);
 }
 
-/* Shortcut dialog ---------------------------------------------------------- */
+                                                                                
 .shortcut-table { display: grid; gap: 2px; }
 .shortcut-row {
   display: flex;
@@ -5018,7 +5018,7 @@ kbd,
 .shortcut-row > span:first-child { color: var(--text-2); }
 .shortcut-row .keys { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 
-/* Notifications panel ------------------------------------------------------ */
+                                                                                
 .notif-panel {
   position: fixed;
   top: calc(var(--topbar-h) + 8px);
@@ -5118,7 +5118,7 @@ kbd,
   100% { transform: none; }
 }
 
-/* Preferences popover ------------------------------------------------------ */
+                                                                                
 .settings-pop {
   position: fixed;
   top: calc(var(--topbar-h) + 8px);
@@ -5152,7 +5152,7 @@ kbd,
   line-height: 1.5;
 }
 
-/* Assign popover ----------------------------------------------------------- */
+                                                                                
 .assign-pop {
   position: fixed;
   z-index: 96;
@@ -5178,7 +5178,7 @@ kbd,
 .assign-pop button:hover { background: var(--surface-hover); }
 .assign-pop button.cur { background: var(--brand-soft); color: var(--brand); font-weight: 620; }
 
-/* Toasts ------------------------------------------------------------------- */
+                                                                                
 .toast-stack {
   position: fixed;
   right: 18px;
@@ -5241,7 +5241,7 @@ kbd,
 }
 .toast .t-close:hover { background: var(--surface-hover); color: var(--text); }
 
-/* Count-up tiles (quality deltas) ----------------------------------------- */
+                                                                               
 .dc-v {
   font: 640 26px/1 var(--font-head);
   letter-spacing: -.04em;
@@ -5268,7 +5268,7 @@ kbd,
 .lg.brand { background: var(--brand); }
 .lg.neutral { background: var(--border-strong); }
 
-/* Miscellaneous leftovers -------------------------------------------------- */
+                                                                                
 .is-active { }
 .cur { font-weight: 620; }
 .op { opacity: .8; }
@@ -5291,8 +5291,8 @@ kbd,
 .product-name { font: 640 15px var(--font-head); letter-spacing: -.02em; }
 .mark { color: var(--brand); }
 
-/* ------------------------------------------------------------------ 21 --- */
-/* Responsive --------------------------------------------------------------- */
+                                                                               
+                                                                                
 @media (max-width: 1440px) {
   :root { --gutter: 22px; }
   .qcb-bench { grid-template-columns: minmax(280px, 330px) minmax(0, 1fr); }
@@ -5404,8 +5404,8 @@ kbd,
   .u-more { grid-column: 2; }
 }
 
-/* ------------------------------------------------------------------ 22 --- */
-/* Motion, print, accessibility --------------------------------------------- */
+                                                                               
+                                                                                
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: .001ms !important;
@@ -5433,7 +5433,7 @@ kbd,
   .beacon, .dot, .lg, .sw { forced-color-adjust: none; }
 }
 
-/* --- progress bar shared by pick lists / manuals / panels ------------------ */
+                                                                                 
 .cl-bar {
   display: block;
   height: 8px;
@@ -5456,14 +5456,14 @@ kbd,
 .manual-progress .cl-bar { flex: 1 1 auto; max-width: 220px; }
 .manual-pct { font: 600 11.6px var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
 
-/* --- sparklines ----------------------------------------------------------- */
+                                                                                
 .qc-spark { overflow: visible; }
 .qc-spark path, .qc-spark polyline, .qc-spark line { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .qc-spark circle { stroke: none; fill: currentColor; }
 .qc-spark.sp-good { color: var(--good); }
 .qc-spark.sp-bad { color: color-mix(in srgb, var(--bad) 78%, var(--warn)); }
 
-/* --- quality donut arcs + legend ----------------------------------------- */
+                                                                               
 .qc-donut-stage .seg, .qc-donut .seg { transition: opacity .18s ease; }
 .qc-donut-wrap[data-hl="pass"] .seg-fail,
 .qc-donut-wrap[data-hl="fail"] .qc-donut-arc { opacity: .14; }
@@ -5485,7 +5485,7 @@ kbd,
 .qc-dleg .lg { width: 10px; height: 10px; border-radius: 3.5px; flex: none; }
 .qc-dleg > li b { font-variant-numeric: tabular-nums; }
 
-/* --- statuses (the API emits PascalCase with underscores) ----------------- */
+                                                                                
 .badge.status-Received,
 .badge.status-received   { background: var(--info-soft);  border-color: var(--info-line);  color: var(--info); }
 .badge.status-Processing,
@@ -5504,11 +5504,11 @@ kbd,
 .badge.status-si-geaccepteerd  { background: var(--good-soft);  border-color: var(--good-line);  color: var(--good); }
 .badge.status-si-uitgefaseerd  { background: var(--bad-soft);   border-color: var(--bad-line);   color: var(--bad); }
 
-/* --- roles ---------------------------------------------------------------- */
+                                                                                
 .badge.role-npi, .ud-ava.role-npi       { background: var(--hold-soft);  border-color: var(--hold-line);  color: var(--hold); }
 .badge.role-viewer, .ud-ava.role-viewer { background: var(--neutral-soft); border-color: var(--neutral-line); color: var(--muted); }
 
-/* --- SI environment badges + customer list ------------------------------- */
+                                                                               
 .env-badge {
   display: inline-flex;
   align-items: center;
@@ -5540,7 +5540,7 @@ kbd,
 .si-customer-item strong { font-size: 13px; }
 .si-customer-item .muted { font-size: 11px; }
 
-/* --- row actions + pills ------------------------------------------------- */
+                                                                               
 .ud-acts, .row-actions.ud-acts { display: inline-flex; align-items: center; gap: 4px; opacity: .35; transition: opacity .15s ease; }
 .u-row:hover .ud-acts, .u-row:focus-within .ud-acts, .ud-acts.static { opacity: 1; }
 .ud-acts .btn { padding: 4px 9px; font-size: 11px; min-height: 26px; }
@@ -5557,18 +5557,18 @@ kbd,
 .pill.goodp { color: var(--good); background: var(--good-soft); border-color: var(--good-line); }
 .pill.warnp { color: var(--warn); background: var(--warn-soft); border-color: var(--warn-line); }
 
-/* ============================================================================
-   23. Spacious UI, Scrollable Top Bar & Workspace Customization
-   ========================================================================= */
+                                                                               
+                                                                
+                                                                               
 
-/* --- Shell & utility class coverage -------------------------------------- */
+                                                                               
 .app { min-height: 100%; }
 .tb-nav { min-width: 0; }
 .sortable.sorted.desc::after,
 th.desc::after { opacity: 1; border-top-color: var(--brand); border-bottom-color: transparent; }
 .qc-ax.r { text-anchor: end; fill: var(--muted); }
 
-/* --- Spacious & density tokens ------------------------------------------- */
+                                                                               
 :root,
 html[data-density="cozy"] {
   --topbar-h: 64px;
@@ -5594,17 +5594,17 @@ html[data-density="compact"] {
   --section-gap: 14px;
 }
 
-/* --- Text scale customization -------------------------------------------- */
+                                                                               
 html[data-scale="sm"] { font-size: 94%; }
 html[data-scale="md"] { font-size: 100%; }
 html[data-scale="lg"] { font-size: 106.5%; }
 
-/* --- Page container width customization ---------------------------------- */
+                                                                               
 html[data-width="contained"] .pane { max-width: 1440px; }
 html[data-width="wide"] .pane      { max-width: 1720px; }
 html[data-width="fluid"] .pane     { max-width: none; }
 
-/* --- Accent color customization ------------------------------------------ */
+                                                                               
 html[data-accent="amber"] {
   --brand: #d97706;
   --brand-bright: #f59e0b;
@@ -5713,7 +5713,7 @@ html[data-theme="dark"][data-accent="rose"] {
   --brand-line: rgba(251, 113, 133, .38);
 }
 
-/* --- Card & surface style customization ---------------------------------- */
+                                                                               
 html[data-surface="bordered"] {
   --shadow-xs: none;
   --shadow-sm: none;
@@ -5739,7 +5739,7 @@ html[data-surface="glass"] .stat-grid .stat {
   -webkit-backdrop-filter: blur(14px) saturate(1.3);
 }
 
-/* --- Declutter workspace toggles ----------------------------------------- */
+                                                                               
 body.hide-kpis .dash-kpis,
 body.hide-kpis .stat-grid {
   display: none !important;
@@ -5751,7 +5751,7 @@ body.hide-scanner .scan-panel {
   display: none !important;
 }
 
-/* --- More spacious, uncluttered page & card rhythm ----------------------- */
+                                                                               
 .pane {
   padding: 28px var(--gutter) 84px;
 }
@@ -5775,7 +5775,7 @@ html[data-theme="dark"] .page-head {
   font-size: 13.5px;
 }
 
-/* Separate KPI tiles & order stat tiles into airy individual cards */
+                                                                      
 .dash {
   margin-bottom: var(--section-gap);
 }
@@ -5839,7 +5839,7 @@ line.dash-grid {
   box-shadow: var(--shadow-xs);
 }
 
-/* Sleeker, less cluttered scanner bar */
+                                         
 .scan-panel {
   display: grid;
   grid-template-columns: minmax(220px, auto) minmax(280px, 1fr);
@@ -5862,7 +5862,7 @@ line.dash-grid {
   margin-top: 0;
 }
 
-/* Spacious attention cards & tables */
+                                       
 .attention-summary {
   gap: 10px;
   margin: var(--section-gap) 0 16px;
@@ -5894,7 +5894,7 @@ html[data-density="spacious"] td {
   margin-top: var(--section-gap);
 }
 
-/* --- Fixed sidebar collapse/expand in rail mode -------------------------- */
+                                                                               
 body.nav-rail .side-head {
   padding: 0 6px;
   justify-content: center;
@@ -5911,7 +5911,7 @@ body.nav-rail .side-toggle {
   height: 26px;
 }
 
-/* --- Scrollable Top Bar Navigation Strip --------------------------------- */
+                                                                               
 .topbar {
   gap: 12px;
   padding: 0 22px;
@@ -6037,7 +6037,7 @@ body.nav-rail .side-toggle {
   flex: 0 1 auto;
 }
 
-/* Customize button in topbar */
+                                
 .icon-btn.tb-customize-btn,
 .tb-customize-btn {
   display: inline-flex;
@@ -6063,7 +6063,7 @@ body.nav-rail .side-toggle {
   white-space: nowrap;
 }
 
-/* --- Navigation layout modes --------------------------------------------- */
+                                                                               
 @media (min-width: 921px) {
   body[data-nav-layout="topbar"].app-shell {
     grid-template-columns: minmax(0, 1fr);
@@ -6086,7 +6086,7 @@ body[data-nav-layout="sidebar"] .tb-context {
   margin-right: auto;
 }
 
-/* --- Upgraded Customize Workspace Popover -------------------------------- */
+                                                                               
 .settings-pop {
   width: min(364px, calc(100vw - 28px));
   max-height: calc(100dvh - var(--topbar-h) - 20px);
@@ -6176,11 +6176,11 @@ body[data-nav-layout="sidebar"] .tb-context {
   }
 }
 
-/* ============================================================================
-   24. Full Modal, Drawer, Workbench, OrderCreate & Customer SLA Polish
-   ========================================================================= */
+                                                                               
+                                                                       
+                                                                               
 
-/* --- 24.1 Standard Modals (core.js) -------------------------------------- */
+                                                                               
 .modal > form,
 #modal-form {
   display: flex;
@@ -6216,7 +6216,7 @@ body[data-nav-layout="sidebar"] .tb-context {
   padding: 13px 22px;
 }
 
-/* --- 24.2 New Order Modal: SLA Policy & Ran Device Picker ---------------- */
+                                                                               
 .oc-sla-policy {
   display: flex;
   align-items: center;
@@ -6391,7 +6391,7 @@ input.oc-host-inp {
   margin-top: 2px;
 }
 
-/* --- 24.3 Guided Workbench ("Start Work" Modal, work.js) ----------------- */
+                                                                               
 .wb-root {
   position: fixed;
   inset: 0;
@@ -6651,7 +6651,7 @@ input.oc-host-inp {
   margin-top: 14px;
 }
 
-/* --- 24.4 Pick Checklists & Order Detail Pager --------------------------- */
+                                                                               
 .checklist-item {
   grid-template-columns: minmax(0, 1fr) auto;
 }
@@ -6699,7 +6699,7 @@ input.oc-host-inp {
   padding: 0;
 }
 
-/* --- 24.5 Product Manual Stage Builder (.sb-*) --------------------------- */
+                                                                               
 .sb-wrap {
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
@@ -6795,7 +6795,7 @@ input.oc-host-inp {
   opacity: .88;
 }
 
-/* --- 24.6 SI Detail, Users Role Legend & Customer SLA Config ------------- */
+                                                                               
 .si-detail-head {
   justify-content: space-between;
   padding-bottom: 14px;
@@ -6946,15 +6946,15 @@ input.cust-sla-inp {
 }
 
 
-/* ============================================================================
-   25. SMOKED BLACK GLASS, WARM ORANGE ACCENTS & CLEAN INTER TYPOGRAPHY
-   ----------------------------------------------------------------------------
-   Luxurious, non-techy dark glass aesthetic:
-   - True carbon/obsidian black canvas (#09090b) with subtle warm orange glow
-   - Smoked black frosted glass cards (rgba(22, 22, 25, 0.72), blur(24px))
-   - Warm Esprit Orange accents (#ff6b00) and soft neutral white hairlines
-   - Clean, smooth Inter sans-serif typography across headings, KPIs & tables
-   ========================================================================= */
+                                                                               
+                                                                       
+                                                                               
+                                             
+                                                                             
+                                                                          
+                                                                          
+                                                                             
+                                                                               
 
 :root,
 html[data-theme="dark"],
@@ -7015,9 +7015,9 @@ html[data-theme="dark"] {
   --shadow-lg: 0 28px 64px -12px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-/* ----------------------------------------------------------------------------
-   25.1 Clean Humanist Typography (No blocky techy monospace on UI elements)
-   ------------------------------------------------------------------------- */
+                                                                               
+                                                                            
+                                                                               
 body,
 h1, h2, h3, h4, h5,
 .mono,
@@ -7052,9 +7052,9 @@ h1, h2, h3, h4 {
   white-space: nowrap;
 }
 
-/* ----------------------------------------------------------------------------
-   25.2 Obsidian Glass Black Canvas with Warm Orange Ambient Glow
-   ------------------------------------------------------------------------- */
+                                                                               
+                                                                 
+                                                                               
 html[data-theme="dark"] body {
   background-color: #09090b;
   background-image:
@@ -7063,9 +7063,9 @@ html[data-theme="dark"] body {
   background-attachment: fixed;
 }
 
-/* ----------------------------------------------------------------------------
-   25.3 Floating Smoked-Glass Top Bar (No Left Sidebar by default)
-   ------------------------------------------------------------------------- */
+                                                                               
+                                                                  
+                                                                               
 body.app-shell {
   grid-template-rows: auto minmax(0, 1fr) !important;
 }
@@ -7078,7 +7078,7 @@ body[data-nav-layout="topbar"].app-shell {
     "main" !important;
 }
 
-/* Clean dark glass inputs */
+                             
 html[data-theme="dark"] input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
 html[data-theme="dark"] select,
 html[data-theme="dark"] textarea,
@@ -7219,7 +7219,7 @@ body[data-nav-layout="topbar"] .tb-context {
   display: none;
 }
 
-/* Scrollable Glass Navigation Track */
+                                       
 .tb-scroll-shell {
   flex: 1 1 auto;
   min-width: 0;
@@ -7279,9 +7279,9 @@ html:not([data-theme="dark"]) .tb-pill.active {
   color: var(--brand);
 }
 
-/* ----------------------------------------------------------------------------
-   25.4 Floating Bottom Quick-Action Dock (#bento-dock)
-   ------------------------------------------------------------------------- */
+                                                                               
+                                                       
+                                                                               
 .bento-dock {
   position: fixed;
   bottom: 16px;
@@ -7355,9 +7355,9 @@ html:not([data-theme="dark"]) .bento-dock {
   padding-bottom: 92px !important;
 }
 
-/* ----------------------------------------------------------------------------
-   25.5 Clean Smoked-Glass Page Headers (.page-head)
-   ------------------------------------------------------------------------- */
+                                                                               
+                                                    
+                                                                               
 .page-head {
   position: relative;
   padding: 20px 24px !important;
@@ -7377,9 +7377,9 @@ html:not([data-theme="dark"]) .bento-dock {
   color: var(--text);
 }
 
-/* ----------------------------------------------------------------------------
-   25.6 My Work (#view-home) Bento Grid & Smoked-Glass Cards
-   ------------------------------------------------------------------------- */
+                                                                               
+                                                            
+                                                                               
 .home-bento-top {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(340px, 1fr);
@@ -7471,9 +7471,9 @@ div.dash-grid {
   box-shadow: var(--shadow-md) !important;
 }
 
-/* ----------------------------------------------------------------------------
-   25.7 Orders KPI Cards & Floating Glass Capsule Table Rows
-   ------------------------------------------------------------------------- */
+                                                                               
+                                                            
+                                                                               
 #stats.stat-grid .stat,
 #stats.stat-grid .stat-card {
   position: relative;
@@ -7501,7 +7501,7 @@ div.dash-grid {
   letter-spacing: -0.03em;
 }
 
-/* Floating Smoked-Glass Capsule Table Rows */
+                                              
 .table-wrap {
   background: transparent !important;
   border: none !important;
@@ -7548,9 +7548,9 @@ div.dash-grid {
   border-bottom-right-radius: 13px;
 }
 
-/* ----------------------------------------------------------------------------
-   25.8 Cards, Panels, Modals & Workbench in Smoked Black Glass
-   ------------------------------------------------------------------------- */
+                                                                               
+                                                               
+                                                                               
 .card,
 .toolbar,
 .qcb-pane,
@@ -7596,9 +7596,9 @@ div.dash-grid {
   }
 }
 
-/* ----------------------------------------------------------------------------
-   25.9 Reimagined Ran Devices Hardware Showcase (#view-devices)
-   ------------------------------------------------------------------------- */
+                                                                               
+                                                                
+                                                                               
 #view-devices .rd-kpis {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -7677,7 +7677,7 @@ div.dash-grid {
   color: var(--faint);
 }
 
-/* Split Layout: Fleet Gallery on left, Hardware Showcase on right */
+                                                                     
 #view-devices .rd-grid {
   display: grid !important;
   grid-template-columns: 350px minmax(0, 1fr) !important;
@@ -7748,7 +7748,7 @@ div.dash-grid {
   padding-right: 2px;
 }
 
-/* Visual Fleet Card (.rd-row) */
+                                 
 #view-devices .rd-row {
   display: grid !important;
   grid-template-columns: 96px minmax(0, 1fr);
@@ -7864,7 +7864,7 @@ html:not([data-theme="dark"]) .rd-os-pill {
   flex-shrink: 0;
 }
 
-/* Right Detail Showcase Banner (.rd-showcase) */
+                                                 
 #view-devices .rd-detail {
   padding: 22px !important;
   display: flex;
@@ -8125,7 +8125,7 @@ html:not([data-theme="dark"]) .rd-os-pill {
   padding-top: 4px;
 }
 
-/* Diagnostic Banner (.rd-allok) */
+                                   
 #view-devices .rd-allok {
   display: flex;
   align-items: center;
@@ -8162,7 +8162,7 @@ html:not([data-theme="dark"]) .rd-os-pill {
   color: var(--text-2);
 }
 
-/* Pipeline Card (.rd-pipe-card) */
+                                   
 .rd-pipe-card {
   padding: 15px 18px;
   border-radius: 15px;
@@ -8210,7 +8210,7 @@ html:not([data-theme="dark"]) .rd-os-pill {
   font-size: 12px;
 }
 
-/* 8-Card Hardware Spec Grid (.rd-hero) */
+                                          
 #view-devices .rd-hero {
   display: grid !important;
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
@@ -8284,6 +8284,82 @@ html:not([data-theme="dark"]) .rd-os-pill {
   color: var(--good);
   border: 1px solid var(--good-line);
 }
+
+                                                 
+#capa-stats,
+#automation-stats {
+  margin-bottom: 16px;
+}
+.automation-history-card {
+  margin-top: 18px;
+}
+.capa-root,
+.automation-run-detail {
+  max-width: 300px;
+  line-height: 1.45;
+}
+.capa-root {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.capa-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.capa-detail-field,
+.capa-verify-summary {
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.capa-detail-field > span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.capa-detail-field > div,
+.capa-verify-summary p,
+.capa-history-row p {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.capa-verify-summary {
+  margin-bottom: 16px;
+}
+.capa-verify-summary strong {
+  display: block;
+  margin-bottom: 7px;
+}
+.capa-history {
+  display: grid;
+  gap: 8px;
+}
+.capa-history-row {
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+.capa-history-row > span {
+  display: block;
+  margin: 3px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .capa-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 #view-devices .rd-tile-m {
   font-size: 14.2px !important;
   font-weight: 680 !important;
@@ -8295,6 +8371,129 @@ html:not([data-theme="dark"]) .rd-os-pill {
   color: var(--muted) !important;
   line-height: 1.35;
   margin-top: 3px;
+}
+
+                           
+.scan-offline-row,
+.scan-queue-panel {
+  grid-column: 1 / -1;
+}
+.scan-offline-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 26px;
+}
+.scan-offline-actions,
+.scan-queue-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.scan-network {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 620;
+}
+.scan-network-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 3px var(--good-soft);
+}
+.scan-network.degraded,
+.scan-network.offline {
+  color: var(--warn);
+}
+.scan-network.degraded .scan-network-dot,
+.scan-network.offline .scan-network-dot {
+  background: var(--warn);
+  box-shadow: 0 0 0 3px var(--warn-soft);
+}
+.scan-queue-toggle {
+  padding: 3px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11.5px;
+}
+.scan-queue-toggle:hover,
+.scan-queue-toggle[aria-expanded="true"] {
+  background: var(--surface-hover);
+  color: var(--text);
+}
+.scan-queue-toggle.has-failed {
+  color: var(--bad);
+}
+.scan-queue-panel {
+  padding: 11px 13px;
+  border: 1px solid var(--warn-line);
+  border-radius: 12px;
+  background: var(--warn-soft);
+}
+.scan-queue-panel > p {
+  margin: 0 0 7px;
+  font-size: 11.5px;
+}
+.scan-queue-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.scan-queue-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.scan-queue-item.failed {
+  border-color: var(--bad-line);
+}
+.scan-queue-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.scan-queue-copy span,
+.scan-queue-copy small {
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.scan-queue-item.failed .scan-queue-copy small {
+  color: var(--bad);
+}
+.scan-feedback.bad { color: var(--bad); }
+.scan-feedback.pending { color: var(--warn); }
+.scan-hit.scan-queued {
+  justify-content: space-between;
+  border-color: var(--warn-line);
+  background: var(--warn-soft);
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .scan-queue-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .scan-offline-row {
+    align-items: flex-start;
+  }
 }
 
 

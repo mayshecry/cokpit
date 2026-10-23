@@ -1,7 +1,7 @@
-/* ============================================================
-   Cockpit — Order Operations
-   Vanilla JS SPA against /api/v1
-   ============================================================ */
+                                                               
+                             
+                                 
+                                                                  
 
 (() => {
   'use strict';
@@ -9,7 +9,7 @@
   const $  = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  /* ------------------------------------------------------------ state */
+                                                                          
 
   const state = {
     token: localStorage.getItem('cockpit_token'),
@@ -33,7 +33,7 @@
     lastSync: null,
     lastHomeSync: null,
 
-    // portaalconfiguratie (excel -> json). Alleen admins mogen dit bewerken (config:manage).
+                                                                                             
     config: {
       artikellocaties: {},
       klanten: {},
@@ -65,7 +65,7 @@
 
   const can = (perm) => !!state.user && (rolePerms[state.user.role] || []).includes(perm);
 
-  /* ------------------------------------------------------------ utils */
+                                                                          
 
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
@@ -80,7 +80,7 @@
     });
   };
 
-  /** Human relative time, e.g. "in 3h 20m" / "2d ago". */
+                                                          
   const relTime = (iso) => {
     if (!iso) return '';
     const t = new Date(iso).getTime();
@@ -129,7 +129,7 @@
 
   const badge = (cls, text) => `<span class="badge ${cls}"><span class="dot"></span>${esc(text)}</span>`;
 
-  /* ------------------------------------------------------------ toasts */
+                                                                           
 
   const ICON_OK  = '<svg class="t-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
   const ICON_ERR = '<svg class="t-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg>';
@@ -150,14 +150,14 @@
     while (stack.children.length > 4) stack.firstElementChild.remove();
   }
 
-  /* ------------------------------------------------------------ modal */
+                                                                          
 
   let modalCleanup = null;
 
-  /**
-   * Promise-based modal. Resolves with an object of field values, or null when cancelled.
-   * fields: [{ name, label, type:'text'|'password'|'select'|'textarea', options, value, placeholder, hint, required, autofocus }]
-   */
+     
+                                                                                          
+                                                                                                                                  
+     
   function modal({ title, description, fields = [], confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false, wide = false, bodyHtml = '', hideConfirm = false }) {
     return new Promise((resolve) => {
       const root = $('#modal-root');
@@ -248,7 +248,7 @@
     modal({ title, description, confirmLabel: confirmLabel || 'Confirm', danger: true })
       .then((r) => r !== null);
 
-  /* ------------------------------------------------------------ api */
+                                                                        
 
   async function api(method, path, body) {
     let res;
@@ -262,12 +262,12 @@
         body: body ? JSON.stringify(body) : undefined,
       });
     } catch {
-      // Network-level failure (API unreachable, DNS, CORS, offline).
+                                                                     
       throw new Error('Cannot reach the API. Check that the server is running.');
     }
     const text = await res.text();
     let data = null;
-    if (text) { try { data = JSON.parse(text); } catch { /* ignore */ } }
+    if (text) { try { data = JSON.parse(text); } catch {              } }
     if (res.status === 401 && !path.endsWith('/auth/login')) {
       logout(false);
       throw new Error('Session expired, please sign in again');
@@ -278,7 +278,7 @@
     return data;
   }
 
-  /* ------------------------------------------------------------ auth */
+                                                                         
 
   function showLogin() {
     $('#view-app').classList.add('hidden');
@@ -350,7 +350,7 @@
     if (notify && tk) {
       try {
         await fetch('/api/v1/auth/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + tk } });
-      } catch { /* ignore */ }
+      } catch {              }
     }
     state.token = null;
     state.user = null;
@@ -374,7 +374,7 @@
     showLogin();
   }
 
-  /* ------------------------------------------------------------ routing */
+                                                                            
 
   function showPane(name) {
     $('#view-home').classList.toggle('hidden', name !== 'home');
@@ -412,7 +412,7 @@
     loadNotifications(true);
   }
 
-  /* ------------------------------------------------------------ my work / attention */
+                                                                                        
 
   const REASON_LABEL = {
     SLA_BREACHED: 'SLA breached',
@@ -473,7 +473,7 @@
     openDetail(id);
   }
 
-  /* ------------------------------------------------------------ scanner */
+                                                                            
 
   async function runScan(code, feedbackEl, onHit) {
     if (!can('scan:use')) {
@@ -523,7 +523,7 @@
     });
   }
 
-  /* ------------------------------------------------------------ notifications */
+                                                                                  
 
   function renderNotifications() {
     const badge = $('#bell-badge');
@@ -567,7 +567,7 @@
     }
   }
 
-  /* ------------------------------------------------------------ orders */
+                                                                           
 
   async function loadOrders(silent) {
     try {
@@ -732,7 +732,7 @@
       : `${rows.length} of ${state.orders.length} orders`;
   }
 
-  /* ------------------------------------------------------------ detail */
+                                                                           
 
   function closeDetail() {
     state.selectedId = null;
@@ -925,7 +925,7 @@
     $('#orders-split').classList.remove('no-detail');
   }
 
-  /* ------------------------------------------------------------ actions */
+                                                                            
 
   async function act(method, path, body, okMsg) {
     try {
@@ -960,7 +960,7 @@
     await act('POST', '/api/v1/orders', body, 'Order created');
   }
 
-  /* ------------------------------------------------------------ users */
+                                                                          
 
   function renderRoleLegend() {
     const byRole = { viewer: 0, operator: 0, qc: 0, admin: 0 };
@@ -1079,7 +1079,7 @@
         state.config = JSON.parse(raw);
         if (!state.configBron && hasConfigMeta()) state.configBron = 'deze browser (opgeslagen)';
       }
-    } catch (e) { /* corrupte localStorage — negeer */ }
+    } catch (e) {                                      }
   }
 
   async function saveConfig() {
@@ -1195,7 +1195,7 @@
     const regels = [];
     for (const row of rows) {
       const kolomCel = row[1], condCel = row[2], kleurCel = row[3];
-      if (typeof kolomCel !== 'string' || !kolomCel.startsWith('Kolom:')) continue; // titelrij overslaan
+      if (typeof kolomCel !== 'string' || !kolomCel.startsWith('Kolom:')) continue;                      
       const kolom = kolomCel.replace('Kolom:', '').trim();
       const kleur = String(kleurCel || '').replace('Kleur:', '').trim();
       const condStr = String(condCel || '').replace('Celwaarde', '').trim();
@@ -1211,16 +1211,16 @@
     renderConfig();
   }
 
-  /* ------------------------------------------------------------ picklijst (dagelijkse verkoopregels) */
+                                                                                                         
 
-  // Geporte uit test.html: evalueert de kleurregels tegen een verkoopregel.
+                                                                            
 
   function evalRegel(row, regel) {
     const veldwaarde = row[regel.kolom];
     if (regel.operator === 'bevat') {
       return String(veldwaarde ?? '').toLowerCase().includes(regel.waarde.toLowerCase());
     }
-    // operator '='
+                   
     const num = Number(regel.waarde);
     if (!Number.isNaN(num) && veldwaarde !== null && veldwaarde !== undefined && veldwaarde !== '') {
       return Number(veldwaarde) === num;
@@ -1232,8 +1232,8 @@
     const regels = kleurregels || [];
     const aantal = row['Aantal te leveren'] ?? 0;
 
-    // Retourregel: negatief aantal betekent dat hardware teruggeboekt moet
-    // worden op voorraad. Dit is geen pickregel - nooit meenemen.
+                                                                           
+                                                                  
 
     if (aantal < 0) {
       return { ok: true, retour: true, label: `Retour: ${Math.abs(aantal)} stuks terugboeken op voorraad` };
@@ -1277,11 +1277,11 @@
         };
       });
 
-    // groepeer per order en bouw pickregels (alleen aantal > 0; retouren
-    // horen niet bij het picken).
+                                                                         
+                                  
     const orderMap = {};
     for (const r of regels) {
-      if (!r.ok) continue; // enkel volledig leverbare regels picken
+      if (!r.ok) continue;                                          
       if (!orderMap[r.orderNr]) orderMap[r.orderNr] = { orderNr: r.orderNr, regels: [] };
       orderMap[r.orderNr].regels.push(r);
     }
@@ -1289,7 +1289,7 @@
       orderNr: String(o.orderNr).trim(),
       items: o.regels
         .filter(r => (Number(r.aantal) || 0) > 0)
-        .sort((a, b) => String(a.locatie).localeCompare(String(b.locatie), 'nl', { numeric: true, sensitivity: 'base' })))
+        .sort((a, b) => String(a.locatie).localeCompare(String(b.locatie), 'nl', { numeric: true, sensitivity: 'base' }))
         .map(r => ({
           artikel: String(r.artikel ?? ''), omschrijving: String(r.omschrijving ?? ''),
           locatie: String(r.locatie ?? ''), aantal: Number(r.aantal) || 0,
@@ -1318,7 +1318,7 @@
     }
 
     state.picklistMeta = { bestand: file.name, orders: matched, totaal: orderLines.length, missed: missed.length, tijd: Date.now() };
-    try { localStorage.setItem('cockpit_picklist_meta', JSON.stringify(state.picklistMeta)); } catch (e) { /* negeer */ }
+    try { localStorage.setItem('cockpit_picklist_meta', JSON.stringify(state.picklistMeta)); } catch (e) {              }
 
     const missedTxt = missed.length ? `; ${missed.length} niet gevonden (${missed.slice(0, 4).join(', ')}${missed.length > 4 ? ', …' : ''})` : '';
     toast(`Picklijst verwerkt: ${matched}/${orderLines.length} orders bijgewerkt${missedTxt}`);
@@ -1335,7 +1335,7 @@
       state.configBron = 'orderpick-config.json (automatisch geladen)';
       await saveConfig();
     } catch (e) {
-      /* stil negeren: verwacht bij file:// of als het bestand er nog niet is */
+                                                                                
     }
   }
 
@@ -1438,9 +1438,9 @@
     });
   }
 
-  /* ------------------------------------------------------------ wiring */
+                                                                           
 
-  // login
+          
   $('#login-form').addEventListener('submit', submitLogin);
   $('#toggle-password').addEventListener('click', (e) => {
     const input = $('#login-password');
@@ -1454,7 +1454,7 @@
   $('#logout-btn').addEventListener('click', () => logout(true));
   $('#shortcuts-btn').addEventListener('click', openShortcuts);
 
-  // orders toolbar
+                   
   $('#new-order-btn').addEventListener('click', openCreateOrder);
   $('#refresh-btn').addEventListener('click', () => {
     loadOrders();
@@ -1506,7 +1506,7 @@
     openDetail(Number(tr.dataset.id));
   });
 
-  // detail panel
+                 
   $('#detail-panel').addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = state.selectedId;
@@ -1592,7 +1592,7 @@
     }
   });
 
-  // scanner + attention + notifications
+                                        
   $('#scan-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const input = $('#scan-input');
@@ -1639,7 +1639,7 @@
 
   window.addEventListener('hashchange', route);
 
-  /* ------------------------------------------------------------ keyboard */
+                                                                             
 
   let gPending = false;
   document.addEventListener('keydown', (e) => {
@@ -1694,7 +1694,7 @@
     }
   });
 
-  /* ------------------------------------------------------------ boot */
+                                                                         
 
   $('#orders-split').classList.add('no-detail');
   if (state.token && state.user) enterApp();

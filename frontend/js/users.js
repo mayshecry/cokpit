@@ -385,7 +385,7 @@ async function renderPairDevice() {
       $('#pair-url').textContent = d.url;
       card.classList.remove('hidden');
     } catch (e) {
-      card.classList.add('hidden'); // client-only mode off, or no permission
+      card.classList.add('hidden');                                          
     }
     const btn = $('#pair-refresh-btn');
     if (btn && !btn.dataset.bound) {

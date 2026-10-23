@@ -37,7 +37,10 @@
 
   async function downloadBackup() {
     try {
-      const res = await fetch('/api/v1/admin/backup', { headers: { Authorization: 'Bearer ' + state.token } });
+      const res = await fetch('/api/v1/admin/backup', {
+        credentials: 'same-origin',
+        headers: state.token ? { Authorization: 'Bearer ' + state.token } : {},
+      });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const cd = res.headers.get('Content-Disposition') || '';
       const m = cd.match(/filename="?([^";]+)"?/);
@@ -424,11 +427,11 @@
     </div>`;
   }
 
-  /* ---- guided work flow editor (admin) ---- */
+                                                 
   let wfDraft = null;
-  let wfScope = '';              // '' = global default, otherwise a customer name
-  const wfDrafts = { '': null }; // unsaved drafts per scope
-  let custList = [];             // directory from /api/v1/customers
+  let wfScope = '';                                                               
+  const wfDrafts = { '': null };                            
+  let custList = [];                                                
 
   async function refreshCustomersCard() {
     if (window.SLA && typeof SLA.ensureDefaultCustomers === 'function') {

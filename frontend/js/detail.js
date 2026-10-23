@@ -95,7 +95,7 @@
   function startChecklistPolling(id) {
     stopChecklistPolling();
     checklistTimer = setInterval(async () => {
-      if (!state.token || state.selectedId !== id) return stopChecklistPolling();
+      if (!state.user || state.selectedId !== id) return stopChecklistPolling();
       await loadChecklist(id, true);
     }, 5000);
   }
@@ -271,7 +271,7 @@
   }
 
 
-/* clicking the scrim behind the centered order workspace closes it */
+                                                                      
 (function () {
   const scrim = document.querySelector('#view-orders .detail-scrim');
   if (scrim) scrim.addEventListener('click', () => closeDetail());

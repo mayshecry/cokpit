@@ -432,7 +432,7 @@
   function startManualsPolling() {
     stopManualsPolling();
     manualsViewTimer = setInterval(async () => {
-      if (!state.token || !location.hash.startsWith('#/manuals')) return stopManualsPolling();
+      if (!state.user || !location.hash.startsWith('#/manuals')) return stopManualsPolling();
       await loadManualsView(true);
     }, 5000);
   }
@@ -447,7 +447,7 @@
       if (state.manualsSelId && !state.manuals.some((m) => m.manualId === state.manualsSelId)) {
         state.manualsSelId = null;
       }
-      /* no auto-select: manual opens as centered workspace on row click */
+                                                                           
       renderManualsList();
       renderManualPanel();
     } catch (err) {
@@ -532,7 +532,7 @@
     if (split) split.classList.remove('no-detail');
   }
 
-  /* Scratch-style maker helpers */
+                                   
   function sbHue(name) {
     if (!name) return 24;
     let h = 7;
@@ -816,14 +816,14 @@
   }
 
 
-/* fail-reason picker for the drawer QC form */
+                                               
 async function populateQCReasons() {
   const sel = $('#qc-reason');
   if (!sel || sel.options.length) return;
   try {
     const d = await api('GET', '/api/v1/qc/reasons');
     sel.innerHTML = '<option value="">reason…</option>' + (d.reasons || []).map((r) => `<option>${esc(r)}</option>`).join('');
-  } catch (err) { /* bench will surface errors */ }
+  } catch (err) {                                 }
 }
 document.addEventListener('change', (e) => {
   if (e.target.id === 'qc-status') {

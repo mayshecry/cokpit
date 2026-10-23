@@ -10,6 +10,10 @@
     $('#view-checklists').classList.toggle('hidden', name !== 'checklists');
     const qPane = $('#view-quality');
     if (qPane) qPane.classList.toggle('hidden', name !== 'quality');
+    const capaPane = $('#view-capa');
+    if (capaPane) capaPane.classList.toggle('hidden', name !== 'capa');
+    const automationPane = $('#view-automations');
+    if (automationPane) automationPane.classList.toggle('hidden', name !== 'automations');
     const bPane = $('#view-qcbench');
     if (bPane) bPane.classList.toggle('hidden', name !== 'qcbench');
     const wlPane = $('#view-workload');
@@ -66,9 +70,9 @@
   }
 
   function syncURL() {
-    if (applyingFromURL || !state.token) return;
+    if (applyingFromURL || !state.user) return;
     const cur = parseHash();
-    const page = cur.page === 'orders' || cur.page === 'users' || cur.page === 'config' || cur.page === 'checklists' || cur.page === 'products' || cur.page === 'manuals' || cur.page === 'si' ? cur.page : 'home';
+    const page = cur.page === 'orders' || cur.page === 'users' || cur.page === 'config' || cur.page === 'checklists' || cur.page === 'products' || cur.page === 'manuals' || cur.page === 'si' || cur.page === 'capa' || cur.page === 'automations' ? cur.page : 'home';
     const target = page === 'orders'
       ? hashFor('orders', state.selectedId || cur.orderId, stateParams())
       : hashFor(page, null, null);
@@ -78,8 +82,8 @@
     persistViewPrefs();
   }
 
-  // Remember the working set (filter/search/sort/mine) so a reload or a fresh
-  // #/orders visit resumes exactly where the operator left off.
+                                                                              
+                                                                
   function persistViewPrefs() {
     try {
       localStorage.setItem('cockpit_view', JSON.stringify({
@@ -122,9 +126,9 @@
   }
 
   function route() {
-    if (!state.token) return showLogin();
+    if (!state.user) return showLogin();
     let { page, orderId, params } = parseHash();
-    if (state.token && state.user) {
+    if (state.user) {
       localStorage.setItem('cockpit_last_hash:' + state.user.username, location.hash && location.hash !== '#' ? location.hash : '#/home');
     }
 
@@ -136,7 +140,7 @@
     if (page === 'checklists' && !can('orders:view')) { location.replace(fallbackHash()); return; }
     if (page === 'products' && !can('orders:list')) { location.replace(fallbackHash()); return; }
     if (page === 'manuals' && !can('orders:view')) { location.replace(fallbackHash()); return; }
-    if (state.token) {
+    if (state.user) {
       if (page !== 'checklists' && !$('#checklist-panel').classList.contains('hidden')) closeChecklistPanel();
       if (page !== 'products' && !$('#product-panel').classList.contains('hidden')) closeProductPanel();
       if (page !== 'manuals' && !$('#manual-panel').classList.contains('hidden')) closeManualPanel();
@@ -162,6 +166,16 @@
       showPane('workload');
       if (window.Workload) Workload.load();
       if (window.Dayplan) Dayplan.load();
+      return;
+    }
+    if (can('orders:list') && page === 'capa') {
+      showPane('capa');
+      CAPA.load();
+      return;
+    }
+    if (can('users:manage') && page === 'automations') {
+      showPane('automations');
+      Automations.load();
       return;
     }
     if (can('qc:submit') && page === 'quality') {
@@ -219,10 +233,10 @@
   
 
   function connectEvents() {
-    if (!state.token || !can('orders:list') || typeof EventSource === 'undefined') return;
+    if (!state.user || !can('orders:list') || typeof EventSource === 'undefined') return;
     disconnectEvents();
     try {
-      const es = new EventSource('/api/v1/events?token=' + encodeURIComponent(state.token));
+      const es = new EventSource('/api/v1/events');
       state.sse = es;
       es.onopen = () => { state.sseOk = true; state.lastSseAt = Date.now(); updateSyncLabel(); };
       es.onerror = () => { state.sseOk = false; updateSyncLabel(); };
@@ -259,6 +273,14 @@
         try { msg = JSON.parse(e.data); } catch {  }
         if (msg.orderId && state.selectedId === msg.orderId) await loadComments(msg.orderId);
       });
+      es.addEventListener('capa', () => {
+        state.lastSseAt = Date.now();
+        if (location.hash.startsWith('#/capa')) CAPA.load();
+      });
+      es.addEventListener('automation', () => {
+        state.lastSseAt = Date.now();
+        if (location.hash.startsWith('#/automations')) Automations.load();
+      });
       es.addEventListener('notification', () => { loadNotifications(true); });
     } catch {  }
   }
@@ -286,6 +308,8 @@
       { title: t('nav.pick'), hash: '#/checklists', kind: t('palette.pages') },
       { title: t('nav.products'), hash: '#/products', kind: t('palette.pages') },
       { title: t('nav.manuals'), hash: '#/manuals', kind: t('palette.pages') },
+      ...(can('orders:list') ? [{ title: 'Corrective actions', hash: '#/capa', kind: t('palette.pages') }] : []),
+      ...(can('users:manage') ? [{ title: 'Workflow automations', hash: '#/automations', kind: t('palette.pages') }] : []),
       { title: t('nav.users'), hash: '#/users', kind: t('palette.pages') },
       { title: t('nav.config'), hash: '#/config', kind: t('palette.pages') },
     ].filter((p) => p.hash !== '#/users' || can('users:manage'))
@@ -335,7 +359,7 @@
   }
 
   function openPalette() {
-    if (!state.token) return;
+    if (!state.user) return;
     $('#palette-root').classList.remove('hidden');
     const inp = $('#palette-input');
     inp.value = '';
@@ -393,7 +417,7 @@
     syncURL();
   });
 
-  // Pipeline stat cards act as filters — one click from "12 Processing" to the list.
+                                                                                     
   function applyStatFilter(el) {
     const f = el.dataset.filter;
     if (!f) return;
@@ -941,8 +965,8 @@
       await act('POST', `/api/v1/users/${id}/password`, { password: res.password }, 'Password reset');
 
     } else if (btn.dataset.act === 'pairphone') {
-      // Issue an account-linked one-time code + QR: the phone that pairs with it
-      // is instantly paired AND signed in as this account.
+                                                                                 
+                                                           
       try {
         btn.disabled = true;
         await api('POST', '/api/v1/admin/pair-code', { username: target.username });
@@ -988,7 +1012,7 @@
     e.preventDefault();
     const input = $('#scan-input');
     const code = input.value.trim();
-    // Second Enter on an unchanged match opens the order — scanner guns keep flowing.
+                                                                                      
     if (code && state.lastScan && code.toLowerCase() === String(state.lastScan.code).toLowerCase()) {
       goToOrder(state.lastScan.id);
     } else if (code) {
@@ -1070,10 +1094,10 @@
       return;
     }
 
-    if (typing || modalOpen || !state.token) return;
+    if (typing || modalOpen || !state.user) return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
 
-    // Vim-style row navigation on the orders table: j/k move, x selects, Enter opens.
+                                                                                      
     if (location.hash.startsWith('#/orders') && (e.key === 'j' || e.key === 'k' || e.key === 'x')) {
       const rows = $$('#orders-table tbody tr.row');
       if (!rows.length) return;
@@ -1138,6 +1162,8 @@
         else if (location.hash.startsWith('#/products')) loadProducts();
         else if (location.hash.startsWith('#/manuals')) loadManualsView();
         else if (location.hash.startsWith('#/si')) loadSIView();
+        else if (location.hash.startsWith('#/capa')) CAPA.load();
+        else if (location.hash.startsWith('#/automations')) Automations.load();
         else if (can('orders:list')) loadOrders();
         break;
       case 'g':
@@ -1164,16 +1190,19 @@
 
   applyPrefs();
   $('#orders-split').classList.add('no-detail');
-  if (state.token && state.user) {
-    enterApp();
-    api('GET', '/api/v1/auth/me').then((d) => {
-      const u = d && d.user;
-      if (!u) return;
-      const permsChanged = JSON.stringify(u.permissions || null) !== JSON.stringify(state.user.permissions || null);
-      if (u.role !== state.user.role || permsChanged) {
-        state.user = u;
-        localStorage.setItem('cockpit_user', JSON.stringify(u));
-        enterApp();
-      }
-    }).catch(() => { });
-  } else showLogin();
+  const hadCachedUser = !!state.user;
+  if (hadCachedUser) enterApp(); else showLogin();
+  api('GET', '/api/v1/auth/me').then((d) => {
+                                                                         
+                                                                        
+    state.token = null;
+    localStorage.removeItem('cockpit_token');
+    const u = d && d.user;
+    if (!u) return;
+    const previous = state.user;
+    const permsChanged = !previous || JSON.stringify(u.permissions || null) !== JSON.stringify(previous.permissions || null);
+    const mustRefreshShell = !hadCachedUser || !previous || u.role !== previous.role || permsChanged;
+    state.user = u;
+    localStorage.setItem('cockpit_user', JSON.stringify(u));
+    if (mustRefreshShell) enterApp();
+  }).catch(() => { });

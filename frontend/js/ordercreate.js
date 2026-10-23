@@ -1,16 +1,16 @@
 'use strict';
 
-/* OrderCreate — guided New Order modal with:
-   1) Customer directory + customer-specific SLA in workdays (excluding weekends, e.g. Kenter = 2d, Dela = 5d)
-   2) Ran Device selector (from /api/v1/admin/prep-devices) OR manual device entry (with optional registration to Ran Devices)
-   3) Live SLA preview skipping Saturday & Sunday */
+                                             
+                                                                                                              
+                                                                                                                              
+                                                    
 
 (function () {
   let customers = [];
-  let selected = null; // { name, number, isNew, managed, hasFlow, slaDays }
+  let selected = null;                                                      
   let ranDevices = [];
   let selectedRanDevice = null;
-  let deviceMode = 'ran'; // 'ran' | 'manual'
+  let deviceMode = 'ran';                    
   let activeWorkdays = null;
   let excludeWeekends = true;
   let cleanup = null;
@@ -455,7 +455,7 @@
     if (picker) picker.classList.add('hidden');
     updateSummary();
 
-    // Fetch full detail to populate exact BIOS serial / Asset Tag if available
+                                                                               
     try {
       const full = await api('GET', '/api/v1/admin/prep-devices/' + encodeURIComponent(d.id));
       if (selectedRanDevice && Number(selectedRanDevice.id) === Number(d.id) && full && full.doc) {
@@ -640,7 +640,7 @@
     const lblFor = $('#oc-cust-sla-for');
     if (lblFor) lblFor.textContent = `${selected.name} SLA:`;
 
-    // Automatically apply the customer's workday SLA (skipping weekends)!
+                                                                          
     applyWorkdaysTarget(custDays);
   }
 
@@ -781,7 +781,7 @@
       if (cr) { chooseCustomer(cr.dataset.create, true); }
     });
 
-    // SLA Workdays & Skip Weekends controls
+                                            
     const daysInp = $('#oc-cust-sla-days', root);
     if (daysInp) {
       daysInp.addEventListener('change', () => {
@@ -845,7 +845,7 @@
       updateSlaPreview();
     });
 
-    // Device mode tabs & Ran device picker
+                                           
     $$('[data-dev-mode]', root).forEach((b) => {
       b.addEventListener('click', () => setDeviceMode(b.dataset.devMode));
     });
@@ -870,7 +870,7 @@
       });
     }
 
-    // Manual device quick chips & registration
+                                               
     $$('[data-fill-dev]', root).forEach((chip) => {
       chip.addEventListener('click', () => {
         const devInp = $('#oc-device', root);
@@ -933,11 +933,11 @@
       try {
         await api('POST', '/api/v1/customers', { name: selected.name, number: debit });
       } catch (err) {
-        if (!err || err.status !== 409) { /* order creation still records the customer */ }
+        if (!err || err.status !== 409) {                                                 }
       }
     }
 
-    // If user is in manual mode and checked "Also register this manual device in Ran Devices"
+                                                                                              
     const regChk = $('#oc-reg-ran', root);
     const devVal = $('#oc-device', root).value.trim();
     if (deviceMode === 'manual' && regChk && regChk.checked && devVal && !selectedRanDevice) {

@@ -2,15 +2,15 @@
 
   
 
-  // ---- QR sign-in (pair once + log in once, afterwards: scan) ----
+                                                                     
   let qrTicket = null, qrPollTimer = null;
 
   function escapeHtmlHost(u) {
     try { return new URL(u).origin; } catch { return u.split('/').slice(0, 3).join('/'); }
   }
 
-  // Renders the status line while KEEPING the scanned URL visible under it —
-  // and flags the classic "localhost" misconfig, the #1 phone-pairing symptom.
+                                                                             
+                                                                               
   function setQrState(kind, url, hostHint) {
     const status = $('#qr-login-status');
     if (!status) return;
@@ -45,7 +45,7 @@
   }
 
   async function pollQrTicket() {
-    if (!qrTicket || state.token) return;
+    if (!qrTicket || state.user) return;
     if (Date.now() - qrTicket.started > qrTicket.ttl) { qrTicket = null; startQrTicket(); return; }
     try {
       const d = await api('GET', '/api/v1/qr-login/status?ticket=' + encodeURIComponent(qrTicket.id));
@@ -53,9 +53,9 @@
       if (d.status === 'approved') {
         stopQrFlow();
         status.textContent = 'Signed in as ' + (d.user.username || 'you') + '…';
-        state.token = d.token;
+        state.token = null;
         state.user = d.user;
-        localStorage.setItem('cockpit_token', d.token);
+        localStorage.removeItem('cockpit_token');
         localStorage.setItem('cockpit_user', JSON.stringify(d.user));
         state.loadingOrders = true;
         enterApp();
@@ -68,12 +68,12 @@
       } else {
         setQrState('waiting');
       }
-    } catch (e) { /* transient — next tick retries */ }
+    } catch (e) {                                     }
   }
 
   function startQrFlow() {
     stopQrFlow();
-    if (state.token) return;
+    if (state.user) return;
     startQrTicket();
     qrPollTimer = setInterval(pollQrTicket, 2000);
   }
@@ -106,6 +106,10 @@
     if (navWorkload) navWorkload.classList.toggle('hidden', !can('orders:transition'));
     const navQuality = $('#nav-quality');
     if (navQuality) navQuality.classList.toggle('hidden', !can('qc:submit'));
+    const navCAPA = $('#nav-capa');
+    if (navCAPA) navCAPA.classList.toggle('hidden', !can('orders:list'));
+    const navAutomations = $('#nav-automations');
+    if (navAutomations) navAutomations.classList.toggle('hidden', !can('users:manage'));
   const navBench = $('#nav-qcbench');
   if (navBench) navBench.classList.toggle('hidden', !can('qc:submit'));
     $('#nav-products').classList.toggle('hidden', !can('orders:view'));
@@ -113,6 +117,7 @@
     updateSINavVisibility();
     $$('[data-perm]').forEach((el) => el.classList.toggle('hidden', !can(el.dataset.perm)));
     applyPrefs();
+    if (window.OfflineScanner) OfflineScanner.activate();
     loadConfig();
     probeerAutomatischeConfigJSON();
     if (can('orders:list')) loadUserBriefs();
@@ -130,20 +135,22 @@
 
     clearInterval(window.__refresh);
     window.__refresh = setInterval(() => {
-      if (!state.token) return clearInterval(window.__refresh);
+      if (!state.user) return clearInterval(window.__refresh);
       if (location.hash.startsWith('#/users')) renderUsers(true);
       else if (location.hash.startsWith('#/checklists')) loadChecklistsView(true);
       else if (location.hash.startsWith('#/products')) loadProducts(true);
       else if (location.hash.startsWith('#/manuals')) loadManualsView(true);
       else if (location.hash.startsWith('#/si')) {  }
+      else if (location.hash.startsWith('#/capa')) CAPA.load();
+      else if (location.hash.startsWith('#/automations')) Automations.load();
       else if (location.hash.startsWith('#/home')) { if (can('orders:list')) loadAttention(true); loadNotifications(true); }
-      // SSE already pushes order changes; only poll as a safety net when the
-      // event stream is down or silent, so the table never rebuilds for nothing.
+                                                                             
+                                                                                 
       else if (can('orders:list') && (!state.sseOk || Date.now() - (state.lastSseAt || 0) > 120000)) loadOrders(true);
     }, 20000);
 
     clearInterval(window.__bell);
-    window.__bell = setInterval(() => { if (state.token) loadNotifications(true); }, 30000);
+    window.__bell = setInterval(() => { if (state.user) loadNotifications(true); }, 30000);
 
     clearInterval(window.__clock);
     window.__clock = setInterval(updateSyncLabel, 5000);
@@ -161,9 +168,9 @@
     btn.textContent = 'Signing in…';
     try {
       const d = await api('POST', '/api/v1/auth/login', { username, password });
-      state.token = d.token;
+      state.token = null;
       state.user = d.user;
-      localStorage.setItem('cockpit_token', d.token);
+      localStorage.removeItem('cockpit_token');
       localStorage.setItem('cockpit_user', JSON.stringify(d.user));
       $('#login-password').value = '';
       state.loadingOrders = true;
@@ -179,9 +186,13 @@
 
   async function logout(notify) {
     const tk = state.token;
-    if (notify && tk) {
+    if (notify) {
       try {
-        await fetch('/api/v1/auth/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + tk } });
+        await fetch('/api/v1/auth/logout', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: tk ? { Authorization: 'Bearer ' + tk } : {},
+        });
       } catch {  }
     }
     state.token = null;

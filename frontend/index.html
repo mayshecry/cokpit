@@ -20,7 +20,7 @@
   </div>
 </noscript>
 
-<!-- ============================== overlay roots ============================ -->
+                                                                                  
 <div id="toast-stack" class="toast-stack" role="status" aria-live="polite" aria-atomic="false"></div>
 
 <div id="modal-root" class="modal-root hidden"></div>
@@ -152,7 +152,7 @@
   <div id="notif-list" class="notif-list"></div>
 </div>
 
-<!-- ================================== login =============================== -->
+                                                                                 
 <section id="view-login" class="auth">
   <div class="auth-aside">
     <div class="auth-aside-inner">
@@ -214,10 +214,10 @@
   </div>
 </section>
 
-<!-- =================================== app ================================ -->
+                                                                                 
 <section id="view-app" class="app hidden">
 
-  <!-- ---------------------------------------------------------- sidebar -->
+                                                                             
   <aside class="sidebar" aria-label="Sections">
     <div class="side-head">
       <a class="side-brand" href="#/home" aria-label="Cockpit home">
@@ -259,6 +259,10 @@
           <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
           <span>Quality</span>
         </a>
+        <a href="#/capa" class="nav-link hidden" data-nav="capa" id="nav-capa">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.8 8 10 4.6-1.2 8-5 8-10V6l-8-3Z"/><path d="M8 12h8M12 8v8"/></svg>
+          <span>Corrective actions</span>
+        </a>
         <a href="#/qcbench" class="nav-link hidden" data-nav="qcbench" id="nav-qcbench">
           <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6v3H9z"/><path d="M10 6H7a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3"/><path d="M9 13l2 2 4-4"/></svg>
           <span>QC bench</span>
@@ -287,6 +291,10 @@
 
       <div class="side-group">
         <p class="side-label">Administration</p>
+        <a href="#/automations" class="nav-link hidden" data-nav="automations" id="nav-automations">
+          <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/></svg>
+          <span>Automations</span>
+        </a>
         <a href="#/users" class="nav-link hidden" data-nav="users" id="nav-users">
           <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 20v-1.5a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4V20"/><circle cx="9" cy="7.5" r="3.5"/><path d="M17 11.5a3.5 3.5 0 1 0-2-6.4"/><path d="M22 20v-1.5a4 4 0 0 0-3-3.87"/></svg>
           <span>Users</span>
@@ -312,7 +320,7 @@
 
   <div class="side-scrim" data-ui="nav-close" aria-hidden="true"></div>
 
-  <!-- ----------------------------------------------------------- topbar -->
+                                                                             
   <header class="topbar">
     <div class="tb-deck-primary">
       <button type="button" class="tb-nav-toggle" data-ui="nav-toggle" aria-label="Open navigation" aria-expanded="false" title="Open navigation menu">
@@ -344,10 +352,12 @@
           <a href="#/workload" class="tb-pill hidden" data-tb-nav="workload"><span>Workload</span></a>
           <a href="#/checklists" class="tb-pill hidden" data-tb-nav="checklists"><span>Pick lists</span></a>
           <a href="#/quality" class="tb-pill hidden" data-tb-nav="quality"><span>Quality</span></a>
+          <a href="#/capa" class="tb-pill hidden" data-tb-nav="capa"><span>Corrective actions</span></a>
           <a href="#/qcbench" class="tb-pill hidden" data-tb-nav="qcbench"><span>QC bench</span></a>
           <a href="#/manuals" class="tb-pill hidden" data-tb-nav="manuals"><span>Manuals</span></a>
           <a href="#/products" class="tb-pill hidden" data-tb-nav="products"><span>Products</span></a>
           <a href="#/si" class="tb-pill hidden" data-tb-nav="si"><span>SI management</span></a>
+          <a href="#/automations" class="tb-pill hidden" data-tb-nav="automations"><span>Automations</span></a>
           <a href="#/users" class="tb-pill hidden" data-tb-nav="users"><span>Users</span></a>
           <a href="#/devices" class="tb-pill hidden" data-tb-nav="devices"><span>Ran devices</span></a>
           <a href="#/config" class="tb-pill hidden" data-tb-nav="config"><span>Config</span></a>
@@ -392,10 +402,10 @@
     </div>
   </header>
 
-  <!-- ------------------------------------------------------------- main -->
+                                                                             
   <div class="main" id="main-content">
 
-    <!-- ======================================================= My Work -->
+                                                                            
     <main id="view-home" class="pane hidden">
       <header class="page-head">
         <div>
@@ -432,6 +442,17 @@
             <input id="scan-input" class="scan-input" placeholder="e.g. ORD-10432" spellcheck="false" aria-label="Barcode">
             <button type="submit" class="btn btn-primary">Look up</button>
           </form>
+          <div class="scan-offline-row">
+            <span id="scan-network" class="scan-network online"><span class="scan-network-dot" aria-hidden="true"></span>Online</span>
+            <div class="scan-offline-actions">
+              <button type="button" class="scan-queue-toggle" id="scan-queue-toggle" aria-expanded="false" aria-controls="scan-queue-panel">0 queued</button>
+              <button type="button" class="btn btn-ghost btn-sm hidden" id="scan-sync">Sync now</button>
+            </div>
+          </div>
+          <div id="scan-queue-panel" class="scan-queue-panel hidden">
+            <p class="muted">Offline scans stay on this device until the server accepts them.</p>
+            <ul id="scan-queue-list" class="scan-queue-list"></ul>
+          </div>
           <p id="scan-feedback" class="scan-feedback" role="status"></p>
           <div id="scan-result" class="scan-result"></div>
         </section>
@@ -450,7 +471,7 @@
       </div>
     </main>
 
-    <!-- ======================================================== Orders -->
+                                                                            
     <main id="view-orders" class="pane hidden">
       <header class="page-head">
         <div>
@@ -525,7 +546,7 @@
       </div>
     </main>
 
-    <!-- ====================================================== Workload -->
+                                                                            
     <main id="view-workload" class="pane hidden">
       <header class="page-head">
         <div>
@@ -541,7 +562,7 @@
       <div id="workload-board" class="wl-board"></div>
     </main>
 
-    <!-- ======================================================= Quality -->
+                                                                            
     <main id="view-quality" class="pane hidden">
       <header class="page-head">
         <div>
@@ -557,7 +578,46 @@
       <div id="quality-content"></div>
     </main>
 
-    <!-- ====================================================== QC bench -->
+                                                                                  
+    <main id="view-capa" class="pane hidden">
+      <header class="page-head">
+        <div>
+          <h1>Corrective actions</h1>
+          <p class="muted">Turn QC failures into owned, verifiable improvements — from root cause to confirmed resolution.</p>
+        </div>
+        <div class="page-head-actions">
+          <button type="button" class="btn btn-secondary" id="capa-refresh">Refresh</button>
+          <button type="button" class="btn btn-primary" id="capa-new" data-perm="qc:submit">New corrective action</button>
+        </div>
+      </header>
+      <div class="stat-grid" id="capa-stats"></div>
+      <div class="controls">
+        <div class="chipbar" id="capa-status-filters" role="tablist" aria-label="Filter corrective actions">
+          <button type="button" class="chip active" data-capa-status="ACTIVE">Active</button>
+          <button type="button" class="chip" data-capa-status="OPEN">Open</button>
+          <button type="button" class="chip" data-capa-status="IN_PROGRESS">In progress</button>
+          <button type="button" class="chip" data-capa-status="PENDING_VERIFICATION">Needs verification</button>
+          <button type="button" class="chip" data-capa-status="CLOSED">Closed</button>
+          <button type="button" class="chip" data-capa-status="ALL">Everything</button>
+        </div>
+        <button type="button" class="chip" id="capa-mine" aria-pressed="false">Mine</button>
+        <button type="button" class="chip" id="capa-overdue" aria-pressed="false">Overdue</button>
+      </div>
+      <div class="card table-card">
+        <div class="table-scroll">
+          <table id="capa-table">
+            <thead><tr>
+              <th class="num">ID</th><th>Corrective action</th><th>Order</th><th>Status</th>
+              <th>Owner</th><th>Due</th><th>Root cause</th><th class="right">Actions</th>
+            </tr></thead>
+            <tbody><tr><td colspan="8" class="muted">Loading corrective actions…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="table-foot"><span class="muted" id="capa-count"></span></div>
+      </div>
+    </main>
+
+                                                                            
     <main id="view-qcbench" class="pane hidden">
       <header class="page-head">
         <div>
@@ -572,7 +632,7 @@
       <div id="qcbench-content" class="qcb-content"></div>
     </main>
 
-    <!-- ===================================================== Pick lists -->
+                                                                             
     <main id="view-checklists" class="pane hidden">
       <header class="page-head">
         <div>
@@ -634,7 +694,7 @@
       </div>
     </main>
 
-    <!-- ====================================================== Products -->
+                                                                            
     <main id="view-products" class="pane hidden">
       <header class="page-head">
         <div>
@@ -689,7 +749,7 @@
       </div>
     </main>
 
-    <!-- ======================================================= Manuals -->
+                                                                            
     <main id="view-manuals" class="pane hidden">
       <header class="page-head">
         <div>
@@ -743,7 +803,7 @@
       </div>
     </main>
 
-    <!-- ============================================= System integrations -->
+                                                                              
     <main id="view-si" class="pane hidden">
       <header class="page-head">
         <div>
@@ -808,7 +868,7 @@
       </div>
     </main>
 
-    <!-- ======================================================== Users -->
+                                                                           
     <main id="view-users" class="pane hidden">
       <header class="page-head">
         <div>
@@ -900,7 +960,51 @@
       </div>
     </main>
 
-    <!-- ================================================= Ran devices -->
+                                                                             
+    <main id="view-automations" class="pane hidden">
+      <header class="page-head">
+        <div>
+          <h1>Workflow automations</h1>
+          <p class="muted">React once to QC failures, SLA breaches and aging holds. Add multiple rules when an event needs several actions.</p>
+        </div>
+        <div class="page-head-actions">
+          <button type="button" class="btn btn-secondary" id="automation-evaluate">Evaluate now</button>
+          <button type="button" class="btn btn-primary" id="automation-new">New rule</button>
+        </div>
+      </header>
+      <div class="stat-grid" id="automation-stats"></div>
+      <section class="card table-card automation-rules-card">
+        <div class="cfg-sec-head">
+          <div class="cfg-sec-txt"><h3>Rules</h3><p>Time-based rules are evaluated by the background worker; QC failures run immediately.</p></div>
+          <span class="cfg-pill neutral" id="automation-rule-count"></span>
+        </div>
+        <div class="table-scroll">
+          <table id="automation-table">
+            <thead><tr>
+              <th class="num">ID</th><th>Rule</th><th>Trigger</th><th>Condition</th><th>Action</th>
+              <th>Target / level</th><th>Enabled</th><th class="right">Actions</th>
+            </tr></thead>
+            <tbody><tr><td colspan="8" class="muted">Loading rules…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+      <section class="card table-card automation-history-card">
+        <div class="cfg-sec-head">
+          <div class="cfg-sec-txt"><h3>Execution history</h3><p>Each source event is claimed once per rule. Failed actions remain visible here.</p></div>
+          <button type="button" class="btn btn-ghost btn-sm" id="automation-refresh">Refresh</button>
+        </div>
+        <div class="table-scroll">
+          <table id="automation-runs-table">
+            <thead><tr>
+              <th class="num">Run</th><th>Time</th><th>Rule</th><th>Order</th><th>Action</th><th>Status</th><th>Detail</th>
+            </tr></thead>
+            <tbody><tr><td colspan="7" class="muted">Loading execution history…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+                                                                          
     <main id="view-devices" class="pane hidden">
       <header class="page-head">
         <div>
@@ -921,7 +1025,7 @@
       </div>
     </main>
 
-    <!-- ======================================================= Config -->
+                                                                           
     <main id="view-config" class="pane hidden">
       <header class="page-head">
         <div>
@@ -934,7 +1038,7 @@
 
   </div>
 
-  <!-- ----------------------------------------- floating bottom quick dock -->
+                                                                               
   <aside class="bento-dock" id="bento-dock" aria-label="Quick command dock">
     <a href="#/home" class="bd-item active" data-bd-nav="home" title="My Work">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
@@ -966,6 +1070,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="js/core.js?v=r6"></script>
+<script src="js/offline-scanner.js?v=r6"></script>
 <script src="js/notifications.js?v=r6"></script>
 <script src="js/auth.js?v=r6"></script>
 <script src="js/orders.js?v=r6"></script>
@@ -983,6 +1088,8 @@
 <script src="js/users.js?v=r6"></script>
 <script src="js/devices.js?v=r6"></script>
 <script src="js/config.js?v=r6"></script>
+<script src="js/capa.js?v=r6"></script>
+<script src="js/automations.js?v=r6"></script>
 <script src="js/app.js?v=r6"></script>
 <script src="js/order-pages.js?v=r6"></script>
 <script src="js/ui.js?v=r6"></script>

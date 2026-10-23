@@ -414,7 +414,7 @@
 
   function updateBadges() {
     const n = state.unread || 0;
-    if (n === updateBadges.last) return;   // no redraw churn on every poll
+    if (n === updateBadges.last) return;                                   
     updateBadges.last = n;
     document.title = (n > 0 ? `(${n}) ` : '') + BASE_TITLE;
     drawFaviconBadge(n);
@@ -451,8 +451,8 @@
     });
   };
 
-  // Compact table variant: drops the year when it matches the current one and
-  // uses 24h time, so date columns stay narrow enough to fit the viewport.
+                                                                              
+                                                                           
   const fmtCell = (iso) => {
     if (!iso) return '—';
     const d = new Date(iso);
@@ -491,7 +491,7 @@
 
   const statusClass = (s) => (typeof s === 'string' && s.startsWith('Held_')) ? 'On_Hold' : s;
 
-  /* ---------- Customer-specific Workday SLA Engine (weekend-excluding) ---------- */
+                                                                                      
   const SLA_STORAGE_KEY = 'cockpit_customer_slas';
   const SLA_DEFAULTS_KEY = 'cockpit_sla_defaults';
   const BUILTIN_CUSTOMER_SLAS = {
@@ -631,7 +631,7 @@
       const cur = new Date(fromDate ? new Date(fromDate).getTime() : Date.now());
       let skippedWeekendDays = 0;
 
-      // If starting on a weekend and skipWeekends is active, move to Monday first.
+                                                                                   
       if (skipWeekends) {
         while (SLA.isWeekend(cur)) {
           cur.setDate(cur.getDate() + 1);
@@ -679,7 +679,7 @@
       };
     },
 
-    // Computes milliseconds between startMs and endMs excluding Sat/Sun intervals.
+                                                                                   
     workingMsBetween(startMs, endMs, excludeWeekends) {
       const skip = excludeWeekends !== undefined ? !!excludeWeekends : SLA.excludeWeekends();
       const t0 = Number(startMs);
@@ -751,7 +751,7 @@
 
     _seeded: false,
     async ensureDefaultCustomers() {
-      if (SLA._seeded || !state || !state.token) return;
+      if (SLA._seeded || !state || !state.user) return;
       SLA._seeded = true;
       try {
         const d = await api('GET', '/api/v1/customers');
@@ -788,9 +788,9 @@
     return 'ON_TIME';
   };
 
-  // Mirrors the backend transition table (pkg/order/status.go). Forward moves
-  // come first: quick actions and the attention cards use next[0] as the
-  // primary move; backward moves stay available in the dropdown and power Undo.
+                                                                              
+                                                                         
+                                                                                
   const nextStates = (st) => {
     if (st.startsWith('Held_') || st === 'Completed') return [];
     switch (st) {
@@ -801,9 +801,9 @@
     }
   };
 
-  /* Click-to-copy: any element with data-copy="value" copies on click. */
+                                                                          
   async function copyText(v) {
-    try { await navigator.clipboard.writeText(v); return true; } catch { /* fall through */ }
+    try { await navigator.clipboard.writeText(v); return true; } catch {                    }
     try {
       const ta = document.createElement('textarea');
       ta.value = v; ta.style.position = 'fixed'; ta.style.opacity = '0';
@@ -965,6 +965,7 @@
     try {
       res = await fetch(path, {
         method,
+        credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
           ...(state.token ? { Authorization: 'Bearer ' + state.token } : {}),
@@ -994,7 +995,7 @@
   }
 
 
-/* ---------- motion helpers: eased count-up for KPI numerals ---------- */
+                                                                           
 window.countUp = function (el, to, opts) {
   const o = opts || {};
   const dec = o.decimals || 0;

@@ -1,6 +1,6 @@
 'use strict';
 
-/* Workload board — drag orders between people to (re)assign work. */
+                                                                     
 
 const Workload = {
   users: [],

@@ -5,7 +5,7 @@
   function startChecklistsPolling() {
     stopChecklistsPolling();
     clViewTimer = setInterval(async () => {
-      if (!state.token || !location.hash.startsWith('#/checklists')) return stopChecklistsPolling();
+      if (!state.user || !location.hash.startsWith('#/checklists')) return stopChecklistsPolling();
       await loadChecklistsView(true);
     }, 5000);
   }
@@ -20,7 +20,7 @@
       if (state.checklistSelId && !state.checklists.some((c) => c.orderId === state.checklistSelId)) {
         state.checklistSelId = null;
       }
-      /* no auto-select: the pick list now opens as a centered workspace on row click */
+                                                                                        
       renderChecklistsList();
       renderChecklistPanel();
       

@@ -1,7 +1,7 @@
 'use strict';
 
-/* WorkFlow — guided "Start Work" sessions: clock in on an order assigned to
-   you, tick off steps with manual checks, Next → Next → done. */
+                                                                            
+                                                                 
 
 const DEFAULT_WORK_STEPS = [
   {
@@ -29,17 +29,17 @@ const DEFAULT_WORK_STEPS = [
 ];
 
 const WorkFlow = {
-  session: null,      // active session inside the workbench
+  session: null,                                            
   flowLoaded: false,
-  order: null,        // order object inside the workbench
+  order: null,                                            
   step: 0,
-  checks: {},         // {stepKey: {checkKey: true}}
-  pick: null,         // checklist items for step 2
-  manuals: null,      // attached order manuals for step 2
+  checks: {},                                       
+  pick: null,                                      
+  manuals: null,                                          
   qcPassed: false,
   tickHandle: null,
 
-  /* ---------- helpers ---------- */
+                                     
 
   steps() {
     const src = (state.workFlow && state.workFlow.length) ? state.workFlow : DEFAULT_WORK_STEPS;
@@ -58,14 +58,14 @@ const WorkFlow = {
       state.workFlow = d.steps || null;
       WorkFlow.flowLoaded = true;
       WorkFlow.flowCustomer = cust;
-    } catch { /* keep previous */ }
+    } catch {                     }
   },
 
   stepTitle(st) { return st.title || t('work.step.' + st.key); },
   stepDesc(st) { return st.desc || t('work.step.' + st.key + 'd'); },
   checkLabel(c) { return c.label || t('work.check.' + c.key); },
 
-  // Where should Next move the order? Functions (default flow) or a configured target.
+                                                                                       
   stepTarget(step, o) {
     let target = typeof step.next === 'function' ? step.next(o) : (step.next || null);
     if (!target || target === o.status) return null;
@@ -108,10 +108,10 @@ const WorkFlow = {
       state.myWork = map;
       WorkFlow.syncButtons();
       WorkFlow.startTick();
-    } catch { /* offline-ish; ignore */ }
+    } catch {                           }
   },
 
-  /* One consistent button: Start Work / Resume · timer / In progress · @user */
+                                                                                
   buttonFor(o, size) {
     if (!o || o.status === 'Completed') return '';
     const sess = WorkFlow.activeFor(o.id);
@@ -144,7 +144,7 @@ const WorkFlow = {
     });
   },
 
-  /* ---------- workbench overlay ---------- */
+                                               
 
   ensureRoot() {
     let root = document.getElementById('workbench');
@@ -259,7 +259,7 @@ const WorkFlow = {
         const d = await api('GET', `/api/v1/orders/${o.id}`);
         WorkFlow.qcPassed = ((d.order && d.order.qcChecks) || []).some((q) => q.status === 'PASS');
         if (d.order) WorkFlow.order = d.order;
-      } catch { /* keep last known */ }
+      } catch {                       }
     }
   },
 
@@ -463,7 +463,7 @@ const WorkFlow = {
         try {
           const dm = await api('GET', `/api/v1/orders/${WorkFlow.order.id}/manuals`);
           WorkFlow.manuals = dm.manuals || [];
-        } catch { /* keep */ }
+        } catch {            }
         WorkFlow.renderWizard();
       });
     });
@@ -555,7 +555,7 @@ const WorkFlow = {
   },
 };
 
-/* Global entry-point routing: any "Start Work" button anywhere opens the bench. */
+                                                                                   
 document.addEventListener('click', (e) => {
   const b = e.target.closest && e.target.closest('[data-work-open]');
   if (!b) return;

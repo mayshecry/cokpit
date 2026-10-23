@@ -12,6 +12,7 @@ no dependencies, no framework), same `/api/v1` contract, same feature set.
 | `js/*.js` | Rewritten SPA split across modules (`core.js` first, `app.js` last) — same API contract. **Every `fetch` path, method and payload is unchanged.** |
 | `fonts/` | Self-hosted Archivo + Noto Sans, subsetted (96 KB total) |
 | `scan.html` + `js/scan.js` | Public read-only page behind order QR codes (`/scan.html?code=…`) |
+| `js/offline-scanner.js` + `sw.js` | Persistent per-user scan queue, reconnect sync, and static offline app-shell cache (never caches API responses) |
 | `checkin.html` | Self-contained SI checklist check-in page behind project QR codes |
 
 Drop-in static files. Serve them from the same origin as your API and they work — the
@@ -25,7 +26,7 @@ Every endpoint the legacy single-file frontend called, still called the same way
 | Method | Path | Sent | Expected back |
 |---|---|---|---|
 | `POST` | `/api/v1/auth/login` | `{ username, password }` | `{ token, user }` |
-| `POST` | `/api/v1/auth/logout` | — (bearer only) | — |
+| `POST` | `/api/v1/auth/logout` | — (cookie or bearer) | — |
 | `GET` | `/api/v1/orders` | — | `{ orders: [...] }` |
 | `POST` | `/api/v1/orders` | `{ orderNumber, targetCompletionAt? }` | — |
 | `GET` | `/api/v1/orders/:id` | — | `{ order }` |
@@ -40,8 +41,10 @@ Every endpoint the legacy single-file frontend called, still called the same way
 | `POST` | `/api/v1/users/:id/password` | `{ password }` | — |
 | `DELETE` | `/api/v1/users/:id` | — | — |
 
-All authenticated requests send `Authorization: Bearer <token>` and
-`Content-Type: application/json`.
+Authenticated browser requests use the HttpOnly `cockpit_session` cookie with
+`credentials: 'same-origin'`. API clients may instead send
+`Authorization: Bearer <token>`; explicit Bearer credentials take precedence.
+JSON requests send `Content-Type: application/json`.
 
 **Fields read off the responses** (unchanged from the original):
 
@@ -56,8 +59,10 @@ All authenticated requests send `Authorization: Bearer <token>` and
 toast; anything else falls back to `HTTP <status>`. A `401` on any path other than
 `/auth/login` force-logs-out and clears storage.
 
-Also identical: `localStorage` keys (`cockpit_token`, `cockpit_user`), the client-side
-`rolePerms` map, `slaOf()` thresholds (breached at 0, warning at 4h), the `nextStates()`
+New logins do not persist Bearer tokens. `localStorage` retains only non-secret
+state such as `cockpit_user` and view preferences; a legacy `cockpit_token` is
+used for one `/auth/me` upgrade and then removed. The client-side `rolePerms`
+map, `slaOf()` thresholds (breached at 0, warning at 4h), the `nextStates()`
 transition graph, `Held_*` status handling, hash routes (`#/orders`, `#/users`) and the
 20-second auto-refresh.
 

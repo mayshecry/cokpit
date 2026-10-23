@@ -1,6 +1,6 @@
 'use strict';
 
-/* Ops dashboard — server-aggregated KPIs and charts on the home pane. */
+                                                                         
 
 const Dashboard = {
   data: null,

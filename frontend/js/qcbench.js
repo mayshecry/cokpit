@@ -1,9 +1,9 @@
 'use strict';
 
-/* QC bench — one continuous flow for working the QC_Review queue:
-   queue rail on the left, the checking process in the middle, verdict with
-   structured fail reasons, then the next order slides in. Built for volume:
-   keyboard-first (P/F verdict, Enter submit, arrows walk the queue). */
+                                                                  
+                                                                           
+                                                                            
+                                                                        
 
 function qcbLoadFilters() {
   try {
@@ -15,16 +15,16 @@ function qcbLoadFilters() {
 const QCBench = {
   queue: [],
   reasons: [],
-  /* filters initialised once below the object literal */
+                                                         
   idx: 0,
   step: 0,
-  checks: {},          // key -> bool for the current order
-  verdict: null,       // 'PASS' | 'FAIL'
+  checks: {},                                              
+  verdict: null,                         
   reason: '',
   note: '',
   sit: { n: 0, pass: 0, fail: 0, streak: 0, best: 0, startedAt: Date.now() },
   poll: null,
-  list: [],            // queue after product/customer filters
+  list: [],                                                   
   filters: { product: '', customer: '' },
   ctxFor: 0,
 
@@ -67,8 +67,8 @@ const QCBench = {
     }
     QCBench.bindOnce();
     await QCBench.refresh(false);
-    // A saved filter value matching no queued order can only hide things — drop it.
-    // Isolated: this is convenience, never worth blocking the whole bench over.
+                                                                                    
+                                                                                
     try {
     if (QCBench.queue.length) {
       const f = QCBench.filters;
@@ -98,8 +98,8 @@ const QCBench = {
       const prevId = (QCBench.list[QCBench.idx] || QCBench.cur() || {}).id;
       const before = new Set(QCBench.queue.map((q) => q.id));
       QCBench.queue = d.queue || [];
-      // A stale saved filter that hides the entire queue looks like a broken
-      // bench — clear it automatically and tell the user once.
+                                                                             
+                                                               
       const f = QCBench.filters;
       if ((f.product || f.customer) && QCBench.queue.length) {
         const kept = QCBench.queue.filter((it) =>
@@ -112,7 +112,7 @@ const QCBench = {
         }
       }
       QCBench.applyFilter(prevId);
-      // surface arrivals: anything in the live queue we had not seen before
+                                                                            
       const fresh = QCBench.queue.filter((q) => !before.has(q.id));
       if (QCBench._seenOnce && fresh.length) {
         QCBench._newIds = new Set(fresh.map((q) => q.id));
@@ -153,7 +153,7 @@ const QCBench = {
     QCBench.list = QCBench.queue.filter((it) =>
       (!f.product || (it.productCode || '').split(' + ').includes(f.product)) &&
       (!f.customer || (it.customer || '') === f.customer));
-    // a filter that hid everything is worse than no filter: say so, keep list
+                                                                              
     if (prevId != null) {
       const at = QCBench.list.findIndex((q) => q.id === prevId);
       QCBench.idx = at >= 0 ? at : Math.min(QCBench.idx, Math.max(0, QCBench.list.length - 1));

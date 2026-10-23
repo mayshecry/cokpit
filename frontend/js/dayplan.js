@@ -1,6 +1,6 @@
 'use strict';
 
-/* Day plan — QC and above set daily goals per person and assign today's work. */
+                                                                                 
 
 const Dayplan = {
   day: null,

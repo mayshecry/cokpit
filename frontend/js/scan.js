@@ -62,6 +62,7 @@
     
     try {
       var res = await fetch('/api/v1/scan/barcode?code=' + encodeURIComponent(barcode), {
+        credentials: 'same-origin',
         headers: token ? { Authorization: 'Bearer ' + token } : {}
       });
       var data = await res.json();

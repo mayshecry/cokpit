@@ -1,7 +1,7 @@
 'use strict';
 
-/* Ran devices — Reimagined Hardware Showcase & Refurb Prep Inspector.
-   Ingestion is public (POST /api/v1/prep-logs); viewing is users:manage. */
+                                                                      
+                                                                            
 const Devices = (() => {
   const S = { list: [], selectedId: null, search: '', brandFilter: 'all', busy: false };
   const IMG_STORE_KEY = 'cockpit_device_model_images_v1';
@@ -115,7 +115,7 @@ const Devices = (() => {
     return isNaN(d) ? ts : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   };
 
-  // ── Authentic OS, Brand & Hardware SVG Artwork ───────────────────────
+                                                                          
   const ICONS = {
     windows: `<svg class="rd-os-svg win" viewBox="0 0 24 24" aria-hidden="true">
       <rect x="2" y="2" width="9.2" height="9.2" rx="1.4" fill="#38bdf8"/>
@@ -165,7 +165,7 @@ const Devices = (() => {
     };
   }
 
-  // Known laptop & workstation catalog with model metadata, chassis styling, and product imagery
+                                                                                                 
   function resolveDeviceMedia(item, doc) {
     const ov = (doc && doc.overview) || {};
     const host = String((doc && doc.host) || ov.computerName || (item && item.computerName) || '');
@@ -177,7 +177,7 @@ const Devices = (() => {
     let brand = 'Generic';
     let family = 'Enterprise Laptop';
     let modelTitle = [rawMake, rawModel].filter(Boolean).join(' ').trim();
-    let finish = 'aluminum'; // 'aluminum' | 'thinkpad' | 'titanium' | 'surface' | 'tower'
+    let finish = 'aluminum';                                                              
     let tagline = 'Business Notebook';
     let screenSize = '14.0" IPS Anti-Glare';
     let defaultImgUrl = '';
@@ -280,7 +280,7 @@ const Devices = (() => {
     };
   }
 
-  // Studio-lit vector laptop/workstation illustration tailored to HP / Lenovo ThinkPad / Dell / Tower
+                                                                                                      
   function renderHardwareArtwork(media, osInfo, hostName, isThumb = false) {
     const brandUpper = esc(media.brand.toUpperCase());
     const fam = esc(media.family);
@@ -320,7 +320,7 @@ const Devices = (() => {
         </div>`;
     }
 
-    // Laptop finishes: 'thinkpad' (carbon matte black + red TrackPoint), 'aluminum' (HP silver-zinc), 'titanium' (Dell dark metallic)
+                                                                                                                                      
     const isThinkPad = media.finish === 'thinkpad';
     const isHP = media.brand === 'HP';
     const bezelStroke = isThinkPad ? '#3f3f46' : isHP ? '#d4d4d8' : '#71717a';
@@ -400,13 +400,13 @@ const Devices = (() => {
       </div>`;
   }
 
-  // ── data ─────────────────────────────────────────────────────────────
+                                                                          
   async function load(keepSelection) {
     if (S.busy) return;
     S.busy = true;
     try {
       const d = await api('GET', '/api/v1/admin/prep-devices');
-      // Deduplicate by computerName (keep most recent record per hostname so list stays crisp)
+                                                                                               
       const raw = d.devices || [];
       S.list = raw;
       renderKpis();
@@ -438,7 +438,7 @@ const Devices = (() => {
     }
   }
 
-  // ── list + kpis ──────────────────────────────────────────────────────
+                                                                          
   function renderKpis() {
     const dev = S.list.length;
     let ok = 0, flag = 0, latestISO = null, winCount = 0;
@@ -501,7 +501,7 @@ const Devices = (() => {
     const el = $rd('#rd-list');
     const rows = filtered();
 
-    // Brand filter pills at top of device gallery
+                                                  
     const brands = Array.from(new Set(S.list.map((x) => resolveDeviceMedia(x, null).brand)));
     const filterBar = S.list.length ? `
       <div class="rd-list-head">
@@ -581,7 +581,7 @@ const Devices = (() => {
       </div>`;
   }
 
-  // ── detail ───────────────────────────────────────────────────────────
+                                                                          
   const PIPE = [
     ['specs', 'System specs', /collecting system specs/i],
     ['ident', 'Identity', /collecting device identification|Device CSV written/i],
@@ -645,7 +645,7 @@ const Devices = (() => {
 
   function heroHtml(doc, osInfo) {
     const t = [];
-    // 1. Operating System card with authentic Windows logo
+                                                           
     t.push(specCard(
       osInfo.icon,
       'Operating System',
@@ -655,7 +655,7 @@ const Devices = (() => {
       'good'
     ));
 
-    // 2. Processor
+                   
     const cpu = doc.cpu || {};
     const cpuMain = cpu.name || 'Verified Processor';
     const cpuSub = [
@@ -665,7 +665,7 @@ const Devices = (() => {
     ].filter(Boolean).map(esc).join(' · ') || 'Hardware diagnostic passed';
     t.push(specCard(ICONS.cpu, 'Processor', esc(cpuMain), cpuSub, 'CPU OK', statTone(cpu.status) || 'good'));
 
-    // 3. Memory
+                
     const ram = doc.ram || {};
     const mods = ram.modules || [];
     t.push(specCard(
@@ -677,7 +677,7 @@ const Devices = (() => {
       'good'
     ));
 
-    // 4. Storage
+                 
     const disks = doc.disks || [];
     const tot = disks.reduce((a, d) => a + (d.sizeGB || 0), 0);
     const diskOk = disks.length && disks.every((d) => (d.status || '').toUpperCase() === 'OK');
@@ -690,7 +690,7 @@ const Devices = (() => {
       diskOk ? 'good' : (disks.length ? 'bad' : 'good')
     ));
 
-    // 5. Graphics
+                  
     const gpu = doc.gpu || {};
     t.push(specCard(
       ICONS.gpu,
@@ -701,7 +701,7 @@ const Devices = (() => {
       statTone(gpu.status) || 'good'
     ));
 
-    // 6. Battery
+                 
     const batt = doc.battery || {};
     t.push(specCard(
       ICONS.battery,
@@ -714,7 +714,7 @@ const Devices = (() => {
       statTone(batt.status) || 'good'
     ));
 
-    // 7. Security / TPM
+                        
     const tpm = (doc.health || {}).tpm || {};
     const tpmActive = !tpm.spec || (tpm.enabled && tpm.activated);
     t.push(specCard(
@@ -726,7 +726,7 @@ const Devices = (() => {
       tpmActive ? 'good' : 'warn'
     ));
 
-    // 8. Network
+                 
     const nets = (doc.network || []).filter((n) => !/virtual|bluetooth device/i.test(n.name || ''));
     t.push(specCard(
       ICONS.network,
@@ -893,7 +893,7 @@ const Devices = (() => {
         <pre class="rd-raw-pre">${esc(d.raw || '')}</pre>
       </details>`;
 
-    // Wire "Upload model photo" button
+                                       
     const linkImgBtn = $('#rd-link-img', $rd('#rd-detail'));
     const photoInp = $('#rd-photo-file', $rd('#rd-detail'));
     if (linkImgBtn && photoInp) {
@@ -912,7 +912,7 @@ const Devices = (() => {
       });
     }
 
-    // Wire "+ Create Order with <device>" button
+                                                 
     const createOrdBtn = $('#rd-create-order-btn', $rd('#rd-detail'));
     if (createOrdBtn) {
       createOrdBtn.addEventListener('click', () => {
@@ -958,7 +958,7 @@ const Devices = (() => {
     }));
   }
 
-  // ── wiring ───────────────────────────────────────────────────────────
+                                                                          
   function wire() {
     const srch = $rd('#rd-search');
     if (srch && !srch.dataset.wired) {
