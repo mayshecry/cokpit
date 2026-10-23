@@ -20,12 +20,8 @@ import (
 
 const configName = "cockpit-client.json"
 
-var serverURL = "http://z.larping.today"
+var serverURL = ""
 
-// detectServer resolves the server address for the whole session:
-//  1. COCKPIT_SERVER env var (e.g. https://cockpit.example.com)
-//  2. "server" field in cockpit-client.json next to the exe (pre-seed by IT)
-//  3. http://localhost (same machine, default port 80)
 func detectServer(cfgPath string) string {
 	if v := os.Getenv("COCKPIT_SERVER"); v != "" {
 		return strings.TrimRight(v, "/")
@@ -39,12 +35,9 @@ func detectServer(cfgPath string) string {
 	return serverURL
 }
 
-// pairFile is the on-disk pairing record, saved with 0600 next to the exe.
-// Server is optional: IT can pre-seed a minimal {"server": "https://…"} file
-// next to the exe so the client points at the right address before pairing.
 type pairFile struct {
 	ClientID string `json:"clientId"`
-	Key      string `json:"key"` // hex-encoded pairing key, issued by the server
+	Key      string `json:"key"` 
 	Machine  string `json:"machine"`
 	SavedAt  string `json:"savedAt"`
 	Server   string `json:"server,omitempty"`
@@ -53,14 +46,9 @@ type pairFile struct {
 func main() {
 	cfgPath := configPath()
 	serverURL = detectServer(cfgPath)
-
-	// machineHash identifies this machine: stable, not reversible to the raw
-	// names. Salt the two most stable Windows identity strings.
 	machine := machineHash()
-
 	pf, err := readPair(cfgPath)
 	if err == nil && pf.Machine != machine {
-		// Paired on/by another machine image — start over.
 		_ = os.Remove(cfgPath)
 		pf = nil
 		err = errors.New("machine changed, re-pair")
@@ -72,7 +60,6 @@ func main() {
 	w.SetSize(1024, 768, webview.HintNone)
 
 	if err != nil {
-		// Unpaired: bind the two functions the pairing page calls, then open it.
 		_ = w.Bind("clientMachine", func() string { return machine })
 		_ = w.Bind("clientPairSave", func(raw string) (any, error) {
 			var p pairFile
@@ -82,8 +69,6 @@ func main() {
 			if p.ClientID == "" || p.Key == "" {
 				return nil, errors.New("incomplete pairing data")
 			}
-			// The binding always binds to THIS machine — never trust the page
-			// payload for the machine field.
 			p.Machine = machine
 			raw2, _ := json.Marshal(p)
 			if p.Server == "" {
@@ -98,19 +83,14 @@ func main() {
 		})
 		w.Navigate(serverURL + "/pair-guide.html")
 	} else {
-		// Paired: prove it and let the server set the session cookie.
 		w.Navigate(signedURL(*pf))
 	}
 	w.Run()
 }
 
-// signedURL builds the launch URL carrying the pairing proof.
-// (WebView2 can't attach request headers, so the proof rides in the URL;
-// the server validates it, strips it via 302, and sets the cookie.)
 func signedURL(p pairFile) string {
 	key, err := hex.DecodeString(p.Key)
 	if err != nil || len(key) == 0 {
-		// Corrupt key — treat as unpaired.
 		return serverURL + "/pair-guide.html"
 	}
 	ts := strconv.FormatInt(time.Now().Unix(), 10)
@@ -156,7 +136,6 @@ func readPair(path string) (*pairFile, error) {
 }
 
 func savePair(path string, raw []byte) error {
-	// Atomic-ish: write then rename, permissions 0600.
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
 		return err
