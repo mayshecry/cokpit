@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// samplePrepLog mimics the structure parsePrepLog expects. Lines are
-// timestamped like the real script output.
 const samplePrepLog = `2026-10-12 09:00:00 - === Starting laptop prep on LAPTOP-TEST01 ===
 2026-10-12 09:00:01 - CPU: Intel(R) Core(TM) i5-8350U CPU @ 1.70GHz
 2026-10-12 09:00:01 - RAM: 16 GB
@@ -93,7 +91,7 @@ func TestPrepLogRebootRequiredExitCodeIsNotAnIssue(t *testing.T) {
 }
 
 func TestPrepLogRealFailuresStillFlagged(t *testing.T) {
-	bad := strings.Replace(samplePrepLog, "Status: Unknown", "Status: Pred Fail", 1) // battery fails
+	bad := strings.Replace(samplePrepLog, "Status: Unknown", "Status: Pred Fail", 1)
 	bad = strings.Replace(bad, "Exit code: 3010", "Exit code: 1603", 1)
 	bad = strings.Replace(bad, "Status: OK\n2026-10-12 09:00:07 - Triggering", "Status: Degraded\n2026-10-12 09:00:07 - Triggering", 1)
 	_, issues := parseForTest(t, bad)
@@ -114,7 +112,7 @@ func TestPrepLogCountsAfterFix(t *testing.T) {
 	doc, _ := parseForTest(t, samplePrepLog)
 	stats := doc["stats"].(map[string]any)
 	ok, flag := stats["checksOK"].(int), stats["checksFlag"].(int)
-	// OK: CPU, Disk, GPU, exit 0, exit 3010  -> 5 ; flagged: none (battery is Unknown)
+
 	if ok != 5 || flag != 0 {
 		t.Errorf("checksOK=%d checksFlag=%d, want 5 and 0", ok, flag)
 	}
@@ -130,9 +128,6 @@ func TestPrepLogAcceptsUTF8BOM(t *testing.T) {
 	}
 }
 
-// End-to-end through the public ingest endpoint: a BOM-prefixed log with an
-// Unknown battery status and a reboot-required exit code must be accepted
-// with no flagged checks.
 func TestPostPrepLogNoFalseIssues(t *testing.T) {
 	ts := newTestServer(t)
 	req, _ := http.NewRequest(http.MethodPost, ts.URL+"/api/v1/prep-logs", strings.NewReader("\ufeff"+samplePrepLog))

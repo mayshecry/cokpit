@@ -62,7 +62,6 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	s.publishOrder(created.ID, s.currentUser(r).Username)
 
-	// Store optional order data provided at creation time.
 	info := order.OmnitrackerInfoRequest{
 		DebitNumber:       cleanString(req.DebitNumber),
 		CustomerName:      cleanString(req.CustomerName),

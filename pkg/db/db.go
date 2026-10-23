@@ -149,12 +149,14 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_unique
     ON notifications(user_name, kind, ref_id);
 
 CREATE TABLE IF NOT EXISTS scan_events (
-    id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-    code         TEXT    NOT NULL,
-    scanned_by   TEXT    NOT NULL,
-    action       TEXT    NOT NULL DEFAULT 'LOOKUP',
-    created_at   BIGINT  NOT NULL
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id       INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    code           TEXT    NOT NULL,
+    scanned_by     TEXT    NOT NULL,
+    action         TEXT    NOT NULL DEFAULT 'LOOKUP',
+    created_at     BIGINT  NOT NULL,
+    client_event_id TEXT   NOT NULL DEFAULT '',
+    received_at    BIGINT
 );
 
 CREATE INDEX IF NOT EXISTS idx_scan_events_order ON scan_events(order_id, created_at);
@@ -365,7 +367,6 @@ CREATE TABLE IF NOT EXISTS user_departments (
 CREATE INDEX IF NOT EXISTS idx_user_departments_user ON user_departments(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_departments_dept ON user_departments(department_id);
 
--- SWI tool process: one row per order holding the current process stage.
 CREATE TABLE IF NOT EXISTS order_process (
     order_id         INTEGER PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
     stage            TEXT    NOT NULL,
@@ -379,7 +380,6 @@ CREATE TABLE IF NOT EXISTS order_process (
 
 CREATE INDEX IF NOT EXISTS idx_order_process_stage ON order_process(stage, escalated);
 
--- Append-only trail of every process action.
 CREATE TABLE IF NOT EXISTS process_events (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -394,7 +394,6 @@ CREATE TABLE IF NOT EXISTS process_events (
 
 CREATE INDEX IF NOT EXISTS idx_process_events_order ON process_events(order_id, created_at);
 
--- Instantiated work instructions (per order, per stage).
 CREATE TABLE IF NOT EXISTS process_tasks (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id    INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -412,7 +411,6 @@ CREATE TABLE IF NOT EXISTS process_tasks (
 
 CREATE INDEX IF NOT EXISTS idx_process_tasks_order ON process_tasks(order_id, stage, seq);
 
--- Escalations raised from any stage; return_stage remembers where to resume.
 CREATE TABLE IF NOT EXISTS escalations (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id        INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -432,7 +430,6 @@ CREATE TABLE IF NOT EXISTS escalations (
 CREATE INDEX IF NOT EXISTS idx_escalations_order ON escalations(order_id, resolved_at);
 CREATE INDEX IF NOT EXISTS idx_escalations_open ON escalations(resolved_at);
 
--- Outbox of automatic updates to AFAS, Omnitracker, Intune, Knox and ABM.
 CREATE TABLE IF NOT EXISTS external_sync_jobs (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id        INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
@@ -455,6 +452,72 @@ CREATE TABLE IF NOT EXISTS external_sync_jobs (
 
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_status ON external_sync_jobs(status, system);
 CREATE INDEX IF NOT EXISTS idx_sync_jobs_order ON external_sync_jobs(order_id, created_at);
+
+CREATE TABLE IF NOT EXISTS automation_rules (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    name              TEXT    NOT NULL UNIQUE,
+    trigger_type      TEXT    NOT NULL CHECK (trigger_type IN ('QC_FAILED','SLA_BREACHED','HOLD_AGING')),
+    threshold_minutes INTEGER NOT NULL DEFAULT 0,
+    action_type       TEXT    NOT NULL CHECK (action_type IN ('NOTIFY','ASSIGN','ESCALATE')),
+    targets_json      TEXT    NOT NULL DEFAULT '[]',
+    message           TEXT    NOT NULL DEFAULT '',
+    escalation_level  TEXT    NOT NULL DEFAULT 'L1',
+    enabled           INTEGER NOT NULL DEFAULT 1,
+    created_by        TEXT    NOT NULL DEFAULT '',
+    created_at        BIGINT  NOT NULL,
+    updated_at        BIGINT  NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS automation_runs (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    rule_id      INTEGER NOT NULL REFERENCES automation_rules(id) ON DELETE CASCADE,
+    order_id     INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    trigger_key  TEXT    NOT NULL,
+    action_type  TEXT    NOT NULL,
+    status       TEXT    NOT NULL CHECK (status IN ('PENDING','SUCCESS','FAILED')),
+    detail       TEXT    NOT NULL DEFAULT '',
+    error        TEXT    NOT NULL DEFAULT '',
+    created_at   BIGINT  NOT NULL,
+    UNIQUE(rule_id, trigger_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_automation_runs_created ON automation_runs(created_at, id);
+CREATE INDEX IF NOT EXISTS idx_automation_runs_order ON automation_runs(order_id, created_at);
+
+CREATE TABLE IF NOT EXISTS corrective_actions (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id          INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+    qc_check_id       INTEGER REFERENCES qc_checks(id) ON DELETE SET NULL,
+    title             TEXT    NOT NULL,
+    fail_reason       TEXT    NOT NULL DEFAULT '',
+    owner             TEXT    NOT NULL,
+    due_at            BIGINT  NOT NULL,
+    root_cause        TEXT    NOT NULL DEFAULT '',
+    action_plan       TEXT    NOT NULL DEFAULT '',
+    resolution        TEXT    NOT NULL DEFAULT '',
+    status            TEXT    NOT NULL CHECK (status IN ('OPEN','IN_PROGRESS','PENDING_VERIFICATION','CLOSED')),
+    created_by        TEXT    NOT NULL,
+    created_at        BIGINT  NOT NULL,
+    updated_at        BIGINT  NOT NULL,
+    verified_by       TEXT    NOT NULL DEFAULT '',
+    verified_at       BIGINT,
+    verification_note TEXT    NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_capa_queue ON corrective_actions(status, due_at);
+CREATE INDEX IF NOT EXISTS idx_capa_owner ON corrective_actions(owner, status);
+CREATE INDEX IF NOT EXISTS idx_capa_order ON corrective_actions(order_id, created_at);
+
+CREATE TABLE IF NOT EXISTS capa_events (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    capa_id      INTEGER NOT NULL REFERENCES corrective_actions(id) ON DELETE CASCADE,
+    action       TEXT    NOT NULL,
+    note         TEXT    NOT NULL DEFAULT '',
+    performed_by TEXT    NOT NULL,
+    created_at   BIGINT  NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_capa_events_action ON capa_events(capa_id, created_at, id);
 `
 
 func Open(ctx context.Context, path string) (*sql.DB, error) {
@@ -595,6 +658,27 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		if _, err := conn.ExecContext(ctx, ddl); err != nil {
 			return fmt.Errorf("add column %s: %w", name, err)
 		}
+	}
+
+	scanCols, err := tableColumns(ctx, conn, "scan_events")
+	if err != nil {
+		return err
+	}
+	scanMigrations := map[string]string{
+		"client_event_id": `ALTER TABLE scan_events ADD COLUMN client_event_id TEXT NOT NULL DEFAULT ''`,
+		"received_at":     `ALTER TABLE scan_events ADD COLUMN received_at BIGINT`,
+	}
+	for name, ddl := range scanMigrations {
+		if scanCols[name] {
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("add scan column %s: %w", name, err)
+		}
+	}
+	if _, err := conn.ExecContext(ctx, `CREATE UNIQUE INDEX IF NOT EXISTS idx_scan_events_client_event
+		ON scan_events(scanned_by, client_event_id) WHERE client_event_id <> ''`); err != nil {
+		return fmt.Errorf("create scan idempotency index: %w", err)
 	}
 
 	if _, err := conn.ExecContext(ctx, `

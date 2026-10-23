@@ -46,6 +46,24 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "bad_request", "action must be LOOKUP")
 		return
 	}
+	if len(code) > 256 {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "code must be at most 256 characters")
+		return
+	}
+	clientEventID := cleanString(req.ClientEventID)
+	if !validScanEventID(clientEventID) {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "clientEventId must be at most 128 characters using letters, numbers, '.', '_', ':' or '-'")
+		return
+	}
+	now := s.now().UTC()
+	scannedAt := now
+	if req.ScannedAt != nil {
+		if req.ScannedAt.Before(time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC)) || req.ScannedAt.After(now.Add(5*time.Minute)) {
+			s.writeError(w, http.StatusBadRequest, "bad_request", "scannedAt must be after 2000-01-01 and no more than five minutes in the future")
+			return
+		}
+		scannedAt = req.ScannedAt.UTC()
+	}
 
 	o, err := s.store.OrderByNumber(r.Context(), code)
 	if err != nil {
@@ -60,7 +78,7 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user := s.currentUser(r)
-	event, err := s.store.RecordScan(r.Context(), o.ID, o.OrderNumber, user.Username, action, s.now().UTC())
+	event, duplicate, err := s.store.RecordScanIdempotent(r.Context(), o.ID, o.OrderNumber, user.Username, action, clientEventID, scannedAt, now)
 	if err != nil {
 		status, c, msg := s.classifyError(err)
 		s.writeError(w, status, c, msg)
@@ -91,17 +109,31 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 		Order:       o,
 		ActiveHolds: holds,
 		QCChecks:    checks,
-		SLA:         order.ComputeSLAPaused(o.TargetCompletion, s.now().UTC(), o.PausedSeconds, holdSince),
+		SLA:         order.ComputeSLAPaused(o.TargetCompletion, now, o.PausedSeconds, holdSince),
 		OnHold:      len(holds) > 0,
 	}
 
 	s.writeJSON(w, http.StatusOK, map[string]any{
-		"matched": true,
-		"action":  action,
-		"order":   o,
-		"detail":  detail,
-		"event":   event,
+		"matched":   true,
+		"action":    action,
+		"order":     o,
+		"detail":    detail,
+		"event":     event,
+		"duplicate": duplicate,
 	})
+}
+
+func validScanEventID(value string) bool {
+	if len(value) > 128 {
+		return false
+	}
+	for _, r := range value {
+		if r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == ':' || r == '-' {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func (s *Server) handleListScans(w http.ResponseWriter, r *http.Request) {

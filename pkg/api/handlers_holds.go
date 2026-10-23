@@ -90,6 +90,12 @@ func (s *Server) handleSubmitQC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.publishOrder(id, s.currentUser(r).Username)
+	if req.Status == order.QCFail {
+		if _, err := s.RunAutomations(r.Context()); err != nil {
+
+			s.logger.Printf("automation after QC failure: %v", err)
+		}
+	}
 	s.writeJSON(w, http.StatusCreated, map[string]order.QCCheck{"qcCheck": check})
 }
 

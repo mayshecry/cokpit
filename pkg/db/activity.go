@@ -170,57 +170,119 @@ func (s *Store) Comments(ctx context.Context, orderID int64) ([]order.Comment, e
 	return comments, nil
 }
 
+var ErrScanIdempotencyConflict = errors.New("scan event ID was already used for a different scan")
+
 func (s *Store) RecordScan(ctx context.Context, orderID int64, code, scannedBy, action string, now time.Time) (order.ScanEvent, error) {
+	event, _, err := s.RecordScanIdempotent(ctx, orderID, code, scannedBy, action, "", now, now)
+	return event, err
+}
+
+func (s *Store) RecordScanIdempotent(ctx context.Context, orderID int64, code, scannedBy, action, clientEventID string, scannedAt, receivedAt time.Time) (order.ScanEvent, bool, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return order.ScanEvent{}, fmt.Errorf("begin: %w", err)
+		return order.ScanEvent{}, false, fmt.Errorf("begin: %w", err)
 	}
 	defer tx.Rollback()
 
 	var exists int
 	err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM orders WHERE id = ?`, orderID).Scan(&exists)
 	if err != nil {
-		return order.ScanEvent{}, fmt.Errorf("check order: %w", err)
+		return order.ScanEvent{}, false, fmt.Errorf("check order: %w", err)
 	}
 	if exists == 0 {
-		return order.ScanEvent{}, ErrNotFound
+		return order.ScanEvent{}, false, ErrNotFound
 	}
 
-	res, err := tx.ExecContext(ctx,
-		`INSERT INTO scan_events (order_id, code, scanned_by, action, created_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		orderID, code, scannedBy, action, millis(now))
+	findDuplicate := func() (order.ScanEvent, bool, error) {
+		existing, err := scanScanEvent(tx.QueryRowContext(ctx,
+			`SELECT id, order_id, code, scanned_by, action, created_at, client_event_id, received_at
+			 FROM scan_events WHERE scanned_by = ? AND client_event_id = ?`, scannedBy, clientEventID))
+		if errors.Is(err, sql.ErrNoRows) {
+			return order.ScanEvent{}, false, nil
+		}
+		if err != nil {
+			return order.ScanEvent{}, false, fmt.Errorf("find duplicate scan: %w", err)
+		}
+		if existing.OrderID != orderID || existing.Code != code || existing.Action != action {
+			return order.ScanEvent{}, false, ErrScanIdempotencyConflict
+		}
+		return existing, true, nil
+	}
+
+	var res sql.Result
+	if clientEventID == "" {
+		res, err = tx.ExecContext(ctx,
+			`INSERT INTO scan_events (order_id, code, scanned_by, action, created_at, client_event_id, received_at)
+			 VALUES (?, ?, ?, ?, ?, '', ?)`,
+			orderID, code, scannedBy, action, millis(scannedAt), millis(receivedAt))
+	} else {
+		res, err = tx.ExecContext(ctx,
+			`INSERT INTO scan_events (order_id, code, scanned_by, action, created_at, client_event_id, received_at)
+			 VALUES (?, ?, ?, ?, ?, ?, ?)
+			 ON CONFLICT(scanned_by, client_event_id) WHERE client_event_id <> '' DO NOTHING`,
+			orderID, code, scannedBy, action, millis(scannedAt), clientEventID, millis(receivedAt))
+	}
 	if err != nil {
-		return order.ScanEvent{}, fmt.Errorf("insert scan: %w", err)
+		return order.ScanEvent{}, false, fmt.Errorf("insert scan: %w", err)
+	}
+	if clientEventID != "" {
+		affected, err := res.RowsAffected()
+		if err != nil {
+			return order.ScanEvent{}, false, fmt.Errorf("scan rows affected: %w", err)
+		}
+		if affected == 0 {
+			existing, duplicate, err := findDuplicate()
+			if err != nil {
+				return order.ScanEvent{}, false, err
+			}
+			if !duplicate {
+				return order.ScanEvent{}, false, errors.New("scan conflict did not return an existing event")
+			}
+			return existing, true, nil
+		}
 	}
 	id, err := res.LastInsertId()
 	if err != nil {
-		return order.ScanEvent{}, fmt.Errorf("last insert id: %w", err)
+		return order.ScanEvent{}, false, fmt.Errorf("last insert id: %w", err)
 	}
 
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO audit_logs (order_id, action, performed_by, timestamp) VALUES (?, ?, ?, ?)`,
-		orderID, "barcode scanned: "+code, scannedBy, millis(now)); err != nil {
-		return order.ScanEvent{}, fmt.Errorf("insert audit: %w", err)
+		orderID, "barcode scanned: "+code, scannedBy, millis(scannedAt)); err != nil {
+		return order.ScanEvent{}, false, fmt.Errorf("insert audit: %w", err)
 	}
 
 	if err := tx.Commit(); err != nil {
-		return order.ScanEvent{}, fmt.Errorf("commit: %w", err)
+		return order.ScanEvent{}, false, fmt.Errorf("commit: %w", err)
 	}
-
+	received := receivedAt.UTC()
 	return order.ScanEvent{
-		ID:        id,
-		OrderID:   orderID,
-		Code:      code,
-		ScannedBy: scannedBy,
-		Action:    action,
-		CreatedAt: now.UTC(),
-	}, nil
+		ID:            id,
+		OrderID:       orderID,
+		Code:          code,
+		ScannedBy:     scannedBy,
+		Action:        action,
+		CreatedAt:     scannedAt.UTC(),
+		ClientEventID: clientEventID,
+		ReceivedAt:    &received,
+	}, false, nil
+}
+
+func scanScanEvent(row interface{ Scan(...any) error }) (order.ScanEvent, error) {
+	var event order.ScanEvent
+	var created int64
+	var received sql.NullInt64
+	if err := row.Scan(&event.ID, &event.OrderID, &event.Code, &event.ScannedBy, &event.Action, &created, &event.ClientEventID, &received); err != nil {
+		return order.ScanEvent{}, err
+	}
+	event.CreatedAt = fromMillis(created)
+	event.ReceivedAt = nullableTime(received)
+	return event, nil
 }
 
 func (s *Store) ScanEvents(ctx context.Context, orderID int64) ([]order.ScanEvent, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, order_id, code, scanned_by, action, created_at
+		`SELECT id, order_id, code, scanned_by, action, created_at, client_event_id, received_at
 		 FROM scan_events WHERE order_id = ? ORDER BY created_at DESC, id DESC`, orderID)
 	if err != nil {
 		return nil, fmt.Errorf("list scan events: %w", err)
@@ -229,13 +291,11 @@ func (s *Store) ScanEvents(ctx context.Context, orderID int64) ([]order.ScanEven
 
 	events := []order.ScanEvent{}
 	for rows.Next() {
-		var e order.ScanEvent
-		var created int64
-		if err := rows.Scan(&e.ID, &e.OrderID, &e.Code, &e.ScannedBy, &e.Action, &created); err != nil {
+		event, err := scanScanEvent(rows)
+		if err != nil {
 			return nil, fmt.Errorf("scan event: %w", err)
 		}
-		e.CreatedAt = fromMillis(created)
-		events = append(events, e)
+		events = append(events, event)
 	}
 	return events, rows.Err()
 }

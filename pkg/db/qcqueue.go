@@ -5,7 +5,6 @@ import (
 	"fmt"
 )
 
-// QCQueueItem is one order waiting on the QC bench.
 type QCQueueItem struct {
 	ID          int64  `json:"id"`
 	OrderNumber string `json:"orderNumber"`
@@ -18,7 +17,6 @@ type QCQueueItem struct {
 	ProductName string `json:"productName"`
 }
 
-// QCQueue returns orders in QC_Review, most urgent target first.
 func (s *Store) QCQueue(ctx context.Context) ([]QCQueueItem, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT o.id, o.order_number, o.customer_name, o.device, o.assigned_to,
@@ -49,7 +47,6 @@ func (s *Store) QCQueue(ctx context.Context) ([]QCQueueItem, error) {
 	return out, rows.Err()
 }
 
-// QCContextRow is one past QC verdict for the same customer or product.
 type QCContextRow struct {
 	OrderNumber string `json:"orderNumber"`
 	Status      string `json:"status"`
@@ -59,8 +56,6 @@ type QCContextRow struct {
 	SameProduct bool   `json:"sameProduct"`
 }
 
-// QCContext returns recent QC verdicts sharing the given customer or product,
-// newest first, excluding the order currently on the bench.
 func (s *Store) QCContext(ctx context.Context, excludeID int64, customer, productCode string, limit int) ([]QCContextRow, error) {
 	if limit <= 0 || limit > 20 {
 		limit = 6
@@ -91,7 +86,6 @@ func (s *Store) QCContext(ctx context.Context, excludeID int64, customer, produc
 	return out, rows.Err()
 }
 
-// OrderContextKeys returns the customer name and primary product of an order.
 func (s *Store) OrderContextKeys(ctx context.Context, orderID int64) (customer, code, name string, err error) {
 	if err = s.db.QueryRowContext(ctx, `SELECT customer_name FROM orders WHERE id = ?`, orderID).Scan(&customer); err != nil {
 		return "", "", "", fmt.Errorf("order context keys: %w", err)

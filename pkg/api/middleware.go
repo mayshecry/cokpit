@@ -40,9 +40,9 @@ func (s *Server) currentUser(r *http.Request) auth.User {
 
 func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
-		if !ok || token == "" {
-			s.writeError(w, http.StatusUnauthorized, "unauthorized", "missing bearer token")
+		token := s.requestToken(r)
+		if token == "" {
+			s.writeError(w, http.StatusUnauthorized, "unauthorized", "missing session credentials")
 			return
 		}
 		user, err := s.store.UserByToken(r.Context(), token, s.now().UTC())

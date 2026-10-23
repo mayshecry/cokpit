@@ -8,17 +8,14 @@ import (
 	"time"
 )
 
-// ErrNoCustomerFlow means the customer has no workflow override.
 var ErrNoCustomerFlow = errors.New("no customer workflow")
 
-// CustomerFlowMeta summarises a per-customer workflow override.
 type CustomerFlowMeta struct {
 	Customer  string    `json:"customer"`
 	UpdatedBy string    `json:"updatedBy"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
-// GetCustomerWorkflow returns the stored override JSON for a customer.
 func (s *Store) GetCustomerWorkflow(ctx context.Context, customer string) (string, error) {
 	var json string
 	err := s.db.QueryRowContext(ctx, `SELECT steps_json FROM customer_workflows WHERE customer_name = ?`, customer).Scan(&json)
@@ -31,7 +28,6 @@ func (s *Store) GetCustomerWorkflow(ctx context.Context, customer string) (strin
 	return json, nil
 }
 
-// PutCustomerWorkflow stores (or removes, with empty JSON) a customer override.
 func (s *Store) PutCustomerWorkflow(ctx context.Context, customer, stepsJSON, by string, now time.Time) error {
 	if stepsJSON == "" {
 		if _, err := s.db.ExecContext(ctx, `DELETE FROM customer_workflows WHERE customer_name = ?`, customer); err != nil {
@@ -51,7 +47,6 @@ func (s *Store) PutCustomerWorkflow(ctx context.Context, customer, stepsJSON, by
 	return nil
 }
 
-// ListCustomerWorkflows lists which customers carry an override.
 func (s *Store) ListCustomerWorkflows(ctx context.Context) ([]CustomerFlowMeta, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT customer_name, updated_by, updated_at FROM customer_workflows ORDER BY customer_name`)
 	if err != nil {
@@ -71,7 +66,6 @@ func (s *Store) ListCustomerWorkflows(ctx context.Context) ([]CustomerFlowMeta, 
 	return out, rows.Err()
 }
 
-// DistinctOrderCustomers returns customer names actually used on orders.
 func (s *Store) DistinctOrderCustomers(ctx context.Context) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT customer_name FROM orders WHERE customer_name <> '' ORDER BY customer_name`)
 	if err != nil {

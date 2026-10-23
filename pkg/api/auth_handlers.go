@@ -2,12 +2,14 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
 	"cockpit/pkg/auth"
+	"cockpit/pkg/db"
 )
 
 type loginRequest struct {
@@ -20,15 +22,15 @@ type loginResponse struct {
 	User  auth.User `json:"user"`
 }
 
+const unknownUserPasswordHash = "pbkdf2-sha256$600000$92f5615e837dd02623bff92cf6257f78$67c208648614bdb161766ac377be0ba7e0298ca76a6770823a3c9b740810af69"
+
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
 	if err := s.decodeJSON(w, r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
 		return
 	}
-	// Brute-force throttle before any credential work (reads are cheap,
-	// PBKDF2 is not): strict per IP+username (5 attempts / 5 min), plus a
-	// broader per-IP ceiling (20 / minute). 429 + Retry-After when hit.
+
 	ip := clientIP(r)
 	uname := strings.ToLower(cleanString(req.Username))
 	if ok, retry := s.loginLimiter.Allow(ip+"|login", 20, time.Minute); !ok {
@@ -47,8 +49,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := s.store.UserByUsername(r.Context(), cleanString(req.Username))
-	if err != nil {
+	if errors.Is(err, db.ErrNotFound) {
+		_, _ = auth.CheckPassword(unknownUserPasswordHash, req.Password)
 		s.writeError(w, http.StatusUnauthorized, "unauthorized", "invalid username or password")
+		return
+	}
+	if err != nil {
+		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
 	ok, err := auth.CheckPassword(user.PasswordHash, req.Password)
@@ -57,8 +64,6 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Successful auth: clear this account+IP window again so a typo streak
-	// earlier in the day never carries over.
 	s.loginLimiter.Reset(ip + "|" + uname)
 
 	token, err := auth.NewToken()
@@ -67,21 +72,24 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := s.now().UTC()
-	if err := s.store.IssueToken(r.Context(), user.ID, token, now, now.Add(s.sessionHours)); err != nil {
+	expiresAt := now.Add(s.sessionHours)
+	if err := s.store.IssueToken(r.Context(), user.ID, token, now, expiresAt); err != nil {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
 
 	user.PasswordHash = ""
 	user = s.userWithDeptPerms(r.Context(), user)
+	s.setSessionCookie(w, r, token, expiresAt)
 	s.writeJSON(w, http.StatusOK, loginResponse{Token: token, User: user})
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	if err := s.store.DeleteToken(r.Context(), s.bearerToken(r)); err != nil {
+	if err := s.store.DeleteToken(r.Context(), s.requestToken(r)); err != nil {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
+	s.clearSessionCookie(w, r)
 	s.writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
@@ -99,5 +107,11 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	user.PasswordHash = ""
 	user = s.userWithDeptPerms(r.Context(), user)
+
+	if _, err := r.Cookie(sessionCookieName); err != nil {
+		if token := s.bearerToken(r); token != "" {
+			s.setSessionCookie(w, r, token, s.now().UTC().Add(s.sessionHours))
+		}
+	}
 	s.writeJSON(w, http.StatusOK, map[string]auth.User{"user": user})
 }

@@ -21,7 +21,6 @@ var (
 	ErrCrossCustomerLink       = errors.New("all linked projects must belong to the same customer as the primary project")
 )
 
-// SetCustomerCoordinator assigns (or clears with "") the SC responsible for a customer.
 func (s *Store) SetCustomerCoordinator(ctx context.Context, id int64, username string) (si.Customer, error) {
 	if _, err := s.db.ExecContext(ctx, `UPDATE customers SET assigned_to = ? WHERE id = ?`, username, id); err != nil {
 		return si.Customer{}, fmt.Errorf("set customer coordinator: %w", err)

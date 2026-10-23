@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// DayGoal is one person's goal for a calendar day (day = YYYY-MM-DD).
 type DayGoal struct {
 	ID        int64  `json:"id"`
 	Day       string `json:"day"`
@@ -62,7 +61,6 @@ func (s *Store) MarkGoalSent(ctx context.Context, id int64, now time.Time) error
 	return nil
 }
 
-// QCUserStat aggregates QC results per order assignee for a time window.
 type QCUserStat struct {
 	Username string `json:"username"`
 	Pass     int    `json:"pass"`
@@ -92,9 +90,6 @@ func (s *Store) QCStats(ctx context.Context, fromMs, toMs int64) ([]QCUserStat, 
 	return out, rows.Err()
 }
 
-// QCDashboard is the rich payload behind the Quality menu: per-tech stats with
-// previous-month comparison, a daily trend, fail-reason breakdown and the most
-// recent checks.
 type QCDashboard struct {
 	PerUser  []QCUserStatExt `json:"perUser"`
 	Checks   int             `json:"checks"`
@@ -108,8 +103,6 @@ type QCDashboard struct {
 	History  []QCMonthPoint  `json:"history"`
 }
 
-// QCMonthPoint is one month of the rolling six-month window behind the
-// sparklines (rate is null when nothing was checked that month).
 type QCMonthPoint struct {
 	Month  string   `json:"month"`
 	Checks int      `json:"checks"`
@@ -152,8 +145,6 @@ func rate(pass, total int) float64 {
 	return float64(pass) / float64(total) * 100
 }
 
-// QCDashboard aggregates QC checks between fromMs/toMs and compares against
-// prevFromMs/prevToMs (the previous month window).
 func (s *Store) QCDashboard(ctx context.Context, fromMs, toMs, prevFromMs, prevToMs int64) (*QCDashboard, error) {
 	out := &QCDashboard{PerUser: []QCUserStatExt{}, Trend: []QCTrendPoint{}, Reasons: []QCReason{}, Recent: []QCRecentCheck{}}
 
@@ -214,7 +205,6 @@ func (s *Store) QCDashboard(ctx context.Context, fromMs, toMs, prevFromMs, prevT
 		return nil, err
 	}
 
-	// rolling six-month window: overall rate per month + per-tech fail rate
 	fromT := time.UnixMilli(fromMs).UTC()
 	startMs := time.Date(fromT.Year(), fromT.Month()-5, 1, 0, 0, 0, 0, time.UTC).UnixMilli()
 	months := make([]string, 0, 6)

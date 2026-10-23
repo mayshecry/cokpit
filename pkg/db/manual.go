@@ -74,7 +74,6 @@ func (s *Store) CreateProduct(ctx context.Context, code, name, description, depa
 	return s.getProductRow(ctx, id)
 }
 
-// ApproveProduct marks a product (manual template) as approved by the given user.
 func (s *Store) ApproveProduct(ctx context.Context, id int64, by string, now time.Time) (order.Product, error) {
 	if _, err := s.db.ExecContext(ctx,
 		`UPDATE products SET approved_by = ?, approved_at = ?, updated_at = ? WHERE id = ?`,
@@ -84,7 +83,6 @@ func (s *Store) ApproveProduct(ctx context.Context, id int64, by string, now tim
 	return s.getProductRow(ctx, id)
 }
 
-// SetProductDepartment moves a product to another owning department.
 func (s *Store) SetProductDepartment(ctx context.Context, id int64, department string, now time.Time) (order.Product, error) {
 	if _, err := s.db.ExecContext(ctx,
 		`UPDATE products SET department = ?, updated_at = ? WHERE id = ?`,

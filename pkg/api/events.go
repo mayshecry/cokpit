@@ -76,6 +76,12 @@ func (s *Server) publishManual(orderID int64, by string) {
 	}
 }
 
+func (s *Server) publishAutomation() {
+	if s.hub != nil {
+		s.hub.publish(eventMessage{Type: "automation"})
+	}
+}
+
 func (s *Server) publishComment(orderID int64, by string) {
 	if s.hub != nil {
 		s.hub.publish(eventMessage{Type: "comment", OrderID: orderID, By: by})
@@ -137,12 +143,10 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) requireAuthSSE(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token := s.bearerToken(r)
+
+		token := s.requestToken(r)
 		if token == "" {
-			token = r.URL.Query().Get("token")
-		}
-		if token == "" {
-			s.writeError(w, http.StatusUnauthorized, "unauthorized", "missing bearer token")
+			s.writeError(w, http.StatusUnauthorized, "unauthorized", "missing session credentials")
 			return
 		}
 		user, err := s.store.UserByToken(r.Context(), token, s.now().UTC())

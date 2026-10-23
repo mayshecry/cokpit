@@ -8,9 +8,6 @@ import (
 	"cockpit/pkg/db"
 )
 
-// handleListCustomers returns every known customer name: the managed
-// directory, plus custom names already used on orders, plus which names
-// carry a guided-workflow override.
 func (s *Server) handleListCustomersDirectory(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	managed, err := s.store.ListCustomers(ctx)
@@ -72,9 +69,6 @@ func (s *Server) handleListCustomersDirectory(w http.ResponseWriter, r *http.Req
 	s.writeJSON(w, http.StatusOK, map[string]any{"customers": out})
 }
 
-// handleCreateCustomer adds a new customer to the managed directory. The
-// number is optional; when omitted one is generated. Duplicate names or
-// numbers return a 409.
 func (s *Server) handleCreateCustomerManaged(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name   string `json:"name"`
@@ -135,7 +129,6 @@ func (s *Server) handleCreateCustomerManaged(w http.ResponseWriter, r *http.Requ
 	s.writeJSON(w, http.StatusCreated, map[string]any{"customer": cust})
 }
 
-// handleListCustomerFlows lists which customers carry a workflow override.
 func (s *Server) handleListCustomerFlows(w http.ResponseWriter, r *http.Request) {
 	flows, err := s.store.ListCustomerWorkflows(r.Context())
 	if err != nil {

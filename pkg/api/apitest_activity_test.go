@@ -190,6 +190,65 @@ func TestScanLookupAndAudit(t *testing.T) {
 	}
 }
 
+func TestOfflineScanSyncIsIdempotent(t *testing.T) {
+	ts, _ := newActivityServer(t)
+	opTk := seedOperator(t, ts)
+	orderID := mustCreate(t, ts, "ORD-OFFLINE-SYNC")
+	mustCreate(t, ts, "ORD-OFFLINE-OTHER")
+	scannedAt := fixedClock().UTC().Add(-90 * time.Minute).Truncate(time.Millisecond)
+	payload := fmt.Sprintf(`{"code":"ORD-OFFLINE-SYNC","clientEventId":"scanner-1:0001","scannedAt":%q}`, scannedAt.Format(time.RFC3339Nano))
+
+	code, body := doAs(t, "POST", ts.URL+"/api/v1/scan", payload, opTk)
+	if code != http.StatusOK {
+		t.Fatalf("offline sync: %d %v", code, body)
+	}
+	if body["duplicate"] != false {
+		t.Fatalf("first sync duplicate = %v", body["duplicate"])
+	}
+	first := body["event"].(map[string]any)
+	firstID := first["id"]
+	if first["clientEventId"] != "scanner-1:0001" {
+		t.Fatalf("client event ID = %v", first["clientEventId"])
+	}
+	gotScannedAt, err := time.Parse(time.RFC3339Nano, first["createdAt"].(string))
+	if err != nil || !gotScannedAt.Equal(scannedAt) {
+		t.Fatalf("createdAt = %v, want %s (err %v)", first["createdAt"], scannedAt, err)
+	}
+	if _, ok := first["receivedAt"].(string); !ok {
+		t.Fatalf("receivedAt missing: %v", first)
+	}
+
+	code, body = doAs(t, "POST", ts.URL+"/api/v1/scan", payload, opTk)
+	if code != http.StatusOK || body["duplicate"] != true {
+		t.Fatalf("duplicate retry: %d %v", code, body)
+	}
+	if body["event"].(map[string]any)["id"] != firstID {
+		t.Fatalf("retry returned a different event: %v", body["event"])
+	}
+
+	code, body = do(t, "GET", fmt.Sprintf("%s/api/v1/orders/%d/scans", ts.URL, orderID), "")
+	if code != http.StatusOK || len(body["scanEvents"].([]any)) != 1 {
+		t.Fatalf("duplicate retry created history: %d %v", code, body)
+	}
+
+	conflictPayload := fmt.Sprintf(`{"code":"ORD-OFFLINE-OTHER","clientEventId":"scanner-1:0001","scannedAt":%q}`, scannedAt.Format(time.RFC3339Nano))
+	code, body = doAs(t, "POST", ts.URL+"/api/v1/scan", conflictPayload, opTk)
+	if code != http.StatusConflict || body["error"].(map[string]any)["code"] != "scan_idempotency_conflict" {
+		t.Fatalf("reused key on another order: %d %v", code, body)
+	}
+	future := fixedClock().UTC().Add(time.Hour).Format(time.RFC3339)
+	code, _ = doAs(t, "POST", ts.URL+"/api/v1/scan",
+		fmt.Sprintf(`{"code":"ORD-OFFLINE-SYNC","clientEventId":"scanner-1:future","scannedAt":%q}`, future), opTk)
+	if code != http.StatusBadRequest {
+		t.Fatalf("future device timestamp = %d, want 400", code)
+	}
+	code, _ = doAs(t, "POST", ts.URL+"/api/v1/scan",
+		`{"code":"ORD-OFFLINE-SYNC","clientEventId":"not a valid key"}`, opTk)
+	if code != http.StatusBadRequest {
+		t.Fatalf("invalid client event ID = %d, want 400", code)
+	}
+}
+
 func TestScanPermissionGated(t *testing.T) {
 	ts, _ := newActivityServer(t)
 	mustCreate(t, ts, "ORD-S")

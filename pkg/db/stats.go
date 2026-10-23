@@ -6,19 +6,16 @@ import (
 	"fmt"
 )
 
-// DayCount is a per-calendar-day counter (day = YYYY-MM-DD, UTC).
 type DayCount struct {
 	Day   string `json:"day"`
 	Count int    `json:"count"`
 }
 
-// DayMs is a per-calendar-day duration total in milliseconds.
 type DayMs struct {
 	Day string `json:"day"`
 	Ms  int64  `json:"ms"`
 }
 
-// UserStat aggregates work-session effort per user.
 type UserStat struct {
 	Username  string `json:"username"`
 	Sessions  int    `json:"sessions"`
@@ -27,7 +24,6 @@ type UserStat struct {
 	Active    int    `json:"active"`
 }
 
-// CompletedPerDay counts orders that reached Completed (audit trail) since sinceMs.
 func (s *Store) CompletedPerDay(ctx context.Context, sinceMs int64) ([]DayCount, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT date(timestamp/1000, 'unixepoch') AS d, COUNT(*)
@@ -49,7 +45,6 @@ func (s *Store) CompletedPerDay(ctx context.Context, sinceMs int64) ([]DayCount,
 	return out, rows.Err()
 }
 
-// CreatedPerDay counts orders created since sinceMs.
 func (s *Store) CreatedPerDay(ctx context.Context, sinceMs int64) ([]DayCount, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT date(created_at/1000, 'unixepoch') AS d, COUNT(*)
@@ -71,7 +66,6 @@ func (s *Store) CreatedPerDay(ctx context.Context, sinceMs int64) ([]DayCount, e
 	return out, rows.Err()
 }
 
-// ClockedPerDay sums ended work-session time per day the session ended.
 func (s *Store) ClockedPerDay(ctx context.Context, sinceMs int64) ([]DayMs, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT date(ended_at/1000, 'unixepoch') AS d, SUM(ended_at - started_at)
@@ -93,8 +87,6 @@ func (s *Store) ClockedPerDay(ctx context.Context, sinceMs int64) ([]DayMs, erro
 	return out, rows.Err()
 }
 
-// HandleAvgMs returns the average total clocked time per order (ended sessions
-// only) plus the number of orders that have any ended session.
 func (s *Store) HandleAvgMs(ctx context.Context) (int64, int, error) {
 	var avg sql.NullFloat64
 	var n sql.NullInt64
@@ -114,7 +106,6 @@ func (s *Store) HandleAvgMs(ctx context.Context) (int64, int, error) {
 	return int64(avg.Float64), int(n.Int64), nil
 }
 
-// Leaderboard aggregates session effort and completions per user since sinceMs.
 func (s *Store) Leaderboard(ctx context.Context, sinceMs int64) ([]UserStat, error) {
 	byUser := map[string]*UserStat{}
 	get := func(u string) *UserStat {

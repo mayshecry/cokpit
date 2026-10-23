@@ -13,8 +13,6 @@ import (
 	"cockpit/pkg/order"
 )
 
-// workOrder resolves the order and enforces that the caller is the assignee
-// (or an admin), which is the rule for clocking in on an order.
 func (s *Server) workOrder(w http.ResponseWriter, r *http.Request) (order.Order, bool) {
 	id, err := parseID(r, "id")
 	if err != nil {
@@ -158,8 +156,6 @@ func (s *Server) handleListMyWork(w http.ResponseWriter, r *http.Request) {
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"sessions": sessions})
 }
-
-/* ---- configurable work flow ---- */
 
 type wfCheck struct {
 	Key   string `json:"key"`

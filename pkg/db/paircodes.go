@@ -6,22 +6,16 @@ import (
 	"time"
 )
 
-// ErrPairCodeInvalid marks a code that is unknown, already consumed, or expired.
 var ErrPairCodeInvalid = errors.New("invalid, consumed or expired pairing code")
 
-// PairCode is a one-time device-pairing code, optionally account-linked.
-// Many codes can be active at once (one per admin action), each single-use.
 type PairCode struct {
 	Code      string    `json:"code"`
-	Username  string    `json:"username"` // "" = device-only (no auto sign-in)
+	Username  string    `json:"username"`
 	CreatedBy string    `json:"createdBy"`
 	CreatedAt time.Time `json:"createdAt"`
 	ExpiresAt time.Time `json:"expiresAt"`
 }
 
-// CanonicalPairCode normalizes any user/server rendering of a code
-// ("9613 3387", "9613-3387", "96133387") to the storage form "9613-3387"
-// (uppercase alphanumerics, dash every 4 chars).
 func CanonicalPairCode(code string) string {
 	out := make([]byte, 0, 10)
 	n := 0
@@ -43,12 +37,9 @@ func CanonicalPairCode(code string) string {
 	return string(out)
 }
 
-// SQLite keeps its own write serialization; the conditional UPDATE in
-// ConsumePairCode makes double-spending a code impossible.
-
 func (s *Store) IssuePairCode(ctx context.Context, pc PairCode) error {
 	pc.Code = CanonicalPairCode(pc.Code)
-	// Garbage-collect stale rows (used or long-expired) on every issue.
+
 	_, _ = s.db.ExecContext(ctx,
 		`DELETE FROM pair_codes WHERE used_at != 0 OR expires_at < ?`, pc.CreatedAt.Add(-7*24*time.Hour).Unix())
 	_, err := s.db.ExecContext(ctx,
@@ -58,8 +49,6 @@ func (s *Store) IssuePairCode(ctx context.Context, pc PairCode) error {
 	return err
 }
 
-// ActivePairCode returns an unexpired, unused code bound to username
-// ("" = device-only binding), so re-rendering a QR keeps showing a valid code.
 func (s *Store) ActivePairCode(ctx context.Context, username string, now time.Time) (PairCode, error) {
 	var pc PairCode
 	var created, expires int64
@@ -74,7 +63,6 @@ func (s *Store) ActivePairCode(ctx context.Context, username string, now time.Ti
 	return pc, nil
 }
 
-// ConsumePairCode atomically marks a code used (single-use) and returns it.
 func (s *Store) ConsumePairCode(ctx context.Context, code string, now time.Time) (PairCode, error) {
 	code = CanonicalPairCode(code)
 	res, err := s.db.ExecContext(ctx,
@@ -100,8 +88,6 @@ func (s *Store) ConsumePairCode(ctx context.Context, code string, now time.Time)
 	return pc, nil
 }
 
-// AnyActivePairCode returns any unexpired, unused code (used by the boot log
-// to reprint a rescue code). Prefers the most recently created one.
 func (s *Store) AnyActivePairCode(ctx context.Context, now time.Time) (PairCode, error) {
 	var pc PairCode
 	var created, expires int64

@@ -3,24 +3,24 @@ package order
 import "time"
 
 type Order struct {
-	ID               int64     `json:"id"`
-	OrderNumber      string    `json:"orderNumber"`
-	Status           Status    `json:"status"`
-	TargetCompletion time.Time `json:"targetCompletionAt"`
-	CreatedAt        time.Time `json:"createdAt"`
-	UpdatedAt        time.Time `json:"updatedAt"`
-	Assignee string `json:"assignee,omitempty"`
-	PausedSeconds int64      `json:"pausedSeconds,omitempty"`
-	HoldSince     *time.Time `json:"holdSince,omitempty"`
-	SLA *SLA `json:"sla,omitempty"`
-	DebitNumber       string `json:"debitNumber,omitempty"`
-	CustomerName      string `json:"customerName,omitempty"`	
-	OmnitrackerTicket string `json:"omnitrackerTicket,omitempty"`
-	Device            string `json:"device,omitempty"`
-	AssetNumber       string `json:"assetNumber,omitempty"`
-	Configuration     string `json:"configuration,omitempty"`
-	SIID              *int64 `json:"siId,omitempty"`
-	Barcode           string `json:"barcode,omitempty"`
+	ID                int64      `json:"id"`
+	OrderNumber       string     `json:"orderNumber"`
+	Status            Status     `json:"status"`
+	TargetCompletion  time.Time  `json:"targetCompletionAt"`
+	CreatedAt         time.Time  `json:"createdAt"`
+	UpdatedAt         time.Time  `json:"updatedAt"`
+	Assignee          string     `json:"assignee,omitempty"`
+	PausedSeconds     int64      `json:"pausedSeconds,omitempty"`
+	HoldSince         *time.Time `json:"holdSince,omitempty"`
+	SLA               *SLA       `json:"sla,omitempty"`
+	DebitNumber       string     `json:"debitNumber,omitempty"`
+	CustomerName      string     `json:"customerName,omitempty"`
+	OmnitrackerTicket string     `json:"omnitrackerTicket,omitempty"`
+	Device            string     `json:"device,omitempty"`
+	AssetNumber       string     `json:"assetNumber,omitempty"`
+	Configuration     string     `json:"configuration,omitempty"`
+	SIID              *int64     `json:"siId,omitempty"`
+	Barcode           string     `json:"barcode,omitempty"`
 }
 
 type Hold struct {
@@ -71,12 +71,14 @@ type Comment struct {
 }
 
 type ScanEvent struct {
-	ID        int64     `json:"id"`
-	OrderID   int64     `json:"orderId"`
-	Code      string    `json:"code"`
-	ScannedBy string    `json:"scannedBy"`
-	Action    string    `json:"action"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID            int64      `json:"id"`
+	OrderID       int64      `json:"orderId"`
+	Code          string     `json:"code"`
+	ScannedBy     string     `json:"scannedBy"`
+	Action        string     `json:"action"`
+	CreatedAt     time.Time  `json:"createdAt"`
+	ClientEventID string     `json:"clientEventId,omitempty"`
+	ReceivedAt    *time.Time `json:"receivedAt,omitempty"`
 }
 
 type ScanResult struct {
@@ -104,8 +106,10 @@ type CommentRequest struct {
 }
 
 type ScanRequest struct {
-	Code   string `json:"code"`
-	Action string `json:"action"`
+	Code          string     `json:"code"`
+	Action        string     `json:"action"`
+	ClientEventID string     `json:"clientEventId,omitempty"`
+	ScannedAt     *time.Time `json:"scannedAt,omitempty"`
 }
 
 type NotificationsResponse struct {
@@ -115,32 +119,32 @@ type NotificationsResponse struct {
 
 type OrderDetail struct {
 	Order
-	ActiveHolds []Hold `json:"activeHolds"`
-	QCChecks []QCCheck `json:"qcChecks"`
-	SLA SLA `json:"sla"`
-	OnHold bool `json:"onHold"`
+	ActiveHolds []Hold    `json:"activeHolds"`
+	QCChecks    []QCCheck `json:"qcChecks"`
+	SLA         SLA       `json:"sla"`
+	OnHold      bool      `json:"onHold"`
 }
 
 type CreateOrderRequest struct {
-	OrderNumber string `json:"orderNumber"`
-	TargetCompletion *time.Time `json:"targetCompletionAt"`
-	CustomerName      string `json:"customerName"`
-	DebitNumber       string `json:"debitNumber"`
-	OmnitrackerTicket string `json:"omnitrackerTicket"`
-	Device            string `json:"device"`
-	AssetNumber       string `json:"assetNumber"`
-	Configuration     string `json:"configuration"`
+	OrderNumber       string     `json:"orderNumber"`
+	TargetCompletion  *time.Time `json:"targetCompletionAt"`
+	CustomerName      string     `json:"customerName"`
+	DebitNumber       string     `json:"debitNumber"`
+	OmnitrackerTicket string     `json:"omnitrackerTicket"`
+	Device            string     `json:"device"`
+	AssetNumber       string     `json:"assetNumber"`
+	Configuration     string     `json:"configuration"`
 }
 
 type TransitionRequest struct {
-	Status Status `json:"status"`
-	PerformedBy string `json:"performedBy"`
+	Status            Status     `json:"status"`
+	PerformedBy       string     `json:"performedBy"`
 	ExpectedUpdatedAt *time.Time `json:"expectedUpdatedAt,omitempty"`
 }
 
 type HoldRequest struct {
-	Reason    string `json:"reason"`
-	CreatedBy string `json:"createdBy"`
+	Reason            string     `json:"reason"`
+	CreatedBy         string     `json:"createdBy"`
 	ExpectedUpdatedAt *time.Time `json:"expectedUpdatedAt,omitempty"`
 }
 

@@ -141,13 +141,24 @@ func (s *Store) SetUserPassword(ctx context.Context, id int64, passwordHash stri
 	if passwordHash == "" {
 		return auth.User{}, errors.New("password hash is required")
 	}
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE users SET password_hash = ? WHERE id = ?`, passwordHash, id)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return auth.User{}, fmt.Errorf("begin password reset: %w", err)
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE users SET password_hash = ? WHERE id = ?`, passwordHash, id)
 	if err != nil {
 		return auth.User{}, fmt.Errorf("update password: %w", err)
 	}
 	if affected, _ := res.RowsAffected(); affected == 0 {
 		return auth.User{}, ErrNotFound
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM api_tokens WHERE user_id = ?`, id); err != nil {
+		return auth.User{}, fmt.Errorf("revoke password-reset sessions: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return auth.User{}, fmt.Errorf("commit password reset: %w", err)
 	}
 	return s.UserByID(ctx, id)
 }
@@ -164,9 +175,16 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 }
 
 func (s *Store) IssueToken(ctx context.Context, userID int64, token string, now, expiresAt time.Time) error {
+	if token == "" || !expiresAt.After(now) {
+		return errors.New("valid token and future expiry are required")
+	}
+
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE expires_at <= ?`, millis(now)); err != nil {
+		return fmt.Errorf("prune expired tokens: %w", err)
+	}
 	_, err := s.db.ExecContext(ctx,
 		`INSERT INTO api_tokens (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
-		token, userID, millis(now), millis(expiresAt))
+		auth.HashToken(token), userID, millis(now), millis(expiresAt))
 	if err != nil {
 		return fmt.Errorf("insert token: %w", err)
 	}
@@ -174,10 +192,20 @@ func (s *Store) IssueToken(ctx context.Context, userID int64, token string, now,
 }
 
 func (s *Store) UserByToken(ctx context.Context, token string, now time.Time) (auth.User, error) {
-	u, err := scanUser(s.db.QueryRowContext(ctx,
-		`SELECT u.id, u.username, u.password_hash, u.display_name, u.role, u.created_at
+	if token == "" {
+		return auth.User{}, ErrInvalidToken
+	}
+	const query = `SELECT u.id, u.username, u.password_hash, u.display_name, u.role, u.created_at
 		 FROM api_tokens t JOIN users u ON u.id = t.user_id
-		 WHERE t.token = ? AND t.expires_at > ?`, token, millis(now)))
+		 WHERE t.token = ? AND t.expires_at > ?`
+	u, err := scanUser(s.db.QueryRowContext(ctx, query, auth.HashToken(token), millis(now)))
+	if errors.Is(err, sql.ErrNoRows) {
+
+		u, err = scanUser(s.db.QueryRowContext(ctx, query, token, millis(now)))
+		if err == nil {
+			_, _ = s.db.ExecContext(ctx, `UPDATE api_tokens SET token = ? WHERE token = ?`, auth.HashToken(token), token)
+		}
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		return auth.User{}, ErrInvalidToken
 	}
@@ -188,7 +216,10 @@ func (s *Store) UserByToken(ctx context.Context, token string, now time.Time) (a
 }
 
 func (s *Store) DeleteToken(ctx context.Context, token string) error {
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE token = ?`, token); err != nil {
+	if token == "" {
+		return nil
+	}
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM api_tokens WHERE token = ? OR token = ?`, auth.HashToken(token), token); err != nil {
 		return fmt.Errorf("delete token: %w", err)
 	}
 	return nil

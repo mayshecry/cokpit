@@ -3,17 +3,17 @@ package order
 import "time"
 
 type Product struct {
-	ID          int64     `json:"id"`
-	Code        string    `json:"code"`
-	Name        string    `json:"name"`
-	Description string    `json:"description,omitempty"`
-	BlockCount  int       `json:"blockCount"`
-	Department  string    `json:"department,omitempty"`
-	ApprovedBy  string    `json:"approvedBy,omitempty"`
+	ID          int64      `json:"id"`
+	Code        string     `json:"code"`
+	Name        string     `json:"name"`
+	Description string     `json:"description,omitempty"`
+	BlockCount  int        `json:"blockCount"`
+	Department  string     `json:"department,omitempty"`
+	ApprovedBy  string     `json:"approvedBy,omitempty"`
 	ApprovedAt  *time.Time `json:"approvedAt,omitempty"`
-	CreatedBy   string    `json:"createdBy,omitempty"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	CreatedBy   string     `json:"createdBy,omitempty"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
 }
 
 type ManualBlock struct {

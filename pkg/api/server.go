@@ -7,9 +7,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"cockpit/pkg/auth"
+	"cockpit/pkg/automation"
+	"cockpit/pkg/capa"
 	"cockpit/pkg/db"
 	"cockpit/pkg/order"
 	"cockpit/pkg/si"
@@ -27,15 +30,15 @@ type Server struct {
 	sessionHours time.Duration
 	logger       *log.Logger
 	hub          *eventHub
+	automationMu sync.Mutex
 	config       ServerConfig
 }
 
 type ServerConfig struct {
 	ClientGuard *ClientGuard
-	// TrustProxy: honor X-Forwarded-For / -Proto / -Host (set behind a proxy).
+
 	TrustProxy bool
-	// PublicURL: absolute external URL, e.g. https://cockpit.example.com —
-	// used for QR URLs and the cookie Secure flag; wins over header inference.
+
 	PublicURL string
 	Now       func() time.Time
 
@@ -118,6 +121,17 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/qc/queue", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleQCQueue)))
 	mux.HandleFunc("GET /api/v1/qc/reasons", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleQCReasons)))
 	mux.HandleFunc("GET /api/v1/qc/context/{id}", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleQCContext)))
+	mux.HandleFunc("GET /api/v1/capa", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleListCAPA)))
+	mux.HandleFunc("POST /api/v1/capa", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleCreateCAPA)))
+	mux.HandleFunc("GET /api/v1/capa/{id}", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleGetCAPA)))
+	mux.HandleFunc("POST /api/v1/capa/{id}", s.requireAuth(s.handleUpdateCAPA))
+	mux.HandleFunc("POST /api/v1/capa/{id}/verify", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleVerifyCAPA)))
+	mux.HandleFunc("GET /api/v1/automations", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleListAutomationRules)))
+	mux.HandleFunc("POST /api/v1/automations", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleCreateAutomationRule)))
+	mux.HandleFunc("POST /api/v1/automations/{id}", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleUpdateAutomationRule)))
+	mux.HandleFunc("DELETE /api/v1/automations/{id}", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleDeleteAutomationRule)))
+	mux.HandleFunc("GET /api/v1/automation-runs", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleListAutomationRuns)))
+	mux.HandleFunc("POST /api/v1/automations/evaluate", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleEvaluateAutomations)))
 	mux.HandleFunc("GET /api/v1/dayplan", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleGetDayplan)))
 	mux.HandleFunc("PUT /api/v1/dayplan/goal", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handlePutDayGoal)))
 	mux.HandleFunc("POST /api/v1/dayplan/send", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleSendDayGoal)))
@@ -220,9 +234,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/events", s.requireAuthSSE(s.requirePerm(auth.PermOrderList, s.handleEvents)))
 
 	mux.HandleFunc("/api/", s.handleAPINotFound)
-	// The app shell and static assets must never be served stale: after a deploy
-	// the browser's cached index.html <-> JS pairing is the classic source of
-	// "API fine, frontend broken" reports. Always revalidate.
+
 	static := http.FileServer(http.Dir("frontend"))
 	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, ".html") || r.URL.Path == "/" {
@@ -231,8 +243,6 @@ func (s *Server) Handler() http.Handler {
 		static.ServeHTTP(w, r)
 	}))
 
-	// Outermost: recover -> log -> security headers -> client-only guard
-	// (no-op unless COCKPIT_CLIENT_ONLY=1) -> same-origin mutation guard.
 	var top http.Handler = originGuard(mux)
 	if s.clientGuard != nil && s.clientGuard.Enabled() {
 		top = s.clientGuard.Wrap(top)
@@ -304,6 +314,16 @@ func (s *Server) classifyError(err error) (int, string, string) {
 		return http.StatusConflict, "duplicate_si_code", err.Error()
 	case errors.Is(err, db.ErrDuplicateDepartmentName):
 		return http.StatusConflict, "duplicate_department_name", err.Error()
+	case errors.Is(err, db.ErrDuplicateAutomationName):
+		return http.StatusConflict, "duplicate_automation_name", err.Error()
+	case errors.Is(err, db.ErrScanIdempotencyConflict):
+		return http.StatusConflict, "scan_idempotency_conflict", err.Error()
+	case errors.Is(err, automation.ErrValidation):
+		return http.StatusBadRequest, "invalid_automation_rule", err.Error()
+	case errors.Is(err, capa.ErrValidation):
+		return http.StatusBadRequest, "invalid_capa", err.Error()
+	case errors.Is(err, capa.ErrInvalidTransition):
+		return http.StatusConflict, "invalid_capa_transition", err.Error()
 	case errors.Is(err, db.ErrUnknownAssignee):
 		return http.StatusBadRequest, "unknown_assignee", err.Error()
 	case errors.Is(err, db.ErrBadAnswer):
@@ -341,11 +361,6 @@ func (s *Server) classifyError(err error) (int, string, string) {
 	}
 }
 
-// validCommandStatus reports whether a status may be used as the *target* of a
-// transition command. Received is included because the state machine explicitly
-// allows sending an order back to intake (Processing -> Received,
-// QC_Review -> Received, see pkg/order transitionTable and its tests); whether
-// a concrete move is legal is still decided by DetermineTransition.
 func validCommandStatus(status order.Status) bool {
 	switch status {
 	case order.StatusReceived, order.StatusProcessing, order.StatusQCReview, order.StatusCompleted:

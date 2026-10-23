@@ -585,7 +585,7 @@ func (s *Store) EscalateProcess(ctx context.Context, orderID int64, level swi.Le
 	if err := s.processEventTx(ctx, tx, orderID, action, from, swi.StageEscalation, level, note, performedBy, now); err != nil {
 		return swi.Escalation{}, swi.Process{}, nil, err
 	}
-	if err := notifyEscalationTx(ctx, tx, orderID, number, escalatedTo, level, reason, note, now); err != nil {
+	if err := notifyEscalationTx(ctx, tx, orderID, number, escalationID, escalatedTo, level, reason, note, now); err != nil {
 		return swi.Escalation{}, swi.Process{}, nil, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -603,7 +603,7 @@ func (s *Store) EscalateProcess(ctx context.Context, orderID int64, level swi.Le
 	return esc, updated, jobs, nil
 }
 
-func notifyEscalationTx(ctx context.Context, tx *sql.Tx, orderID int64, number, escalatedTo string, level swi.Level, reason swi.Reason, note string, now time.Time) error {
+func notifyEscalationTx(ctx context.Context, tx *sql.Tx, orderID int64, number string, escalationID int64, escalatedTo string, level swi.Level, reason swi.Reason, note string, now time.Time) error {
 	if strings.TrimSpace(escalatedTo) == "" {
 		return nil
 	}
@@ -613,8 +613,8 @@ func notifyEscalationTx(ctx context.Context, tx *sql.Tx, orderID int64, number, 
 	}
 	if _, err := tx.ExecContext(ctx, `
 		INSERT OR IGNORE INTO notifications (user_name, kind, order_id, order_number, ref_id, body, created_at)
-		VALUES (?, 'escalation', ?, ?, 0, ?, ?)`,
-		escalatedTo, orderID, number, body, millis(now)); err != nil {
+		VALUES (?, 'escalation', ?, ?, ?, ?, ?)`,
+		escalatedTo, orderID, number, escalationID, body, millis(now)); err != nil {
 		return fmt.Errorf("insert escalation notification: %w", err)
 	}
 	return nil

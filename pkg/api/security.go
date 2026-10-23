@@ -3,15 +3,12 @@ package api
 import (
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
 )
 
-// securityHeaders wraps the whole app in browser-hardening response headers.
-// CSP allows inline styles (the SPA builds DOM strings with style attributes
-// and inline <style> usage) but constrains everything else to same-origin,
-// plus the two CDN libraries already referenced by the shell.
 func securityHeaders(next http.Handler) http.Handler {
 	const csp = "default-src 'self'; " +
 		"script-src 'self' https://cdnjs.cloudflare.com; " +
@@ -19,6 +16,8 @@ func securityHeaders(next http.Handler) http.Handler {
 		"img-src 'self' data:; " +
 		"font-src 'self' data:; " +
 		"connect-src 'self'; " +
+		"object-src 'none'; " +
+		"worker-src 'self'; " +
 		"frame-ancestors 'none'; " +
 		"base-uri 'self'; " +
 		"form-action 'self'"
@@ -30,57 +29,59 @@ func securityHeaders(next http.Handler) http.Handler {
 		h.Set("Referrer-Policy", "same-origin")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), fullscreen=(self)")
 		h.Set("Cross-Origin-Resource-Policy", "same-origin")
-		// Harmless on plain HTTP, essential once served behind TLS.
-		if r.TLS != nil || strings.EqualFold(r.Header.Get("X-Forwarded-Proto"), "https") {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+
+			h.Set("Cache-Control", "no-store")
+			h.Set("Pragma", "no-cache")
+		}
+
+		if scheme, _ := effectiveURL(r); scheme == "https" {
 			h.Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains")
 		}
 		next.ServeHTTP(w, r)
 	})
 }
 
-// originGuard rejects cross-site state-changing requests. Bearer tokens are
-// not ambient credentials, but this adds cheap CSRF-shaped defense in depth:
-// any mutating request that carries an Origin header must match its Host.
 func originGuard(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
-			origin := r.Header.Get("Origin")
-			if origin != "" {
-				host := origin
-				if i := strings.Index(origin, "://"); i >= 0 {
-					// strip scheme and trailing path
-					rest := origin[i+3:]
-					if j := strings.IndexByte(rest, '/'); j >= 0 {
-						rest = rest[:j]
-					}
-					host = rest
-				}
-				if h, _, err := net.SplitHostPort(host); err == nil {
-					// normalize "host:port" vs Host header
-					requestHost := r.Host
-					if rh, _, err2 := net.SplitHostPort(requestHost); err2 == nil {
-						if !strings.EqualFold(h, rh) {
-							w.WriteHeader(http.StatusForbidden)
-							return
-						}
-					} else if !strings.EqualFold(host, requestHost) {
-						w.WriteHeader(http.StatusForbidden)
-						return
-					}
-				} else if !strings.EqualFold(host, r.Host) {
-					w.WriteHeader(http.StatusForbidden)
-					return
-				}
+			if origin := r.Header.Get("Origin"); origin != "" && !sameEffectiveOrigin(origin, r) {
+				w.WriteHeader(http.StatusForbidden)
+				return
 			}
 		}
 		next.ServeHTTP(w, r)
 	})
 }
 
-// RateLimiter is a small fixed-window, in-memory limiter keyed by an
-// arbitrary string (usually client IP, optionally plus username). No
-// external dependencies; a background-janitor-free GC runs inline.
+func sameEffectiveOrigin(origin string, r *http.Request) bool {
+	actual, err := url.Parse(origin)
+	if err != nil || actual.Scheme == "" || actual.Host == "" || actual.User != nil ||
+		actual.RawQuery != "" || actual.Fragment != "" || (actual.Path != "" && actual.Path != "/") {
+		return false
+	}
+	scheme, host := effectiveURL(r)
+	expected, err := url.Parse(scheme + "://" + host)
+	if err != nil || expected.Scheme == "" || expected.Host == "" {
+		return false
+	}
+	return strings.EqualFold(actual.Scheme, expected.Scheme) && originHostKey(actual) == originHostKey(expected)
+}
+
+func originHostKey(u *url.URL) string {
+	port := u.Port()
+	if port == "" {
+		switch strings.ToLower(u.Scheme) {
+		case "http":
+			port = "80"
+		case "https":
+			port = "443"
+		}
+	}
+	return strings.ToLower(u.Hostname()) + "|" + port
+}
+
 type RateLimiter struct {
 	mu      sync.Mutex
 	hits    map[string]*rateBucket
@@ -97,8 +98,6 @@ func NewRateLimiter() *RateLimiter {
 	return &RateLimiter{hits: map[string]*rateBucket{}, gcEvery: 512}
 }
 
-// Allow returns true and records a hit when the key is under limit for the
-// current window; otherwise false plus the seconds until the window resets.
 func (rl *RateLimiter) Allow(key string, limit int, window time.Duration) (bool, int) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -127,28 +126,19 @@ func (rl *RateLimiter) Allow(key string, limit int, window time.Duration) (bool,
 	return true, 0
 }
 
-// Reset clears a key's recorded window (used after a successful login so
-// legitimate users sharing an IP or past typos never hit the lockout).
 func (rl *RateLimiter) Reset(key string) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 	delete(rl.hits, key)
 }
 
-// clientIP is the caller's best-guess IP, honoring a proxy header only when
-// it contains a plausible address (e2b preview proxy sets X-Real-IP too).
-// Proxy/TLS deployment knobs (single server per process; set from ServerConfig).
-// trustProxy: honor X-Forwarded-* headers — set when behind nginx/Caddy/IIS.
-// publicBaseURL: absolute external URL override (e.g. https://cockpit.acme.tld)
-// — skips the trust requirement and wins over headers when set.
 var (
 	trustProxy    bool
 	publicBaseURL string
 )
 
 func clientIP(r *http.Request) string {
-	// Forwarded headers are trusted ONLY when COCKPIT_TRUST_PROXY=1 — a direct
-	// client could otherwise spoof XFF to escape the login/pair rate limiters.
+
 	if trustProxy {
 		if xr := r.Header.Get("X-Real-IP"); xr != "" {
 			return strings.TrimSpace(xr)
@@ -165,8 +155,6 @@ func clientIP(r *http.Request) string {
 	return r.RemoteAddr
 }
 
-// effectiveURL returns the external (scheme, host) this request is seen as:
-// publicBaseURL override > trusted X-Forwarded-Proto/Host > TLS + Host.
 func effectiveURL(r *http.Request) (string, string) {
 	if publicBaseURL != "" {
 		u := strings.TrimRight(publicBaseURL, "/")
@@ -191,12 +179,12 @@ func effectiveURL(r *http.Request) (string, string) {
 	return scheme, host
 }
 
-// checkPasswordPolicy centralizes the minimum password requirements for
-// user creation and password changes. Deliberately short and plain — the
-// error text is shown to admins directly.
 func checkPasswordPolicy(username, password string) (code, msg string, ok bool) {
 	if len(password) < 10 {
 		return "weak_password", "password must be at least 10 characters", false
+	}
+	if len(password) > 256 {
+		return "weak_password", "password must be at most 256 characters", false
 	}
 	if strings.EqualFold(strings.TrimSpace(username), strings.TrimSpace(password)) {
 		return "weak_password", "password must not equal the username", false

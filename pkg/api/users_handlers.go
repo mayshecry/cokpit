@@ -110,8 +110,14 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
 		return
 	}
-	if len(req.Password) < 8 {
-		s.writeError(w, http.StatusBadRequest, "bad_request", "password must be at least 8 characters")
+	target, err := s.store.UserByID(r.Context(), id)
+	if err != nil {
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
+		return
+	}
+	if code, msg, ok := checkPasswordPolicy(target.Username, req.Password); !ok {
+		s.writeError(w, http.StatusBadRequest, code, msg)
 		return
 	}
 	hash, err := auth.HashPassword(req.Password)

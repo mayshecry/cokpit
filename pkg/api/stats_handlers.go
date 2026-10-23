@@ -8,7 +8,6 @@ import (
 	"cockpit/pkg/order"
 )
 
-// GET /api/v1/stats/ops?days=14 — aggregates for the ops dashboard.
 func (s *Server) handleOpsStats(w http.ResponseWriter, r *http.Request) {
 	days := 14
 	if v := r.URL.Query().Get("days"); v != "" {
@@ -47,7 +46,6 @@ func (s *Server) handleOpsStats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Live SLA mix + open/clocked counters over the current order book.
 	orders, err := s.store.ListOrders(ctx, nil)
 	if err != nil {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")

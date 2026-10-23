@@ -23,22 +23,6 @@ import (
 	"time"
 )
 
-// Client-only guard: every non-API request must present a session cookie
-// minted from a paired client key. The client proves itself with a short
-// HMAC over (timestamp | machine) using a key it received at pairing time,
-// sent once as query params on its first navigation; the server validates
-// and issues an HttpOnly session cookie for the rest of the session.
-//
-// A pairing key is machine-bound. Spoofing therefore requires BOTH the
-// paired key file AND knowledge of the machine profile — "hard", not
-// impossible (any binary-held secret can be extracted in principle; for
-// full spoof-immunity bind the UI listener to loopback and let only the
-// client process reach it).
-//
-// /api/v1/**, /healthz, /scan.html and /pair-guide.* stay open: the API
-// keeps its own bearer-token protection and the pairing page must load
-// before a session exists.
-
 const (
 	clientCookieName = "ckdpair"
 	proofWindowSec   = 300
@@ -48,12 +32,10 @@ type clientKeyEntry struct {
 	Key       string    `json:"key"`
 	Machine   string    `json:"machine"`
 	Name      string    `json:"name"`
-	Username  string    `json:"username,omitempty"` // account the device is bound to
+	Username  string    `json:"username,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// Pairing CODES are not here: they live in the database (pair_codes table),
-// many active at once, each single-use and optionally bound to an account.
 type clientKeyStore struct {
 	Keys map[string]clientKeyEntry `json:"keys"`
 }
@@ -86,8 +68,6 @@ func NewClientGuard(enabled bool, keysFile string, logger interface{ Printf(stri
 
 func (g *ClientGuard) Enabled() bool { return g.enabled }
 
-// Init loads (or creates) the key store. On first creation a fresh pairing
-// code is generated and printed to the server log once.
 func (g *ClientGuard) Init() error {
 	if !g.enabled {
 		return nil
@@ -105,10 +85,6 @@ func (g *ClientGuard) Init() error {
 	return g.saveLocked()
 }
 
-// logPairingStateLocked surfaces whatever the operator needs right now:
-// the active pairing code (every boot, not just the first) — or, when no
-// code is active, how to issue one.
-// Call with g.mu held.
 func (g *ClientGuard) saveLocked() error {
 	raw, err := json.MarshalIndent(g.store, "", "  ")
 	if err != nil {
@@ -121,9 +97,6 @@ func (g *ClientGuard) saveLocked() error {
 	return os.Rename(tmp, g.file)
 }
 
-// randClientCode returns a one-time pairing code as 8 digits grouped 4-4
-// ("1234-5678"). Digits only: easy to read off a console, no letter ambiguity.
-// crypto/rand per digit — no modulo bias, no byte reuse.
 func randClientCode() string {
 	d := make([]byte, 0, 9)
 	for i := 0; i < 8; i++ {
@@ -132,7 +105,7 @@ func randClientCode() string {
 		}
 		n, err := rand.Int(rand.Reader, big.NewInt(10))
 		if err != nil {
-			// crypto/rand broken; fall back to time-seeded digits (still local-only)
+
 			n = big.NewInt(time.Now().UnixNano() % 10)
 		}
 		d = append(d, byte('0'+n.Int64()))
@@ -140,9 +113,6 @@ func randClientCode() string {
 	return string(d)
 }
 
-// normCode strips everything that isn't a letter/digit and uppercases, so
-// "1234-5678", "1234 5678" and "12345678" all match — and legacy alphanumeric
-// codes in existing key stores keep working.
 func normCode(s string) string {
 	s = strings.ToUpper(s)
 	out := make([]byte, 0, len(s))
@@ -161,7 +131,6 @@ func randHex(n int) string {
 	return hex.EncodeToString(b)
 }
 
-// Paths the guard never blocks.
 func openPath(p string) bool {
 	if p == "/healthz" || p == "/scan.html" || p == "/pair-guide.html" || p == "/js/pairguide.js" ||
 		p == "/launch.html" || p == "/js/launch.js" ||
@@ -176,21 +145,20 @@ func openPath(p string) bool {
 	return false
 }
 
-// Wrap enforces the guard around the whole mux when enabled.
 func (g *ClientGuard) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !g.enabled || openPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
 			return
 		}
-		// 1) already-sessioned client?
+
 		if c, err := r.Cookie(clientCookieName); err == nil {
 			if g.sessionValid(c.Value) {
 				next.ServeHTTP(w, r)
 				return
 			}
 		}
-		// 2) fresh proof on the navigation URL?
+
 		if r.Method == http.MethodGet && g.validateProof(r) {
 			tok := randHex(16)
 			g.mu.Lock()
@@ -213,10 +181,7 @@ func (g *ClientGuard) Wrap(next http.Handler) http.Handler {
 				Path:     "/",
 				HttpOnly: true,
 				Secure:   scheme == "https",
-				// Lax (not Strict): the page a phone opens by scanning a QR is a
-				// top-level navigation from another app — Strict would drop the
-				// cookie and land the user on the block page. All mutations run
-				// through same-origin POSTs + originGuard, so Lax stays safe.
+
 				SameSite: http.SameSiteLaxMode,
 			})
 			target := r.URL.Path
@@ -249,7 +214,6 @@ func (g *ClientGuard) sessionValid(token string) bool {
 	return true
 }
 
-// validateProof checks ckid/ts/mach against the stored key's HMAC.
 func (g *ClientGuard) validateProof(r *http.Request) bool {
 	return g.checkProof(
 		r.URL.Query().Get("ckid"),
@@ -259,8 +223,6 @@ func (g *ClientGuard) validateProof(r *http.Request) bool {
 	)
 }
 
-// checkProof validates the pairing signature of an already-paired client.
-// proof must be hex(HMAC-SHA256(clientKey, "ts|mach")) with ts within ±300s.
 func (g *ClientGuard) checkProof(ckid, ts, mach, proof string) bool {
 	if ckid == "" || ts == "" || proof == "" || mach == "" {
 		return false
@@ -311,9 +273,6 @@ h1{font-size:19px;margin:0 0 10px}p{font-size:13.5px;line-height:1.55;color:#98a
 
 func ioWrite(w http.ResponseWriter, s string) { fmt.Fprint(w, s) }
 
-// ---- API endpoints -------------------------------------------------------
-
-// handleClientPair exchanges a one-time pairing code for a client key.
 func (s *Server) handleClientPair(w http.ResponseWriter, r *http.Request) {
 	g := s.clientGuard
 	if g == nil || !g.enabled {
@@ -361,11 +320,8 @@ func (s *Server) handleClientPair(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Pairing just proven (one-time code) — issue the device session cookie in
-	// the SAME round trip. Phones on plain-http origins can't sign an HMAC in
-	// JS (no WebCrypto), so the pair itself must deliver the session.
 	tok := randHex(16)
-	g.sess[tok] = clientSession{clientID: clientID, machine: req.Machine, expires: time.Now().Add(12 * time.Hour)} // g.mu already held
+	g.sess[tok] = clientSession{clientID: clientID, machine: req.Machine, expires: time.Now().Add(12 * time.Hour)}
 	scheme, _ := effectiveURL(r)
 	http.SetCookie(w, &http.Cookie{
 		Name:     clientCookieName,
@@ -376,15 +332,16 @@ func (s *Server) handleClientPair(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 	resp := map[string]any{"clientId": clientID, "key": key, "machine": req.Machine, "name": name}
-	// Account-linked code → the paired device ALSO receives that account's login
-	// session: scan once, type the code once, and you're paired and signed in.
+
 	if boundUser != "" {
 		if user, err2 := s.store.UserByUsername(r.Context(), boundUser); err2 == nil {
 			if token, terr := auth.NewToken(); terr == nil {
 				now := s.now().UTC()
-				if err3 := s.store.IssueToken(r.Context(), user.ID, token, now, now.Add(s.sessionHours)); err3 == nil {
+				expiresAt := now.Add(s.sessionHours)
+				if err3 := s.store.IssueToken(r.Context(), user.ID, token, now, expiresAt); err3 == nil {
 					user.PasswordHash = ""
 					user = s.userWithDeptPerms(r.Context(), user)
+					s.setSessionCookie(w, r, token, expiresAt)
 					resp["token"] = token
 					resp["user"] = user
 				}
@@ -394,9 +351,6 @@ func (s *Server) handleClientPair(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
-// handleClientLaunch exchanges a valid pairing proof (JSON body) for the
-// ckdpair session cookie — the phone flow, where JS can fetch() to set the
-// cookie but cannot sign navigation URLs like the desktop client.
 func (s *Server) handleClientLaunch(w http.ResponseWriter, r *http.Request) {
 	g := s.clientGuard
 	if g == nil || !g.enabled {
@@ -439,11 +393,6 @@ func (s *Server) handleClientLaunch(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-
-// ensurePairCode returns an active (unexpired, unused) pairing code for the
-// given account binding ("" = device-only), issuing a fresh one when none
-// exists. Codes are rows in the database: many can be active at once, each
-// single-use — re-rendering a QR keeps showing a valid code.
 func (s *Server) ensurePairCode(r *http.Request, username string) string {
 	now := s.now().UTC()
 	if pc, err := s.store.ActivePairCode(r.Context(), username, now); err == nil {
@@ -465,9 +414,6 @@ func (s *Server) ensurePairCode(r *http.Request, username string) string {
 	return pc.Code
 }
 
-// EnsureBootPairCode prints a rescue pairing code on EVERY boot (so a locked-
-// out admin can always pair a device), importing any legacy keystore code
-// first. Codes are database rows — they survive restarts.
 func (s *Server) EnsureBootPairCode(ctx context.Context) {
 	g := s.clientGuard
 	if g == nil || !g.enabled {
@@ -503,10 +449,6 @@ func (s *Server) EnsureBootPairCode(ctx context.Context) {
 	}
 }
 
-// handleAdminPairQR returns the current pairing code plus a QR (PNG data-url)
-// of the phone launch URL. Scanning it opens /launch.html?code=… which
-// auto-pairs the phone and lands the user on the normal login form.
-// If no code is active, one is issued (and surfaced in the log).
 func (s *Server) handleAdminPairQR(w http.ResponseWriter, r *http.Request) {
 	g := s.clientGuard
 	if g == nil || !g.enabled {
@@ -543,16 +485,13 @@ func (s *Server) handleAdminPairQR(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// handleAdminPairCode generates a fresh one-time pairing code (admin only)
-// and returns it — for pairing an additional client after the first.
 func (s *Server) handleAdminPairCode(w http.ResponseWriter, r *http.Request) {
 	g := s.clientGuard
 	if g == nil || !g.enabled {
 		s.writeError(w, http.StatusNotFound, "client_only_disabled", "client pairing is not enabled on this server")
 		return
 	}
-	// Optional body {"username":"x"} → account-linked code: the device that pairs
-	// with it ALSO receives that account's login session.
+
 	boundUser := ""
 	var req struct {
 		Username string `json:"username"`
@@ -587,7 +526,6 @@ func (s *Server) handleAdminPairCode(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]string{"pairCode": code, "username": boundUser})
 }
 
-// handleListPairedClients lists paired client identities (admin only).
 func (s *Server) handleListPairedClients(w http.ResponseWriter, r *http.Request) {
 	g := s.clientGuard
 	if g == nil || !g.enabled {
@@ -599,7 +537,7 @@ func (s *Server) handleListPairedClients(w http.ResponseWriter, r *http.Request)
 	for id, e := range g.store.Keys {
 		m := e.Machine
 		if len(m) > 12 {
-			m = m[:12] + "…" // fingerprint preview only — never expose the full machine id
+			m = m[:12] + "…"
 		}
 		row := map[string]any{"clientId": id, "name": e.Name, "createdAt": e.CreatedAt, "machine": m}
 		if e.Username != "" {
@@ -611,7 +549,6 @@ func (s *Server) handleListPairedClients(w http.ResponseWriter, r *http.Request)
 	s.writeJSON(w, http.StatusOK, map[string]any{"clients": out})
 }
 
-// handleRevokePairedClient removes a paired client (admin only).
 func (s *Server) handleRevokePairedClient(w http.ResponseWriter, r *http.Request) {
 	g := s.clientGuard
 	if g == nil || !g.enabled {

@@ -8,8 +8,6 @@ import (
 	"cockpit/pkg/order"
 )
 
-// productDeptAllowed reports whether the current user may use a product that
-// belongs to a department. Empty department = usable by everyone; admins bypass.
 func (s *Server) productDeptAllowed(r *http.Request, prod order.Product) bool {
 	if prod.Department == "" {
 		return true
@@ -30,8 +28,6 @@ func (s *Server) productDeptAllowed(r *http.Request, prod order.Product) bool {
 	return false
 }
 
-// autoApprove applies the approval rule: manuals authored by SC or admin are
-// approved at birth; everything else (e.g. QC-authored) waits for SC approval.
 func (s *Server) autoApprove(r *http.Request, prod order.Product) order.Product {
 	me := s.currentUser(r)
 	if me.Role == auth.RoleSC || me.Role == auth.RoleAdmin {

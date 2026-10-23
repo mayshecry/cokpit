@@ -18,7 +18,7 @@ import (
 	"cockpit/pkg/db"
 )
 
-const maxPrepLogBytes = 512 << 10 // 512 KiB hard cap for the public ingest
+const maxPrepLogBytes = 512 << 10
 
 var (
 	prepTSLine   = regexp.MustCompile(`^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} - (.*)$`)
@@ -52,8 +52,6 @@ type prepIssue struct {
 	Text string `json:"text"`
 }
 
-// parsePrepLog strictly validates the payload ("a file like THIS") and turns
-// it into a compact structured document the dashboard renders.
 func parsePrepLog(data []byte) (map[string]any, string, error) {
 	if len(data) < 300 {
 		return nil, "", errors.New("file too small to be a prep log")
@@ -69,8 +67,7 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 		}
 		text = string(decoded)
 	}
-	// Windows PowerShell often writes a UTF-8 BOM; it would otherwise stick to
-	// the first line and make the "=== Starting ... ===" header unmatchable.
+
 	text = strings.TrimPrefix(text, "\uFEFF")
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	text = strings.ReplaceAll(text, "\r", "\n")
@@ -207,7 +204,6 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 		return nil, "", errors.New("missing hardware sections — not a complete prep log")
 	}
 
-	// ── derived meta ──
 	kvOf := func(secName string, n int) map[string]string {
 		for _, sec := range sections {
 			if sec.Name == secName && len(sec.Items) > n {
@@ -352,7 +348,7 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 					}
 					issues = append(issues, prepIssue{Src: label, Text: "Status: " + statusVal})
 				default:
-					// "Unknown"/blank: the probe could not tell. Not a hardware fault.
+
 				}
 			}
 		}
@@ -406,10 +402,6 @@ func parsePrepLog(data []byte) (map[string]any, string, error) {
 	return doc, host, nil
 }
 
-// prepStatusState classifies a WMI-style "Status" value.
-//   - OK                  → pass
-//   - blank / Unknown / N/A → not evaluated (the probe could not tell; not a fault)
-//   - anything else        → fail (e.g. Degraded, Pred Fail, Error)
 type prepStatus int
 
 const (
@@ -430,14 +422,10 @@ func prepStatusState(v string) prepStatus {
 	}
 }
 
-// prepExitCodeOK reports whether a Windows Update step's exit code is a success.
-// 0 = success; 3010 = success but a restart is required (not an error).
 func prepExitCodeOK(code string) bool {
 	return code == "0" || code == "3010"
 }
 
-// prepBool parses both textual booleans and WMI/Windows numeric booleans.
-// WMI commonly serializes TRUE as -1; some PowerShell paths emit 1 instead.
 func prepBool(v string) bool {
 	switch strings.ToLower(strings.TrimSpace(v)) {
 	case "true", "1", "-1", "yes":
@@ -470,12 +458,6 @@ func jsonString(v any) string {
 	return string(b)
 }
 
-// ── handlers ─────────────────────────────────────────────────────────────
-
-// handlePostPrepLog is intentionally PUBLIC — refurb stations POST their prep
-// log straight after the script finishes; no account/sso on those machines.
-// Rate-limited per IP, hard-capped, strictly validated, then upserted per
-// machine (BIOS UUID wins, computer name falls back).
 func (s *Server) handlePostPrepLog(w http.ResponseWriter, r *http.Request) {
 	ok, _ := s.loginLimiter.Allow("prep:"+clientIP(r), 30, time.Minute)
 	if !ok {

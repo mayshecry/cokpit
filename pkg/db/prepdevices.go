@@ -77,7 +77,7 @@ func (s *Store) ListPrepDevices(ctx context.Context) ([]map[string]any, error) {
 	out := []map[string]any{}
 	for rows.Next() {
 		var (
-			id, fa, la, runs int64
+			id, fa, la, runs         int64
 			key, name, file, summary string
 		)
 		if err := rows.Scan(&id, &key, &name, &file, &runs, &fa, &la, &summary); err != nil {

@@ -25,7 +25,6 @@ func cleanDay(v string) string {
 	return v
 }
 
-// GET /api/v1/dayplan?day=YYYY-MM-DD — goals for one day (any authenticated order viewer).
 func (s *Server) handleGetDayplan(w http.ResponseWriter, r *http.Request) {
 	day := cleanDay(r.URL.Query().Get("day"))
 	if day == "" {
@@ -39,7 +38,6 @@ func (s *Server) handleGetDayplan(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"day": day, "goals": goals})
 }
 
-// PUT /api/v1/dayplan/goal — QC and above set a person's goal for the day.
 func (s *Server) handlePutDayGoal(w http.ResponseWriter, r *http.Request) {
 	var req putGoalRequest
 	if err := s.decodeJSON(w, r, &req); err != nil {
@@ -65,7 +63,6 @@ func (s *Server) handlePutDayGoal(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"goal": g})
 }
 
-// POST /api/v1/dayplan/send — push the goal to the person's notification bell.
 func (s *Server) handleSendDayGoal(w http.ResponseWriter, r *http.Request) {
 	var req sendGoalRequest
 	if err := s.decodeJSON(w, r, &req); err != nil {
@@ -117,7 +114,6 @@ func (s *Server) handleSendDayGoal(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]any{"sent": true, "day": day, "username": username})
 }
 
-// GET /api/v1/stats/qc?month=YYYY-MM — QC results per order assignee (QC and above).
 func (s *Server) handleQCStats(w http.ResponseWriter, r *http.Request) {
 	month := cleanDay(r.URL.Query().Get("month") + "-01")
 	now := s.now().UTC()

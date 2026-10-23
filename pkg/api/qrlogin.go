@@ -12,26 +12,14 @@ import (
 	"github.com/skip2/go-qrcode"
 )
 
-// QR login — "WhatsApp Web" style sign-in.
-//
-// The login screen shows a rotating QR ticket. A user with an already-paired,
-// already-logged-in phone scans it, confirms on the phone, and the waiting
-// screen receives a normal login token. The phone is the only credential
-// carrier: approve requires its bearer token, the ticket is short-lived and
-// single-use, and the created token lands only in the browser that owns the
-// ticket (delivered to exactly one status poll).
-//
-// Flow:  GET /api/v1/qr-login          (screen: create ticket + QR)
-//        GET /api/v1/qr-login/status   (screen: poll until approved)
-//        POST /api/v1/qr-login/approve (phone: bearer-auth approve/reject)
-
 const qrTicketTTL = 150 * time.Second
 
 type qrTicket struct {
-	status    string // pending | approved | rejected
-	token     string // login token, set on approval
-	user      auth.User
-	expiresAt time.Time
+	status       string
+	token        string
+	tokenExpires time.Time
+	user         auth.User
+	expiresAt    time.Time
 }
 
 type qrTicketMgr struct {
@@ -41,7 +29,6 @@ type qrTicketMgr struct {
 
 func newQrTicketMgr() *qrTicketMgr { return &qrTicketMgr{m: map[string]*qrTicket{}} }
 
-// sweepLocked drops expired tickets. Call with mu held.
 func (q *qrTicketMgr) sweepLocked() {
 	now := time.Now()
 	for id, t := range q.m {
@@ -100,9 +87,10 @@ func (s *Server) handleQRLoginStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if t.status == "approved" {
-		// single-wallet: hand the token to exactly ONE poll
-		token, user := t.token, t.user
+
+		token, user, expiresAt := t.token, t.user, t.tokenExpires
 		delete(s.qr.m, id)
+		s.setSessionCookie(w, r, token, expiresAt)
 		s.writeJSON(w, http.StatusOK, map[string]any{"status": "approved", "token": token, "user": user})
 		return
 	}
@@ -112,7 +100,7 @@ func (s *Server) handleQRLoginStatus(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleQRLoginApprove(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Ticket string `json:"ticket"`
-		Action string `json:"action"` // "approve" (default) | "reject"
+		Action string `json:"action"`
 	}
 	if err := s.decodeJSON(w, r, &req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "bad_request", "invalid JSON body: "+err.Error())
@@ -137,12 +125,13 @@ func (s *Server) handleQRLoginApprove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := s.now().UTC()
-	if err := s.store.IssueToken(r.Context(), user.ID, token, now, now.Add(s.sessionHours)); err != nil {
+	expiresAt := now.Add(s.sessionHours)
+	if err := s.store.IssueToken(r.Context(), user.ID, token, now, expiresAt); err != nil {
 		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 		return
 	}
 	user.PasswordHash = ""
 	user = s.userWithDeptPerms(r.Context(), user)
-	t.status, t.token, t.user = "approved", token, user
+	t.status, t.token, t.tokenExpires, t.user = "approved", token, expiresAt, user
 	s.writeJSON(w, http.StatusOK, map[string]string{"user": user.Username, "ok": "1"})
 }
