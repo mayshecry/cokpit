@@ -5,6 +5,11 @@ go 1.26.4
 require modernc.org/sqlite v1.57.0
 
 require (
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
+	golang.org/x/text v0.43.0
+)
+
+require (
 	github.com/dustin/go-humanize v1.0.1
 	github.com/google/uuid v1.6.0
 	github.com/mattn/go-isatty v0.0.24

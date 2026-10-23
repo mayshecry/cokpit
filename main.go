@@ -44,27 +44,54 @@ func main() {
 	store := db.New(conn)
 
 	adminUser := envOr("ADMIN_USERNAME", "admin")
-	adminPass := envOr("ADMIN_PASSWORD", "admin")
-	hash, err := auth.HashPassword(adminPass)
-	if err != nil {
-		logger.Fatalf("hash admin password: %v", err)
+	adminPass := os.Getenv("ADMIN_PASSWORD")
+	generatedAdminPassword := false
+	if adminPass == "" {
+		_, lookupErr := store.UserByUsername(ctx, adminUser)
+		switch {
+		case errors.Is(lookupErr, db.ErrNotFound):
+
+			adminPass, err = auth.NewToken()
+			if err != nil {
+				logger.Fatalf("generate bootstrap admin password: %v", err)
+			}
+			generatedAdminPassword = true
+		case lookupErr != nil:
+			logger.Fatalf("lookup bootstrap admin: %v", lookupErr)
+		}
 	}
-	if _, err := store.EnsureUser(ctx, adminUser, hash, "Administrator", auth.RoleAdmin, time.Now().UTC()); err != nil {
-		logger.Fatalf("seed admin user: %v", err)
+	if adminPass != "" {
+		hash, err := auth.HashPassword(adminPass)
+		if err != nil {
+			logger.Fatalf("hash admin password: %v", err)
+		}
+		if _, err := store.EnsureUser(ctx, adminUser, hash, "Administrator", auth.RoleAdmin, time.Now().UTC()); err != nil {
+			logger.Fatalf("seed admin user: %v", err)
+		}
 	}
-	if os.Getenv("ADMIN_PASSWORD") == "" {
-		logger.Printf("WARNING: using default admin credentials %s/%s; set ADMIN_PASSWORD", adminUser, adminPass)
+	if generatedAdminPassword {
+		logger.Printf("bootstrap admin %q password: %s (store it securely; it will not be printed again)", adminUser, adminPass)
+	}
+
+	clientGuard := api.NewClientGuard(
+		os.Getenv("COCKPIT_CLIENT_ONLY") == "1",
+		envOr("COCKPIT_CLIENT_KEYS", "cockpit-client-keys.json"),
+		logger,
+	)
+	if err := clientGuard.Init(); err != nil {
+		logger.Fatalf("client pairing init: %v", err)
 	}
 
 	svr := api.New(store, api.ServerConfig{
 		SLATargetDefaultHours: slaHours,
 		SessionHours:          sessionHours,
+		TrustProxy:            os.Getenv("COCKPIT_TRUST_PROXY") == "1",
+		PublicURL:             os.Getenv("COCKPIT_PUBLIC_URL"),
+		ClientGuard:           clientGuard,
 		Logger:                logger,
 	})
+	svr.EnsureBootPairCode(ctx)
 
-	// Automatic escalation worker: raises escalations for processes that
-	// breached their SLA or dwelled past a stage budget. SWI_AUTO_ESCALATE_MINUTES
-	// configures the interval (0 disables the worker).
 	escalateMinutes, err := strconv.Atoi(envOr("SWI_AUTO_ESCALATE_MINUTES", "15"))
 	if err != nil || escalateMinutes < 0 {
 		logger.Printf("invalid SWI_AUTO_ESCALATE_MINUTES value %q, using 15", os.Getenv("SWI_AUTO_ESCALATE_MINUTES"))
@@ -95,6 +122,43 @@ func main() {
 			}
 		}()
 		logger.Printf("auto escalation worker enabled (every %d minute(s))", escalateMinutes)
+	}
+
+	automationSeconds, err := strconv.Atoi(envOr("AUTOMATION_INTERVAL_SECONDS", "60"))
+	if err != nil || automationSeconds < 0 {
+		logger.Printf("invalid AUTOMATION_INTERVAL_SECONDS value %q, using 60", os.Getenv("AUTOMATION_INTERVAL_SECONDS"))
+		automationSeconds = 60
+	}
+	if automationSeconds > 0 {
+		go func() {
+			interval := time.Duration(automationSeconds) * time.Second
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			run := func() {
+				runs, err := svr.RunAutomations(ctx)
+				if err != nil {
+					logger.Printf("automation evaluation: %v", err)
+				}
+				for _, executed := range runs {
+					if executed.Error != "" {
+						logger.Printf("automation rule %q failed for order %s: %s", executed.RuleName, executed.OrderNumber, executed.Error)
+					}
+				}
+				if len(runs) > 0 {
+					logger.Printf("automation evaluation: executed %d action(s)", len(runs))
+				}
+			}
+			run()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					run()
+				}
+			}
+		}()
+		logger.Printf("order automation worker enabled (every %d second(s))", automationSeconds)
 	}
 
 	httpServer := &http.Server{
