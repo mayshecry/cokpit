@@ -1,0 +1,328 @@
+2026-10-12 11:37:03 - === Starting laptop prep on ESPRIT-PW0FBYLJ ===
+2026-10-12 11:37:03 - Collecting system specs...
+2026-10-12 11:37:03 - CPU: 13th Gen Intel(R) Core(TM) i5-13420H
+2026-10-12 11:37:03 - RAM: 15.53 GB
+2026-10-12 11:37:03 - OS: Microsoft Windows 11 Enterprise 10.0.26200 Build 26200 64 bits
+2026-10-12 11:37:03 - ----- DISK DRIVES -----
+2026-10-12 11:37:03 - Model: SAMSUNG MZAL8512HDLU-00BL2
+2026-10-12 11:37:03 - SizeBytes: 512105932800
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - Interface: SCSI
+2026-10-12 11:37:03 - Serial: 0025_38A9_41B7_9B3B.
+2026-10-12 11:37:03 - --- DISK DRIVES [2] ---
+2026-10-12 11:37:03 - Model: General USB Flash Disk USB Device
+2026-10-12 11:37:03 - SizeBytes: 8052549120
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - Interface: USB
+2026-10-12 11:37:03 - Serial: 0517300000001180
+2026-10-12 11:37:03 - ----- LOGICAL DISKS -----
+2026-10-12 11:37:03 - Drive: C:
+2026-10-12 11:37:03 - SizeBytes: 510993100800
+2026-10-12 11:37:03 - FreeBytes: 385446563840
+2026-10-12 11:37:03 - FS: NTFS
+2026-10-12 11:37:03 - Label: 
+2026-10-12 11:37:03 - Collecting device identification info...
+2026-10-12 11:37:03 - ----- DEVICE ID -----
+2026-10-12 11:37:03 - ComputerName: ESPRIT-PW0FBYLJ
+2026-10-12 11:37:03 - Manufacturer: LENOVO
+2026-10-12 11:37:03 - Model: 21KH
+2026-10-12 11:37:03 - BIOS Serial: PW0FBYLJ
+2026-10-12 11:37:03 - Motherboard SN: PW0FBYLJ
+2026-10-12 11:37:03 - System UUID: DFBF69CB-BD16-11EF-4EE1-991DDFC42063
+2026-10-12 11:37:03 - MAC Address(es): C4-D6-D3-AF-A2-87, 0A-00-27-00-00-33
+2026-10-12 11:37:03 - Asset Tag: No Asset Tag
+2026-10-12 11:37:03 - Enclosure SN: PW0FBYLJ
+2026-10-12 11:37:03 - ---------------------
+2026-10-12 11:37:03 - Device CSV written: C:\RefurbLogs\ESPRIT-PW0FBYLJ_deviceID.csv
+2026-10-12 11:37:03 - Collecting motherboard details...
+2026-10-12 11:37:03 - ----- MOTHERBOARD -----
+2026-10-12 11:37:03 - Mfr: LENOVO
+2026-10-12 11:37:03 - Product: LNVNB161216
+2026-10-12 11:37:03 - Version: SDK0T76530 WIN
+2026-10-12 11:37:03 - Serial: PW0FBYLJ
+2026-10-12 11:37:03 - PartNumber: N/A
+2026-10-12 11:37:03 - Tag: Base Board
+2026-10-12 11:37:03 - ----- MOTHERBOARD DEVICE -----
+2026-10-12 11:37:03 - BusType: PCI
+2026-10-12 11:37:03 - Revision: N/A
+2026-10-12 11:37:03 - System: ESPRIT-PW0FBYLJ
+2026-10-12 11:37:03 - Availability: 3
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - ----- BIOS -----
+2026-10-12 11:37:03 - Mfr: LENOVO
+2026-10-12 11:37:03 - SMBIOSVer: MMCN42WW
+2026-10-12 11:37:03 - Version: LENOVO - 1
+2026-10-12 11:37:03 - Serial: PW0FBYLJ
+2026-10-12 11:37:03 - ReleaseDate: 20240910000000.000000+000
+2026-10-12 11:37:03 - Lang: en-US
+2026-10-12 11:37:03 - ----- SYSTEM SLOTS -----
+2026-10-12 11:37:03 - Slot: PEG Gen1/Gen2/Gen3 X16
+2026-10-12 11:37:03 - Usage: 3
+2026-10-12 11:37:03 - MaxWidth: 10
+2026-10-12 11:37:03 - HotPlug: False
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- SYSTEM SLOTS [2] ---
+2026-10-12 11:37:03 - Slot: PCI-Express 1 X1
+2026-10-12 11:37:03 - Usage: 3
+2026-10-12 11:37:03 - MaxWidth: 5
+2026-10-12 11:37:03 - HotPlug: False
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- SYSTEM SLOTS [3] ---
+2026-10-12 11:37:03 - Slot: PCI-Express 2 X1
+2026-10-12 11:37:03 - Usage: 3
+2026-10-12 11:37:03 - MaxWidth: 5
+2026-10-12 11:37:03 - HotPlug: False
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- SYSTEM SLOTS [4] ---
+2026-10-12 11:37:03 - Slot: PCI-Express 3 X1
+2026-10-12 11:37:03 - Usage: 3
+2026-10-12 11:37:03 - MaxWidth: 5
+2026-10-12 11:37:03 - HotPlug: False
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- SYSTEM SLOTS [5] ---
+2026-10-12 11:37:03 - Slot: PCI-Express 4 X1
+2026-10-12 11:37:03 - Usage: 3
+2026-10-12 11:37:03 - MaxWidth: 5
+2026-10-12 11:37:03 - HotPlug: False
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- SYSTEM SLOTS [6] ---
+2026-10-12 11:37:03 - Slot: PCI-Express 5 X4
+2026-10-12 11:37:03 - Usage: 4
+2026-10-12 11:37:03 - MaxWidth: 7
+2026-10-12 11:37:03 - HotPlug: False
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - BUSES: no data
+2026-10-12 11:37:03 - Collecting extended hardware checks...
+2026-10-12 11:37:03 - ----- CPU DETAIL -----
+2026-10-12 11:37:03 - Name: 13th Gen Intel(R) Core(TM) i5-13420H
+2026-10-12 11:37:03 - Mfr: GenuineIntel
+2026-10-12 11:37:03 - MaxMHz: 2100
+2026-10-12 11:37:03 - Cores: 8
+2026-10-12 11:37:03 - Threads: 12
+2026-10-12 11:37:03 - Socket: U3E1
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - ----- MEMORY MODULES -----
+2026-10-12 11:37:03 - Bank: BANK 0/1
+2026-10-12 11:37:03 - Bytes: 17179869184
+2026-10-12 11:37:03 - MHz: 5600
+2026-10-12 11:37:03 - Mfr: Ramaxel Technology
+2026-10-12 11:37:03 - Part: RMSB3410HA88IBF-5600
+2026-10-12 11:37:03 - Serial: 61016280
+2026-10-12 11:37:03 - Type: 34
+2026-10-12 11:37:03 - ----- GPU -----
+2026-10-12 11:37:03 - Name: Intel(R) UHD Graphics
+2026-10-12 11:37:03 - Driver: 32.0.101.7088
+2026-10-12 11:37:03 - VRAM: 2147479552
+2026-10-12 11:37:03 - Chip: Intel(R) UHD Graphics Family
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - ResX: 1920
+2026-10-12 11:37:03 - ResY: 1200
+2026-10-12 11:37:03 - ----- AUDIO -----
+2026-10-12 11:37:03 - Name: Intel� Smart Sound Technologie voor digitale microfoons
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - Avail: N/A
+2026-10-12 11:37:03 - --- AUDIO [2] ---
+2026-10-12 11:37:03 - Name: Intel� Smart Sound Technologie voor USB audio
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - Avail: N/A
+2026-10-12 11:37:03 - --- AUDIO [3] ---
+2026-10-12 11:37:03 - Name: Intel� Smart Sound Technologie voor Bluetooth� audio
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - Avail: N/A
+2026-10-12 11:37:03 - --- AUDIO [4] ---
+2026-10-12 11:37:03 - Name: Realtek High Definition Audio(SST)
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - Avail: N/A
+2026-10-12 11:37:03 - ----- KEYBOARD -----
+2026-10-12 11:37:03 - Name: Uitgebreid (101 of 102 toetsen)
+2026-10-12 11:37:03 - Desc: HID-toetsenbordapparaat
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- KEYBOARD [2] ---
+2026-10-12 11:37:03 - Name: Uitgebreid (101 of 102 toetsen)
+2026-10-12 11:37:03 - Desc: Standaard PS/2-toetsenbord
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- KEYBOARD [3] ---
+2026-10-12 11:37:03 - Name: Uitgebreid (101 of 102 toetsen)
+2026-10-12 11:37:03 - Desc: USB-invoerapparaat
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- KEYBOARD [4] ---
+2026-10-12 11:37:03 - Name: Uitgebreid (101 of 102 toetsen)
+2026-10-12 11:37:03 - Desc: HID-toetsenbordapparaat
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- KEYBOARD [5] ---
+2026-10-12 11:37:03 - Name: Uitgebreid (101 of 102 toetsen)
+2026-10-12 11:37:03 - Desc: HID-toetsenbordapparaat
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- KEYBOARD [6] ---
+2026-10-12 11:37:03 - Name: Uitgebreid (101 of 102 toetsen)
+2026-10-12 11:37:03 - Desc: HID-toetsenbordapparaat
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - ----- POINTING DEVICE -----
+2026-10-12 11:37:03 - Name: HID-muis
+2026-10-12 11:37:03 - Type: 2
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- POINTING DEVICE [2] ---
+2026-10-12 11:37:03 - Name: HID-muis
+2026-10-12 11:37:03 - Type: 2
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- POINTING DEVICE [3] ---
+2026-10-12 11:37:03 - Name: USB-invoerapparaat
+2026-10-12 11:37:03 - Type: 2
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - ----- BATTERY WMI -----
+2026-10-12 11:37:03 - Name: L22M4PE1
+2026-10-12 11:37:03 - Chem: 2
+2026-10-12 11:37:03 - Design_mWh: N/A
+2026-10-12 11:37:03 - Full_mWh: N/A
+2026-10-12 11:37:03 - ChargePct: 100
+2026-10-12 11:37:03 - BattStatus: 2
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - ----- NETWORK ADAPTERS -----
+2026-10-12 11:37:03 - Name: Bluetooth Device (Personal Area Network)
+2026-10-12 11:37:03 - ConnStatus: 7
+2026-10-12 11:37:03 - Speed: 3000000
+2026-10-12 11:37:03 - MAC: 70:08:94:98:71:C2
+2026-10-12 11:37:03 - Type: Ethernet 802.3
+2026-10-12 11:37:03 - --- NETWORK ADAPTERS [2] ---
+2026-10-12 11:37:03 - Name: Intel(R) Ethernet Connection (23) I219-V
+2026-10-12 11:37:03 - ConnStatus: 7
+2026-10-12 11:37:03 - Speed: 9223372036854775807
+2026-10-12 11:37:03 - MAC: 84:BA:59:84:CB:F6
+2026-10-12 11:37:03 - Type: Ethernet 802.3
+2026-10-12 11:37:03 - --- NETWORK ADAPTERS [3] ---
+2026-10-12 11:37:03 - Name: Realtek RTL8852BE WiFi 6 802.11ax PCIe Adapter
+2026-10-12 11:37:03 - ConnStatus: 7
+2026-10-12 11:37:03 - Speed: 286500000
+2026-10-12 11:37:03 - MAC: 70:08:94:98:71:C1
+2026-10-12 11:37:03 - Type: Ethernet 802.3
+2026-10-12 11:37:03 - --- NETWORK ADAPTERS [4] ---
+2026-10-12 11:37:03 - Name: Realtek USB 2.5GbE Family Controller
+2026-10-12 11:37:03 - ConnStatus: 2
+2026-10-12 11:37:03 - Speed: 1000000000
+2026-10-12 11:37:03 - MAC: C4:D6:D3:AF:A2:87
+2026-10-12 11:37:03 - Type: Ethernet 802.3
+2026-10-12 11:37:03 - --- NETWORK ADAPTERS [5] ---
+2026-10-12 11:37:03 - Name: VirtualBox Host-Only Ethernet Adapter
+2026-10-12 11:37:03 - ConnStatus: 2
+2026-10-12 11:37:03 - Speed: 1000000000
+2026-10-12 11:37:03 - MAC: 0A:00:27:00:00:33
+2026-10-12 11:37:03 - Type: Ethernet 802.3
+2026-10-12 11:37:03 - ----- USB CONTROLLERS -----
+2026-10-12 11:37:03 - Name: Intel(R) USB 3.20 eXtensible Host Controller - 1.20 (Microsoft)
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- USB CONTROLLERS [2] ---
+2026-10-12 11:37:03 - Name: USB4(TM)-hostrouter (Microsoft)
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - --- USB CONTROLLERS [3] ---
+2026-10-12 11:37:03 - Name: Intel(R) USB 3.10 eXtensible Host Controller - 1.20 (Microsoft)
+2026-10-12 11:37:03 - Status: OK
+2026-10-12 11:37:03 - Power: AC=1 BatteryFlag=1 LifePct=100 Saving=0
+2026-10-12 11:37:04 - TPM Activated=True Enabled=True Spec=2.0, 0, 1.38
+2026-10-12 11:37:04 - Generating battery report...
+2026-10-12 11:37:04 - powercfg exit code: 0
+2026-10-12 11:37:04 - Battery report written: C:\RefurbLogs\battery_report.html
+2026-10-12 11:37:04 - Starting Windows Update phase...
+2026-10-12 11:37:04 - Triggering update scan...
+2026-10-12 11:37:04 - Run: UsoClient StartScan
+2026-10-12 11:37:04 - Exit code: 0
+2026-10-12 11:37:04 - Triggering update download...
+2026-10-12 11:37:04 - Run: UsoClient StartDownload
+2026-10-12 11:37:04 - Exit code: 2147942487
+2026-10-12 11:37:04 - Triggering update install...
+2026-10-12 11:37:04 - Run: UsoClient StartInstall
+2026-10-12 11:37:04 - Exit code: 2147942487
+2026-10-12 11:37:04 - Windows Update trigger phase done. Check Settings for pending reboot.
+2026-10-12 11:37:04 - === Prep phase complete ===
+2026-10-12 11:37:05 - Discord upload ESPRIT-PW0FBYLJ_prep.log status 200
+2026-10-12 11:37:06 - Discord upload battery_report.html status 200
+2026-10-12 11:37:06 - Discord upload ESPRIT-PW0FBYLJ_deviceID.csv status 200
+2026-10-12 11:53:59 - === Starting laptop prep on ESPRIT-PW0FBYLJ ===
+2026-10-12 11:53:59 - Collecting system specs...
+2026-10-12 11:54:01 - CPU: 13th Gen Intel(R) Core(TM) i5-13420H
+2026-10-12 11:54:01 - RAM: 15,53 GB
+2026-10-12 11:54:01 - Disk(s): SAMSUNG MZAL8512HDLU-00BL2 - 476,94 GB; General USB Flash Disk USB Device - 7,5 GB
+2026-10-12 11:54:01 - OS: Microsoft Windows 11 Enterprise 10.0.26200
+2026-10-12 11:54:01 - Collecting device identification info...
+2026-10-12 11:54:01 - ----- DEVICE ID -----
+2026-10-12 11:54:01 - Manufacturer:    LENOVO
+2026-10-12 11:54:01 - Model:           21KH
+2026-10-12 11:54:01 - BIOS Serial:     PW0FBYLJ
+2026-10-12 11:54:01 - Motherboard SN:  PW0FBYLJ
+2026-10-12 11:54:01 - System UUID:     DFBF69CB-BD16-11EF-4EE1-991DDFC42063
+2026-10-12 11:54:01 - MAC Address(es): C4:D6:D3:AF:A2:87, 0A:00:27:00:00:33
+2026-10-12 11:54:01 - Asset Tag:       No Asset Tag
+2026-10-12 11:54:01 - ---------------------
+2026-10-12 11:54:01 - Device ID CSV saved to C:\RefurbLogs\ESPRIT-PW0FBYLJ_deviceID.csv
+2026-10-12 11:54:01 - Generating battery report...
+2026-10-12 11:54:01 - Battery report saved to C:\RefurbLogs\battery_report.html
+2026-10-12 11:54:01 - Checking Windows Update...
+2026-10-12 11:54:01 - PSWindowsUpdate is not installed; installing it from PowerShell Gallery...
+2026-10-12 11:54:26 - Installing available Windows updates (automatic reboot disabled)...
+2026-10-12 11:54:45 - Windows Update returned no update records.
+2026-10-12 11:54:45 - === Prep phase complete ===
+2026-10-12 11:55:12 - Discord upload skipped; reports remain local.
+2026-10-12 12:27:50 - === Starting laptop prep on ESPRIT-PW0FBYLJ ===
+2026-10-12 12:27:50 - Collecting system specs...
+2026-10-12 12:27:52 - CPU: 13th Gen Intel(R) Core(TM) i5-13420H
+2026-10-12 12:27:52 - RAM: 15,53 GB
+2026-10-12 12:27:52 - Disk(s): SAMSUNG MZAL8512HDLU-00BL2 - 476,94 GB; General USB Flash Disk USB Device - 7,5 GB
+2026-10-12 12:27:52 - OS: Microsoft Windows 11 Enterprise 10.0.26200
+2026-10-12 12:27:52 - Collecting device identification info...
+2026-10-12 12:27:52 - ----- DEVICE ID -----
+2026-10-12 12:27:52 - Manufacturer:    LENOVO
+2026-10-12 12:27:52 - Model:           21KH
+2026-10-12 12:27:52 - BIOS Serial:     PW0FBYLJ
+2026-10-12 12:27:52 - Motherboard SN:  PW0FBYLJ
+2026-10-12 12:27:52 - System UUID:     DFBF69CB-BD16-11EF-4EE1-991DDFC42063
+2026-10-12 12:27:52 - MAC Address(es): C4:D6:D3:AF:A2:87, 0A:00:27:00:00:33
+2026-10-12 12:27:52 - Asset Tag:       No Asset Tag
+2026-10-12 12:27:52 - ---------------------
+2026-10-12 12:27:52 - FATAL: Kan geen toegang krijgen tot het bestand C:\RefurbLogs\ESPRIT-PW0FBYLJ_deviceID.csv omdat het wordt gebruikt door een ander proces.
+2026-10-12 12:28:09 - === Starting laptop prep on ESPRIT-PW0FBYLJ ===
+2026-10-12 12:28:09 - Collecting system specs...
+2026-10-12 12:28:10 - CPU: 13th Gen Intel(R) Core(TM) i5-13420H
+2026-10-12 12:28:10 - RAM: 15,53 GB
+2026-10-12 12:28:10 - Disk(s): SAMSUNG MZAL8512HDLU-00BL2 - 476,94 GB; General USB Flash Disk USB Device - 7,5 GB
+2026-10-12 12:28:10 - OS: Microsoft Windows 11 Enterprise 10.0.26200
+2026-10-12 12:28:10 - Collecting device identification info...
+2026-10-12 12:28:10 - ----- DEVICE ID -----
+2026-10-12 12:28:10 - Manufacturer:    LENOVO
+2026-10-12 12:28:10 - Model:           21KH
+2026-10-12 12:28:10 - BIOS Serial:     PW0FBYLJ
+2026-10-12 12:28:10 - Motherboard SN:  PW0FBYLJ
+2026-10-12 12:28:10 - System UUID:     DFBF69CB-BD16-11EF-4EE1-991DDFC42063
+2026-10-12 12:28:10 - MAC Address(es): C4:D6:D3:AF:A2:87, 0A:00:27:00:00:33
+2026-10-12 12:28:11 - Asset Tag:       No Asset Tag
+2026-10-12 12:28:11 - ---------------------
+2026-10-12 12:28:11 - Device ID CSV saved to C:\RefurbLogs\ESPRIT-PW0FBYLJ_deviceID.csv
+2026-10-12 12:28:11 - Generating battery report...
+2026-10-12 12:28:11 - Battery report saved to C:\RefurbLogs\battery_report.html
+2026-10-12 12:28:11 - Checking Windows Update...
+2026-10-12 12:28:11 - Installing available Windows updates (automatic reboot disabled)...
+2026-10-12 12:28:28 - Windows Update returned no update records.
+2026-10-12 12:28:28 - === Prep phase complete ===
+2026-10-12 12:30:43 - === Starting laptop prep on ESPRIT-PW0FBYLJ ===
+2026-10-12 12:30:43 - Collecting system specs...
+2026-10-12 12:30:45 - CPU: 13th Gen Intel(R) Core(TM) i5-13420H
+2026-10-12 12:30:45 - RAM: 15,53 GB
+2026-10-12 12:30:45 - Disk(s): SAMSUNG MZAL8512HDLU-00BL2 - 476,94 GB; General USB Flash Disk USB Device - 7,5 GB
+2026-10-12 12:30:45 - OS: Microsoft Windows 11 Enterprise 10.0.26200
+2026-10-12 12:30:45 - Collecting device identification info...
+2026-10-12 12:30:45 - ----- DEVICE ID -----
+2026-10-12 12:30:45 - Manufacturer:    LENOVO
+2026-10-12 12:30:45 - Model:           21KH
+2026-10-12 12:30:45 - BIOS Serial:     PW0FBYLJ
+2026-10-12 12:30:45 - Motherboard SN:  PW0FBYLJ
+2026-10-12 12:30:45 - System UUID:     DFBF69CB-BD16-11EF-4EE1-991DDFC42063
+2026-10-12 12:30:45 - MAC Address(es): C4:D6:D3:AF:A2:87, 0A:00:27:00:00:33
+2026-10-12 12:30:45 - Asset Tag:       No Asset Tag
+2026-10-12 12:30:45 - ---------------------
+2026-10-12 12:30:45 - Device ID CSV saved to C:\RefurbLogs\ESPRIT-PW0FBYLJ_deviceID.csv
+2026-10-12 12:30:45 - Generating battery report...
+2026-10-12 12:30:45 - Battery report saved to C:\RefurbLogs\battery_report.html
+2026-10-12 12:30:45 - Checking Windows Update...
+2026-10-12 12:30:45 - Installing available Windows updates (automatic reboot disabled)...
+2026-10-12 12:31:01 - Windows Update returned no update records.
+2026-10-12 12:31:01 - === Prep phase complete ===
+2026-10-12 12:31:33 - Uploaded ESPRIT-PW0FBYLJ_deviceID.csv to Discord.
+2026-10-12 12:31:34 - Uploaded battery_report.html to Discord.
