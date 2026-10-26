@@ -621,9 +621,20 @@ const Devices = (() => {
     const ups = doc.updates || [];
     if (!ups.length) return '';
     return `<div class="rd-updates">${ups.map((u) => `
-      <span class="rd-upd ${u.code === '0' ? 'ok' : 'fail'}" title="Exit code">
-        <b>${u.code === '0' ? '✓' : '✗'}</b> ${esc(u.cmd)} <code>${esc(u.code)}</code>
-      </span>`).join('')}</div>`;
+      let cls, icon;
+      if (u.code === '0') {
+        cls = 'ok';
+        icon = '✓';
+      } else if (u.code === '2147942487') {
+        cls = 'warn';
+        icon = '⚠';
+      } else {
+        cls = 'fail';
+        icon = '✗';
+      }
+      return `<span class="rd-upd ${cls}" title="Exit code">
+        <b>${icon}</b> ${esc(u.cmd)} <code>${esc(u.code)}</code>
+      </span>`;`).join('')}</div>`;
   }
 
   function specCard(svgIcon, label, main, sub, badgeText, tone) {
