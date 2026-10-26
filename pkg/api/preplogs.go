@@ -423,7 +423,7 @@ func prepStatusState(v string) prepStatus {
 }
 
 func prepExitCodeOK(code string) bool {
-	return code == "0" || code == "3010"
+	return code == "0" || code == "3010" || code == "2147942487"
 }
 
 func prepBool(v string) bool {
