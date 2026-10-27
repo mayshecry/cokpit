@@ -8,7 +8,7 @@
 <meta name="description" content="Cockpit — order operations: pipeline, SLA, QC, pick lists, manuals and workload for Esprit ICT.">
 <title>Cockpit — Order Operations · Esprit ICT</title>
 <link id="favicon" rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23ee6d05'/%3E%3Cpath d='m9 17 5 5 9-11' stroke='%23fff' stroke-width='3.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<link rel="stylesheet" href="styles.css?v=r9">
+<link rel="stylesheet" href="styles.css?v=r10">
 </head>
 <body data-nav-layout="topbar">
 
@@ -964,8 +964,8 @@
     <main id="view-automations" class="pane hidden">
       <header class="page-head">
         <div>
-          <h1>Workflow automations</h1>
-          <p class="muted">React once to QC failures, SLA breaches and aging holds. Add multiple rules when an event needs several actions.</p>
+          <h1>Automations</h1>
+          <p class="muted">Rules that react once to a QC failure, an SLA breach or an aging hold — notify people, assign the order or escalate it. Narrow a rule to customers, departments or products, and route a specific customer to different people.</p>
         </div>
         <div class="page-head-actions">
           <button type="button" class="btn btn-secondary" id="automation-evaluate">Evaluate now</button>
@@ -975,7 +975,7 @@
       <div class="stat-grid" id="automation-stats"></div>
       <section class="card table-card automation-rules-card">
         <div class="cfg-sec-head">
-          <div class="cfg-sec-txt"><h3>Rules</h3><p>Time-based rules are evaluated by the background worker; QC failures run immediately.</p></div>
+          <div class="cfg-sec-txt"><h3>Rules</h3><p>Switch one off to keep it without firing. Time-based rules are evaluated by the background worker; QC failures run immediately.</p></div>
           <span class="cfg-pill neutral" id="automation-rule-count"></span>
         </div>
         <div class="table-scroll">
@@ -990,7 +990,7 @@
       </section>
       <section class="card table-card automation-history-card">
         <div class="cfg-sec-head">
-          <div class="cfg-sec-txt"><h3>Execution history</h3><p>Each source event is claimed once per rule. Failed actions remain visible here.</p></div>
+          <div class="cfg-sec-txt"><h3>Execution history</h3><p>Every source event is claimed once per rule. Failed actions stay visible here with their reason.</p></div>
           <button type="button" class="btn btn-ghost btn-sm" id="automation-refresh">Refresh</button>
         </div>
         <div class="table-scroll">
@@ -1069,29 +1069,29 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="js/core.js?v=r9"></script>
-<script src="js/offline-scanner.js?v=r9"></script>
-<script src="js/notifications.js?v=r9"></script>
-<script src="js/auth.js?v=r9"></script>
-<script src="js/orders.js?v=r9"></script>
-<script src="js/ordercreate.js?v=r9"></script>
-<script src="js/detail.js?v=r9"></script>
-<script src="js/checklists.js?v=r9"></script>
-<script src="js/manuals.js?v=r9"></script>
-<script src="js/work.js?v=r9"></script>
-<script src="js/workload.js?v=r9"></script>
-<script src="js/dashboard.js?v=r9"></script>
-<script src="js/dayplan.js?v=r9"></script>
-<script src="js/quality.js?v=r9"></script>
-<script src="js/qcbench.js?v=r9"></script>
-<script src="js/si.js?v=r9"></script>
-<script src="js/users.js?v=r9"></script>
-<script src="js/devices.js?v=r9"></script>
-<script src="js/config.js?v=r9"></script>
-<script src="js/capa.js?v=r9"></script>
-<script src="js/automations.js?v=r9"></script>
-<script src="js/app.js?v=r9"></script>
-<script src="js/order-pages.js?v=r9"></script>
-<script src="js/ui.js?v=r9"></script>
+<script src="js/core.js?v=r10"></script>
+<script src="js/offline-scanner.js?v=r10"></script>
+<script src="js/notifications.js?v=r10"></script>
+<script src="js/auth.js?v=r10"></script>
+<script src="js/orders.js?v=r10"></script>
+<script src="js/ordercreate.js?v=r10"></script>
+<script src="js/detail.js?v=r10"></script>
+<script src="js/checklists.js?v=r10"></script>
+<script src="js/manuals.js?v=r10"></script>
+<script src="js/work.js?v=r10"></script>
+<script src="js/workload.js?v=r10"></script>
+<script src="js/dashboard.js?v=r10"></script>
+<script src="js/dayplan.js?v=r10"></script>
+<script src="js/quality.js?v=r10"></script>
+<script src="js/qcbench.js?v=r10"></script>
+<script src="js/si.js?v=r10"></script>
+<script src="js/users.js?v=r10"></script>
+<script src="js/devices.js?v=r10"></script>
+<script src="js/config.js?v=r10"></script>
+<script src="js/capa.js?v=r10"></script>
+<script src="js/automations.js?v=r10"></script>
+<script src="js/app.js?v=r10"></script>
+<script src="js/order-pages.js?v=r10"></script>
+<script src="js/ui.js?v=r10"></script>
 </body>
 </html>

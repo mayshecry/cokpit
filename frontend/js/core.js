@@ -997,6 +997,10 @@
         }
         wrap.dataset.values = JSON.stringify(current);
         if (typeof onChange === 'function') onChange(current);
+        // Bubbling so a form can react to every picker at once (live summaries).
+        try {
+          wrap.dispatchEvent(new CustomEvent('chipchange', { bubbles: true, detail: current }));
+        } catch {}
       };
       const add = (value, label) => {
         const current = values();
