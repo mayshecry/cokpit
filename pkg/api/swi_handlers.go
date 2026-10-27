@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"cockpit/pkg/auth"
+	"cockpit/pkg/order"
 	"cockpit/pkg/swi"
 )
 
@@ -277,6 +278,15 @@ func (s *Server) handleImportOrder(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, status, code, msg)
 		return
 	}
+	// Imported orders go through exactly the same target-completion rules as
+	// manually created ones: a past target is allowed (the order is simply
+	// registered overdue), but a typo such as 2072 or a zero date is refused.
+	if req.TargetCompletion != nil {
+		if err := order.ValidateTargetCompletion(req.TargetCompletion.UTC(), s.now().UTC()); err != nil {
+			s.writeError(w, http.StatusBadRequest, targetErrorCode(err), err.Error())
+			return
+		}
+	}
 
 	o, created, err := s.store.ImportOrder(r.Context(), req, s.slaHrs, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
@@ -303,10 +313,11 @@ func (s *Server) handleImportOrder(w http.ResponseWriter, r *http.Request) {
 		status = http.StatusCreated
 	}
 	s.writeJSON(w, status, map[string]any{
-		"order":    o,
-		"process":  proc,
-		"syncJobs": jobs,
-		"created":  created,
+		"order":        o,
+		"process":      proc,
+		"syncJobs":     jobs,
+		"created":      created,
+		"targetIsPast": order.IsPastTarget(o.TargetCompletion, s.now().UTC()),
 	})
 }
 

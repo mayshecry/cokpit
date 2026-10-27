@@ -23,6 +23,14 @@ var testAuthToken string
 
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
+	return newTestServerConfig(t, ServerConfig{Now: fixedClock})
+}
+
+// newTestServerConfig builds a test server with a seeded administrator and a
+// logged-in token in testAuthToken. Extra configuration (client guard, SLA...)
+// can be supplied by the caller.
+func newTestServerConfig(t *testing.T, cfg ServerConfig) *httptest.Server {
+	t.Helper()
 	ctx := context.Background()
 	conn, err := db.Open(ctx, filepath.Join(t.TempDir(), "api-test.db"))
 	if err != nil {
@@ -39,7 +47,10 @@ func newTestServer(t *testing.T) *httptest.Server {
 		t.Fatalf("create admin: %v", err)
 	}
 
-	svr := New(st, ServerConfig{Now: fixedClock})
+	if cfg.Now == nil {
+		cfg.Now = fixedClock
+	}
+	svr := New(st, cfg)
 	ts := httptest.NewServer(svr.Handler())
 	t.Cleanup(ts.Close)
 
@@ -129,7 +140,10 @@ func TestPostCreateOrderValidation(t *testing.T) {
 	}{
 		{"missing number", `{}`, http.StatusBadRequest},
 		{"bad json", `{nope`, http.StatusBadRequest},
-		{"past target", `{"orderNumber":"X","targetCompletionAt":"2020-01-01T00:00:00Z"}`, http.StatusBadRequest},
+		{"implausible target", `{"orderNumber":"X","targetCompletionAt":"1999-12-31T23:59:59Z"}`, http.StatusBadRequest},
+		{"zero target", `{"orderNumber":"X","targetCompletionAt":"0001-01-01T00:00:00Z"}`, http.StatusBadRequest},
+		{"target too far ahead", `{"orderNumber":"X","targetCompletionAt":"2999-01-01T00:00:00Z"}`, http.StatusBadRequest},
+		{"garbage target", `{"orderNumber":"X","targetCompletionAt":"not-a-date"}`, http.StatusBadRequest},
 		{"duplicate", `{"orderNumber":"ORD-1"}`, http.StatusConflict},
 	}
 	mustCreate(t, ts, "ORD-1")
@@ -138,6 +152,44 @@ func TestPostCreateOrderValidation(t *testing.T) {
 		if code != c.want {
 			t.Errorf("%s: status = %d, want %d", c.name, code, c.want)
 		}
+	}
+}
+
+// A past target is a legitimate registration (an order entered after it
+// arrived, or imported from Omnitracker): it must be accepted, kept verbatim
+// and reported as already past its SLA.
+func TestPostCreateOrderAcceptsPastTarget(t *testing.T) {
+	ts := newTestServer(t)
+	past := fixedClock().Add(-72 * time.Hour).UTC().Format(time.RFC3339)
+	code, body := do(t, "POST", ts.URL+"/api/v1/orders",
+		fmt.Sprintf(`{"orderNumber":"ORD-PAST","targetCompletionAt":%q}`, past))
+	if code != http.StatusCreated {
+		t.Fatalf("status = %d, want 201; body %v", code, body)
+	}
+	o := body["order"].(map[string]any)
+	if got := o["targetCompletionAt"].(string); got != past {
+		t.Errorf("targetCompletionAt = %s, want %s (kept verbatim)", got, past)
+	}
+	if pastFlag, ok := body["targetIsPast"].(bool); !ok || !pastFlag {
+		t.Errorf("targetIsPast = %v, want true", body["targetIsPast"])
+	}
+	sla, ok := body["sla"].(map[string]any)
+	if !ok {
+		t.Fatalf("sla block missing: %v", body)
+	}
+	if st, _ := sla["status"].(string); st != string(order.SLABreached) {
+		t.Errorf("sla.status = %v, want BREACHED for a past target", sla["status"])
+	}
+
+	// A future target is still reported as not-past.
+	future := fixedClock().Add(6 * time.Hour).UTC().Format(time.RFC3339)
+	code, body = do(t, "POST", ts.URL+"/api/v1/orders",
+		fmt.Sprintf(`{"orderNumber":"ORD-FUT","targetCompletionAt":%q}`, future))
+	if code != http.StatusCreated {
+		t.Fatalf("future target: status = %d, want 201; body %v", code, body)
+	}
+	if pastFlag, _ := body["targetIsPast"].(bool); pastFlag {
+		t.Errorf("targetIsPast = true for a future target")
 	}
 }
 

@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 
 	"cockpit/pkg/auth"
 	"cockpit/pkg/db"
@@ -29,7 +31,7 @@ func (s *Server) handleCreateDepartment(w http.ResponseWriter, r *http.Request) 
 	}
 	department, err := s.store.CreateDepartment(r.Context(), cleanString(req.Name), req.Description, s.now().UTC())
 	if err != nil {
-		if err == db.ErrDuplicateDepartmentName {
+		if errors.Is(err, db.ErrDuplicateDepartmentName) {
 			s.writeError(w, http.StatusConflict, "duplicate_name", "department name already exists")
 			return
 		}
@@ -144,15 +146,34 @@ func (s *Server) handleSetDepartmentPermissions(w http.ResponseWriter, r *http.R
 
 	seen := map[string]bool{}
 	perms := []string{}
+	unknown := []string{}
 	for _, p := range req.Permissions {
 		p = cleanString(p)
-		if p == "" || !auth.IsValidPermission(auth.Permission(p)) {
+		if p == "" {
+			continue
+		}
+		if !auth.IsValidPermission(auth.Permission(p)) {
+			if !seen["?"+p] {
+				seen["?"+p] = true
+				unknown = append(unknown, p)
+			}
 			continue
 		}
 		if !seen[p] {
 			seen[p] = true
 			perms = append(perms, p)
 		}
+	}
+	// Silently dropping unknown grants used to make the UI and the server drift
+	// apart without anybody noticing (the permission simply never took effect).
+	// Fail loudly instead so the caller can fix the typo or upgrade the server.
+	if len(unknown) > 0 {
+		s.writeJSON(w, http.StatusBadRequest, apiError{Error: apiErrorBody{
+			Code:    "invalid_permission",
+			Message: "unknown permission(s): " + strings.Join(unknown, ", "),
+			Extra:   map[string]any{"unknown": unknown},
+		}})
+		return
 	}
 	if err := s.store.SetDepartmentPermissions(r.Context(), id, perms); err != nil {
 		status, code, msg := s.classifyError(err)
@@ -166,8 +187,4 @@ func (s *Server) handleSetDepartmentPermissions(w http.ResponseWriter, r *http.R
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"department": department})
-}
-
-func init() {
-	_ = auth.PermSICreate
 }

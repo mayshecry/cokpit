@@ -26,6 +26,9 @@ func (s *Server) handleListCAPA(w http.ResponseWriter, r *http.Request) {
 	filter.OverdueOnly = r.URL.Query().Get("overdue") == "true" || r.URL.Query().Get("overdue") == "1"
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		if n, err := strconv.Atoi(raw); err == nil && n > 0 {
+			if n > 500 {
+				n = 500
+			}
 			filter.Limit = n
 		}
 	}

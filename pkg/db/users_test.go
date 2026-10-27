@@ -84,3 +84,115 @@ func TestPasswordResetRevokesAllSessions(t *testing.T) {
 		}
 	}
 }
+
+func TestLastAdminCannotBeRemoved(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	now := fixedNow()
+
+	root, err := s.CreateUser(ctx, "root", "hash", "Root", auth.RoleAdmin, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetUserRole(ctx, root.ID, auth.RoleViewer); !errors.Is(err, ErrLastAdmin) {
+		t.Fatalf("demote last admin: err = %v, want ErrLastAdmin", err)
+	}
+	if err := s.DeleteUser(ctx, root.ID); !errors.Is(err, ErrLastAdmin) {
+		t.Fatalf("delete last admin: err = %v, want ErrLastAdmin", err)
+	}
+
+	second, err := s.CreateUser(ctx, "root2", "hash", "Root2", auth.RoleAdmin, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SetUserRole(ctx, root.ID, auth.RoleViewer); err != nil {
+		t.Fatalf("demote with a spare admin: %v", err)
+	}
+	// root is now a viewer and "second" is the only admin again.
+	if err := s.DeleteUser(ctx, second.ID); !errors.Is(err, ErrLastAdmin) {
+		t.Fatalf("delete the remaining admin: err = %v, want ErrLastAdmin", err)
+	}
+	third, err := s.CreateUser(ctx, "root3", "hash", "Root3", auth.RoleAdmin, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.DeleteUser(ctx, second.ID); err != nil {
+		t.Fatalf("delete one of two admins: %v", err)
+	}
+	if n, err := s.CountUsersWithRole(ctx, auth.RoleAdmin); err != nil || n != 1 {
+		t.Fatalf("admin count = %d (%v), want 1", n, err)
+	}
+	if _, err := s.SetUserRole(ctx, third.ID, auth.RoleOperator); !errors.Is(err, ErrLastAdmin) {
+		t.Fatalf("demote the remaining admin: err = %v, want ErrLastAdmin", err)
+	}
+	if _, err := s.SetUserRole(ctx, 999999, auth.RoleViewer); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown user role change: err = %v, want ErrNotFound", err)
+	}
+	if err := s.DeleteUser(ctx, 999999); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown user delete: err = %v, want ErrNotFound", err)
+	}
+}
+
+func TestAddUserToDepartmentRequiresBothRecords(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	now := fixedNow()
+	user, err := s.CreateUser(ctx, "alice", "hash", "Alice", auth.RoleViewer, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dept, err := s.CreateDepartment(ctx, "Ops", "", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddUserToDepartment(ctx, 424242, dept.ID); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown user: err = %v, want ErrNotFound", err)
+	}
+	if err := s.AddUserToDepartment(ctx, user.ID, 424242); !errors.Is(err, ErrNotFound) {
+		t.Errorf("unknown department: err = %v, want ErrNotFound", err)
+	}
+	if err := s.AddUserToDepartment(ctx, user.ID, dept.ID); err != nil {
+		t.Fatalf("valid membership: %v", err)
+	}
+	if err := s.AddUserToDepartment(ctx, user.ID, dept.ID); err != nil {
+		t.Fatalf("idempotent membership: %v", err)
+	}
+}
+
+func TestDepartmentPermissionRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	now := fixedNow()
+	user, err := s.CreateUser(ctx, "alice", "hash", "Alice", auth.RoleViewer, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dept, err := s.CreateDepartment(ctx, "SC desk", "", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddUserToDepartment(ctx, user.ID, dept.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetDepartmentPermissions(ctx, dept.ID, []string{"manuals:approve", "customers:manage"}); err != nil {
+		t.Fatal(err)
+	}
+	perms, err := s.UserDepartmentPermissions(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, p := range perms {
+		got[p] = true
+	}
+	if !got["manuals:approve"] || !got["customers:manage"] || len(perms) != 2 {
+		t.Fatalf("effective department permissions = %v", perms)
+	}
+	stored, err := s.DepartmentByID(ctx, dept.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.Permissions) != 2 {
+		t.Fatalf("stored permissions = %v", stored.Permissions)
+	}
+}

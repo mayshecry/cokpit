@@ -13,6 +13,10 @@ import (
 
 var ErrNotFound = errors.New("record not found")
 
+// ErrUnknownDepartment is returned when a rule targets a department/team that
+// does not exist.
+var ErrUnknownDepartment = errors.New("target department does not exist")
+
 var ErrDuplicateOrderNumber = errors.New("order number already exists")
 
 var ErrHoldActive = errors.New("order already has an active hold")

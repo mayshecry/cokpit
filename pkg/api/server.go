@@ -100,6 +100,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/admin/client-keys", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleListPairedClients)))
 	mux.HandleFunc("POST /api/v1/admin/client-keys/{id}/revoke", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleRevokePairedClient)))
 	mux.HandleFunc("GET /api/v1/auth/me", s.requireAuth(s.handleMe))
+	mux.HandleFunc("GET /api/v1/auth/permissions", s.requireAuth(s.handlePermissionCatalogue))
 	mux.HandleFunc("GET /api/v1/users", s.requireAuth(s.requirePerm(auth.PermUsersList, s.handleListUsers)))
 	mux.HandleFunc("POST /api/v1/users", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleCreateUser)))
 	mux.HandleFunc("POST /api/v1/users/{id}/role", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleSetUserRole)))
@@ -132,6 +133,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/automations/{id}", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleDeleteAutomationRule)))
 	mux.HandleFunc("GET /api/v1/automation-runs", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleListAutomationRuns)))
 	mux.HandleFunc("POST /api/v1/automations/evaluate", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleEvaluateAutomations)))
+	mux.HandleFunc("POST /api/v1/automations/preview", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handlePreviewAutomationRule)))
 	mux.HandleFunc("GET /api/v1/dayplan", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleGetDayplan)))
 	mux.HandleFunc("PUT /api/v1/dayplan/goal", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handlePutDayGoal)))
 	mux.HandleFunc("POST /api/v1/dayplan/send", s.requireAuth(s.requirePerm(auth.PermQCSubmit, s.handleSendDayGoal)))
@@ -302,6 +304,8 @@ func (s *Server) classifyError(err error) (int, string, string) {
 		return http.StatusConflict, "duplicate_order_number", err.Error()
 	case errors.Is(err, db.ErrDuplicateUsername):
 		return http.StatusConflict, "duplicate_username", err.Error()
+	case errors.Is(err, db.ErrLastAdmin):
+		return http.StatusConflict, "last_admin", err.Error()
 	case errors.Is(err, db.ErrDuplicateProductCode):
 		return http.StatusConflict, "duplicate_product_code", err.Error()
 	case errors.Is(err, db.ErrDuplicateManual):
@@ -326,6 +330,8 @@ func (s *Server) classifyError(err error) (int, string, string) {
 		return http.StatusConflict, "invalid_capa_transition", err.Error()
 	case errors.Is(err, db.ErrUnknownAssignee):
 		return http.StatusBadRequest, "unknown_assignee", err.Error()
+	case errors.Is(err, db.ErrUnknownDepartment):
+		return http.StatusBadRequest, "unknown_department", err.Error()
 	case errors.Is(err, db.ErrBadAnswer):
 		return http.StatusBadRequest, "invalid_answer", err.Error()
 	case errors.Is(err, db.ErrBadFlagReason):

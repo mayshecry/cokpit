@@ -27,9 +27,13 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 	now := s.now().UTC()
 	target := now.Add(s.slaHrs)
 	if req.TargetCompletion != nil {
+		// A target in the past is allowed on purpose: orders are regularly
+		// registered after they arrived (or imported from Omnitracker), and such
+		// an order is simply already past its SLA. Only implausible values are
+		// refused, so a typo cannot create an order that looks years overdue.
 		provided := req.TargetCompletion.UTC()
-		if !provided.After(now) {
-			s.writeError(w, http.StatusBadRequest, "bad_request", "targetCompletionAt must be in the future")
+		if err := order.ValidateTargetCompletion(provided, now); err != nil {
+			s.writeError(w, http.StatusBadRequest, targetErrorCode(err), err.Error())
 			return
 		}
 		target = provided
@@ -77,7 +81,23 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 			s.publishOrder(created.ID, s.currentUser(r).Username)
 		}
 	}
-	s.writeJSON(w, http.StatusCreated, map[string]order.Order{"order": created})
+	// The SLA block tells the caller straight away whether the order was
+	// registered already overdue (a past target is allowed, see above).
+	sla := order.ComputeSLAPaused(created.TargetCompletion, s.now().UTC(), created.PausedSeconds, nil)
+	s.writeJSON(w, http.StatusCreated, map[string]any{
+		"order":        created,
+		"targetIsPast": order.IsPastTarget(created.TargetCompletion, s.now().UTC()),
+		"sla":          sla,
+	})
+}
+
+// targetErrorCode maps a target-completion validation error onto the machine
+// readable API code.
+func targetErrorCode(err error) string {
+	if errors.Is(err, order.ErrTargetTooFar) {
+		return "target_too_far"
+	}
+	return "invalid_target"
 }
 
 func (s *Server) handleListOrders(w http.ResponseWriter, r *http.Request) {

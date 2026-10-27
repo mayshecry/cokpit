@@ -30,7 +30,10 @@ func (s *Server) productDeptAllowed(r *http.Request, prod order.Product) bool {
 
 func (s *Server) autoApprove(r *http.Request, prod order.Product) order.Product {
 	me := s.currentUser(r)
-	if me.Role == auth.RoleSC || me.Role == auth.RoleAdmin {
+	// Permission based, not role based: a department can grant manuals:approve
+	// to (for example) an operator, and that grant must behave exactly like the
+	// SC role does.
+	if s.userHasPerm(r, me, auth.PermManualsApprove) {
 		if approved, err := s.store.ApproveProduct(r.Context(), prod.ID, me.Username, s.now().UTC()); err == nil {
 			return approved
 		}

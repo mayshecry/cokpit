@@ -14,6 +14,10 @@ var ErrDuplicateUsername = errors.New("username already exists")
 
 var ErrInvalidToken = errors.New("invalid or expired token")
 
+// ErrLastAdmin guards against locking everybody out of the console: the final
+// administrator can neither be demoted nor deleted.
+var ErrLastAdmin = errors.New("at least one administrator must remain")
+
 func scanUser(row interface{ Scan(...any) error }) (auth.User, error) {
 	var u auth.User
 	var created int64
@@ -122,17 +126,54 @@ func (s *Store) ListUsers(ctx context.Context) ([]auth.User, error) {
 	return users, nil
 }
 
+func (s *Store) CountUsersWithRole(ctx context.Context, role auth.Role) (int, error) {
+	var n int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = ?`, string(role)).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count users with role %s: %w", role, err)
+	}
+	return n, nil
+}
+
+func countRoleTx(ctx context.Context, tx *sql.Tx, role auth.Role) (int, error) {
+	var n int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = ?`, string(role)).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count users with role %s: %w", role, err)
+	}
+	return n, nil
+}
+
 func (s *Store) SetUserRole(ctx context.Context, id int64, role auth.Role) (auth.User, error) {
 	if !auth.IsValidRole(role) {
 		return auth.User{}, errors.New("invalid role")
 	}
-	res, err := s.db.ExecContext(ctx,
-		`UPDATE users SET role = ? WHERE id = ?`, string(role), id)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
+		return auth.User{}, fmt.Errorf("begin role change: %w", err)
+	}
+	defer tx.Rollback()
+
+	var current auth.Role
+	if err := tx.QueryRowContext(ctx, `SELECT role FROM users WHERE id = ?`, id).Scan(&current); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return auth.User{}, ErrNotFound
+		}
+		return auth.User{}, fmt.Errorf("load current role: %w", err)
+	}
+	if current == auth.RoleAdmin && role != auth.RoleAdmin {
+		admins, err := countRoleTx(ctx, tx, auth.RoleAdmin)
+		if err != nil {
+			return auth.User{}, err
+		}
+		if admins <= 1 {
+			return auth.User{}, ErrLastAdmin
+		}
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE users SET role = ? WHERE id = ?`, string(role), id); err != nil {
 		return auth.User{}, fmt.Errorf("update role: %w", err)
 	}
-	if affected, _ := res.RowsAffected(); affected == 0 {
-		return auth.User{}, ErrNotFound
+	if err := tx.Commit(); err != nil {
+		return auth.User{}, fmt.Errorf("commit role change: %w", err)
 	}
 	return s.UserByID(ctx, id)
 }
@@ -164,12 +205,38 @@ func (s *Store) SetUserPassword(ctx context.Context, id int64, passwordHash stri
 }
 
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
-	res, err := s.db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin user delete: %w", err)
+	}
+	defer tx.Rollback()
+
+	var role auth.Role
+	if err := tx.QueryRowContext(ctx, `SELECT role FROM users WHERE id = ?`, id).Scan(&role); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("load user role: %w", err)
+	}
+	if role == auth.RoleAdmin {
+		admins, err := countRoleTx(ctx, tx, auth.RoleAdmin)
+		if err != nil {
+			return err
+		}
+		if admins <= 1 {
+			return ErrLastAdmin
+		}
+	}
+
+	res, err := tx.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("delete user: %w", err)
 	}
 	if affected, _ := res.RowsAffected(); affected == 0 {
 		return ErrNotFound
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit user delete: %w", err)
 	}
 	return nil
 }

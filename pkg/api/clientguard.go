@@ -457,8 +457,13 @@ func (s *Server) handleAdminPairQR(w http.ResponseWriter, r *http.Request) {
 	}
 	boundQ := cleanString(r.URL.Query().Get("username"))
 	if boundQ != "" {
-		if _, uerr := s.store.UserByUsername(r.Context(), boundQ); uerr != nil {
+		bound, uerr := s.store.UserByUsername(r.Context(), boundQ)
+		if uerr != nil {
 			s.writeError(w, http.StatusNotFound, "no_user", "unknown username: "+boundQ)
+			return
+		}
+		if s.requiresAdminForTarget(r, bound) {
+			s.writeForbiddenAdminTarget(w)
 			return
 		}
 	}
@@ -504,8 +509,16 @@ func (s *Server) handleAdminPairCode(w http.ResponseWriter, r *http.Request) {
 		}
 		req.Username = cleanString(req.Username)
 		if req.Username != "" {
-			if _, uerr := s.store.UserByUsername(r.Context(), req.Username); uerr != nil {
+			bound, uerr := s.store.UserByUsername(r.Context(), req.Username)
+			if uerr != nil {
 				s.writeError(w, http.StatusNotFound, "no_user", "unknown username: "+req.Username)
+				return
+			}
+			// A pairing code that carries a username hands the scanning browser a
+			// full session for that account, so it is as sensitive as a password
+			// reset: administrators may only be paired by other administrators.
+			if s.requiresAdminForTarget(r, bound) {
+				s.writeForbiddenAdminTarget(w)
 				return
 			}
 			boundUser = req.Username

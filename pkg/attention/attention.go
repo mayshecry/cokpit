@@ -137,7 +137,7 @@ func evaluate(now time.Time, o order.Order, holds int, holdStart time.Time) (Car
 	case order.SLAWarning:
 		card.Reason = ReasonSLAWarning
 		card.Severity = SeverityMedium
-		card.ReasonDetail = rel(-sla.Remaining) + " to target"
+		card.ReasonDetail = rel(sla.Remaining) + " to target"
 		return card, true
 	}
 

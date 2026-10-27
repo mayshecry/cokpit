@@ -2,6 +2,8 @@ package db
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 )
 
@@ -88,10 +90,13 @@ func (s *Store) QCContext(ctx context.Context, excludeID int64, customer, produc
 
 func (s *Store) OrderContextKeys(ctx context.Context, orderID int64) (customer, code, name string, err error) {
 	if err = s.db.QueryRowContext(ctx, `SELECT customer_name FROM orders WHERE id = ?`, orderID).Scan(&customer); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", "", "", ErrNotFound
+		}
 		return "", "", "", fmt.Errorf("order context keys: %w", err)
 	}
 	err = s.db.QueryRowContext(ctx, `SELECT product_code, product_name FROM order_manuals WHERE order_id = ? ORDER BY id LIMIT 1`, orderID).Scan(&code, &name)
-	if err != nil && err.Error() != "sql: no rows in result set" {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return customer, "", "", fmt.Errorf("order context product: %w", err)
 	}
 	return customer, code, name, nil

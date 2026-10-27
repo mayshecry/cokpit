@@ -2,6 +2,7 @@ package attention
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -95,6 +96,9 @@ func TestProjectSeveritiesAndReasons(t *testing.T) {
 	}
 	if c := byNum["ORD-WARN"]; c.Severity != SeverityMedium || c.Reason != ReasonSLAWarning {
 		t.Errorf("warn card = %+v", c)
+	} else if strings.Contains(c.ReasonDetail, "ago") {
+		// A warning is still in the future: "2 hours ago to target" is wrong.
+		t.Errorf("warning detail describes the past: %q", c.ReasonDetail)
 	}
 	if c := byNum["ORD-QC"]; c.Reason != ReasonAwaitingQC || c.Severity != SeverityLow {
 		t.Errorf("qc card = %+v", c)

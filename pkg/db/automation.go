@@ -16,8 +16,50 @@ import (
 
 var ErrDuplicateAutomationName = errors.New("automation rule name already exists")
 
-const automationRuleCols = `id, name, trigger_type, threshold_minutes, action_type, targets_json,
+const automationRuleCols = `id, name, trigger_type, threshold_minutes, action_type, targets_json, teams_json,
+	customers_json, excluded_customers_json, departments_json, products_json,
+	customer_targets_json, customer_teams_json,
 	message, escalation_level, enabled, created_by, created_at, updated_at`
+
+// cleanList trims every entry, drops empties and removes case-insensitive
+// duplicates while keeping the original order.
+func cleanList(values []string) []string {
+	out := make([]string, 0, len(values))
+	seen := map[string]bool{}
+	for _, value := range values {
+		trimmed := strings.TrimSpace(value)
+		if trimmed == "" {
+			continue
+		}
+		key := strings.ToLower(trimmed)
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		out = append(out, trimmed)
+	}
+	return out
+}
+
+// cleanMap cleans the per-customer routing map, dropping empty entries.
+func cleanMap(values map[string][]string) map[string][]string {
+	out := map[string][]string{}
+	for name, list := range values {
+		key := strings.TrimSpace(name)
+		if key == "" {
+			continue
+		}
+		cleaned := cleanList(list)
+		if len(cleaned) == 0 {
+			continue
+		}
+		out[key] = cleaned
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
 
 func normalizeAutomationRule(r automation.Rule) automation.Rule {
 	r.Name = strings.TrimSpace(r.Name)
@@ -26,28 +68,77 @@ func normalizeAutomationRule(r automation.Rule) automation.Rule {
 	if r.EscalationLevel == "" {
 		r.EscalationLevel = "L1"
 	}
-	targets := make([]string, 0, len(r.Targets))
-	for _, target := range r.Targets {
-		targets = append(targets, strings.TrimSpace(target))
+	r.Targets = cleanList(r.Targets)
+	r.Teams = cleanList(r.Teams)
+	r.Customers = cleanList(r.Customers)
+	r.ExcludedCustomers = cleanList(r.ExcludedCustomers)
+	r.Departments = cleanList(r.Departments)
+	r.Products = cleanList(r.Products)
+	r.CustomerTargets = cleanMap(r.CustomerTargets)
+	r.CustomerTeams = cleanMap(r.CustomerTeams)
+	if r.Targets == nil {
+		r.Targets = []string{}
 	}
-	r.Targets = targets
 	return r
 }
 
 func scanAutomationRule(row interface{ Scan(...any) error }) (automation.Rule, error) {
 	var r automation.Rule
-	var targets string
+	var targets, teams, customers, excluded, departments, products, custTargets, custTeams string
 	var enabled int
 	var createdMS, updatedMS int64
-	if err := row.Scan(&r.ID, &r.Name, &r.Trigger, &r.ThresholdMinutes, &r.Action, &targets,
+	if err := row.Scan(&r.ID, &r.Name, &r.Trigger, &r.ThresholdMinutes, &r.Action, &targets, &teams,
+		&customers, &excluded, &departments, &products, &custTargets, &custTeams,
 		&r.Message, &r.EscalationLevel, &enabled, &r.CreatedBy, &createdMS, &updatedMS); err != nil {
 		return automation.Rule{}, err
 	}
-	if err := json.Unmarshal([]byte(targets), &r.Targets); err != nil {
-		return automation.Rule{}, fmt.Errorf("decode automation targets: %w", err)
+	decodeList := func(raw, field string) ([]string, error) {
+		if strings.TrimSpace(raw) == "" {
+			return []string{}, nil
+		}
+		var out []string
+		if err := json.Unmarshal([]byte(raw), &out); err != nil {
+			return nil, fmt.Errorf("decode automation %s: %w", field, err)
+		}
+		if out == nil {
+			out = []string{}
+		}
+		return out, nil
 	}
-	if r.Targets == nil {
-		r.Targets = []string{}
+	decodeMap := func(raw, field string) (map[string][]string, error) {
+		if strings.TrimSpace(raw) == "" {
+			return nil, nil
+		}
+		var out map[string][]string
+		if err := json.Unmarshal([]byte(raw), &out); err != nil {
+			return nil, fmt.Errorf("decode automation %s: %w", field, err)
+		}
+		return out, nil
+	}
+	var err error
+	if r.Targets, err = decodeList(targets, "targets"); err != nil {
+		return automation.Rule{}, err
+	}
+	if r.Teams, err = decodeList(teams, "teams"); err != nil {
+		return automation.Rule{}, err
+	}
+	if r.Customers, err = decodeList(customers, "customers"); err != nil {
+		return automation.Rule{}, err
+	}
+	if r.ExcludedCustomers, err = decodeList(excluded, "excluded customers"); err != nil {
+		return automation.Rule{}, err
+	}
+	if r.Departments, err = decodeList(departments, "departments"); err != nil {
+		return automation.Rule{}, err
+	}
+	if r.Products, err = decodeList(products, "products"); err != nil {
+		return automation.Rule{}, err
+	}
+	if r.CustomerTargets, err = decodeMap(custTargets, "customer targets"); err != nil {
+		return automation.Rule{}, err
+	}
+	if r.CustomerTeams, err = decodeMap(custTeams, "customer teams"); err != nil {
+		return automation.Rule{}, err
 	}
 	r.Enabled = enabled != 0
 	r.CreatedAt = fromMillis(createdMS)
@@ -55,14 +146,88 @@ func scanAutomationRule(row interface{ Scan(...any) error }) (automation.Rule, e
 	return r, nil
 }
 
-func (s *Store) validateAutomationTargets(ctx context.Context, targets []string) error {
-	for _, target := range targets {
-		var exists int
-		if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE username = ?`, target).Scan(&exists); err != nil {
-			return fmt.Errorf("validate automation target: %w", err)
+// encodeAutomationRule renders the list/map columns for storage.
+func encodeAutomationRule(r automation.Rule) (targets, teams, customers, excluded, departments, products, custTargets, custTeams string) {
+	marshal := func(v any) string {
+		raw, err := json.Marshal(v)
+		if err != nil {
+			return "null"
 		}
-		if exists == 0 {
-			return fmt.Errorf("%w: %s", ErrUnknownAssignee, target)
+		return string(raw)
+	}
+	emptyIfNil := func(list []string) []string {
+		if list == nil {
+			return []string{}
+		}
+		return list
+	}
+	emptyMapIfNil := func(m map[string][]string) map[string][]string {
+		if m == nil {
+			return map[string][]string{}
+		}
+		return m
+	}
+	return marshal(emptyIfNil(r.Targets)), marshal(emptyIfNil(r.Teams)),
+		marshal(emptyIfNil(r.Customers)), marshal(emptyIfNil(r.ExcludedCustomers)),
+		marshal(emptyIfNil(r.Departments)), marshal(emptyIfNil(r.Products)),
+		marshal(emptyMapIfNil(r.CustomerTargets)), marshal(emptyMapIfNil(r.CustomerTeams))
+}
+
+func (s *Store) userExists(ctx context.Context, username string) (bool, error) {
+	var exists int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE username = ?`, username).Scan(&exists); err != nil {
+		return false, fmt.Errorf("validate automation target: %w", err)
+	}
+	return exists > 0, nil
+}
+
+func (s *Store) departmentExists(ctx context.Context, name string) (bool, error) {
+	var exists int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM departments WHERE name = ? COLLATE NOCASE`, name).Scan(&exists); err != nil {
+		return false, fmt.Errorf("validate automation team: %w", err)
+	}
+	return exists > 0, nil
+}
+
+func (s *Store) validateAutomationTargets(ctx context.Context, rule automation.Rule) error {
+	checkUsers := func(users []string) error {
+		for _, target := range users {
+			ok, err := s.userExists(ctx, target)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("%w: %s", ErrUnknownAssignee, target)
+			}
+		}
+		return nil
+	}
+	checkTeams := func(teams []string) error {
+		for _, team := range teams {
+			ok, err := s.departmentExists(ctx, team)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return fmt.Errorf("%w: %s", ErrUnknownDepartment, team)
+			}
+		}
+		return nil
+	}
+	if err := checkUsers(rule.Targets); err != nil {
+		return err
+	}
+	if err := checkTeams(rule.Teams); err != nil {
+		return err
+	}
+	for _, users := range rule.CustomerTargets {
+		if err := checkUsers(users); err != nil {
+			return err
+		}
+	}
+	for _, teams := range rule.CustomerTeams {
+		if err := checkTeams(teams); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -73,7 +238,7 @@ func (s *Store) CreateAutomationRule(ctx context.Context, rule automation.Rule, 
 	if err := automation.Validate(rule); err != nil {
 		return automation.Rule{}, err
 	}
-	if err := s.validateAutomationTargets(ctx, rule.Targets); err != nil {
+	if err := s.validateAutomationTargets(ctx, rule); err != nil {
 		return automation.Rule{}, err
 	}
 	var exists int
@@ -83,13 +248,16 @@ func (s *Store) CreateAutomationRule(ctx context.Context, rule automation.Rule, 
 	if exists > 0 {
 		return automation.Rule{}, ErrDuplicateAutomationName
 	}
-	targets, _ := json.Marshal(rule.Targets)
+	targets, teams, customers, excluded, departments, products, custTargets, custTeams := encodeAutomationRule(rule)
 	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO automation_rules (name, trigger_type, threshold_minutes, action_type, targets_json,
+		INSERT INTO automation_rules (name, trigger_type, threshold_minutes, action_type, targets_json, teams_json,
+			customers_json, excluded_customers_json, departments_json, products_json,
+			customer_targets_json, customer_teams_json,
 			message, escalation_level, enabled, created_by, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		rule.Name, rule.Trigger, rule.ThresholdMinutes, rule.Action, string(targets), rule.Message,
-		rule.EscalationLevel, boolToInt(rule.Enabled), createdBy, millis(now), millis(now))
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		rule.Name, rule.Trigger, rule.ThresholdMinutes, rule.Action, targets, teams,
+		customers, excluded, departments, products, custTargets, custTeams,
+		rule.Message, rule.EscalationLevel, boolToInt(rule.Enabled), createdBy, millis(now), millis(now))
 	if err != nil {
 		return automation.Rule{}, fmt.Errorf("insert automation rule: %w", err)
 	}
@@ -105,7 +273,7 @@ func (s *Store) UpdateAutomationRule(ctx context.Context, rule automation.Rule, 
 	if err := automation.Validate(rule); err != nil {
 		return automation.Rule{}, err
 	}
-	if err := s.validateAutomationTargets(ctx, rule.Targets); err != nil {
+	if err := s.validateAutomationTargets(ctx, rule); err != nil {
 		return automation.Rule{}, err
 	}
 	var exists int
@@ -115,12 +283,15 @@ func (s *Store) UpdateAutomationRule(ctx context.Context, rule automation.Rule, 
 	if exists > 0 {
 		return automation.Rule{}, ErrDuplicateAutomationName
 	}
-	targets, _ := json.Marshal(rule.Targets)
+	targets, teams, customers, excluded, departments, products, custTargets, custTeams := encodeAutomationRule(rule)
 	res, err := s.db.ExecContext(ctx, `
 		UPDATE automation_rules SET name = ?, trigger_type = ?, threshold_minutes = ?, action_type = ?,
-		targets_json = ?, message = ?, escalation_level = ?, enabled = ?, updated_at = ? WHERE id = ?`,
-		rule.Name, rule.Trigger, rule.ThresholdMinutes, rule.Action, string(targets), rule.Message,
-		rule.EscalationLevel, boolToInt(rule.Enabled), millis(now), rule.ID)
+		targets_json = ?, teams_json = ?, customers_json = ?, excluded_customers_json = ?,
+		departments_json = ?, products_json = ?, customer_targets_json = ?, customer_teams_json = ?,
+		message = ?, escalation_level = ?, enabled = ?, updated_at = ? WHERE id = ?`,
+		rule.Name, rule.Trigger, rule.ThresholdMinutes, rule.Action, targets, teams,
+		customers, excluded, departments, products, custTargets, custTeams,
+		rule.Message, rule.EscalationLevel, boolToInt(rule.Enabled), millis(now), rule.ID)
 	if err != nil {
 		return automation.Rule{}, fmt.Errorf("update automation rule: %w", err)
 	}
@@ -223,6 +394,90 @@ type automationCandidate struct {
 	orderNumber string
 	key         string
 	detail      string
+	customer    string
+	scope       automation.Scope
+}
+
+// automationScopes loads the customer, product codes and product departments
+// for a set of orders, so rule scoping can be evaluated in memory.
+func (s *Store) automationScopes(ctx context.Context, orderIDs []int64) (map[int64]automation.Scope, error) {
+	out := map[int64]automation.Scope{}
+	if len(orderIDs) == 0 {
+		return out, nil
+	}
+	placeholders := make([]string, len(orderIDs))
+	args := make([]any, len(orderIDs))
+	for i, id := range orderIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT o.id, o.customer_name,
+		       COALESCE(GROUP_CONCAT(DISTINCT om.product_code), ''),
+		       COALESCE(GROUP_CONCAT(DISTINCT p.department), '')
+		FROM orders o
+		LEFT JOIN order_manuals om ON om.order_id = o.id
+		LEFT JOIN products p ON p.id = om.product_id
+		WHERE o.id IN (`+strings.Join(placeholders, ",")+`)
+		GROUP BY o.id`, args...)
+	if err != nil {
+		return nil, fmt.Errorf("load automation scopes: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id int64
+		var customer, products, departments string
+		if err := rows.Scan(&id, &customer, &products, &departments); err != nil {
+			return nil, err
+		}
+		out[id] = automation.Scope{
+			Customer:    customer,
+			Products:    splitCSV(products),
+			Departments: splitCSV(departments),
+		}
+	}
+	return out, rows.Err()
+}
+
+func splitCSV(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if trimmed := strings.TrimSpace(part); trimmed != "" {
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+// applyScope attaches the order scope to every candidate and drops the ones the
+// rule does not apply to.
+func (s *Store) applyScope(ctx context.Context, rule automation.Rule, candidates []automationCandidate) ([]automationCandidate, error) {
+	if len(candidates) == 0 {
+		return candidates, nil
+	}
+	ids := make([]int64, 0, len(candidates))
+	for _, c := range candidates {
+		ids = append(ids, c.orderID)
+	}
+	scopes, err := s.automationScopes(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]automationCandidate, 0, len(candidates))
+	for _, c := range candidates {
+		scope := scopes[c.orderID]
+		c.customer = scope.Customer
+		c.scope = scope
+		if !rule.MatchesScope(scope) {
+			continue
+		}
+		out = append(out, c)
+	}
+	return out, nil
 }
 
 func (s *Store) automationRunExists(ctx context.Context, ruleID int64, key string) (bool, error) {
@@ -263,7 +518,10 @@ func (s *Store) automationCandidates(ctx context.Context, rule automation.Rule, 
 			}
 			out = append(out, c)
 		}
-		return out, rows.Err()
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return s.applyScope(ctx, rule, out)
 
 	case automation.TriggerHoldAging:
 		cutoff := millis(now.Add(-time.Duration(rule.ThresholdMinutes) * time.Minute))
@@ -291,7 +549,10 @@ func (s *Store) automationCandidates(ctx context.Context, rule automation.Rule, 
 			c.detail = fmt.Sprintf("hold active for %s: %s", age, reason)
 			out = append(out, c)
 		}
-		return out, rows.Err()
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return s.applyScope(ctx, rule, out)
 
 	case automation.TriggerSLABreach:
 		orders, err := s.ListOrders(ctx, nil)
@@ -329,7 +590,7 @@ func (s *Store) automationCandidates(ctx context.Context, rule automation.Rule, 
 				detail: fmt.Sprintf("SLA breached by %s", -sla.Remaining.Round(time.Minute)),
 			})
 		}
-		return out, nil
+		return s.applyScope(ctx, rule, out)
 	default:
 		return nil, fmt.Errorf("%w: unsupported trigger %s", automation.ErrValidation, rule.Trigger)
 	}
@@ -343,20 +604,141 @@ func automationNotificationBody(rule automation.Rule, c automationCandidate) str
 	return body
 }
 
+// teamMembers returns the usernames in a department, ordered by name.
+func (s *Store) teamMembers(ctx context.Context, department string) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT u.username FROM users u
+		JOIN user_departments ud ON ud.user_id = u.id
+		JOIN departments d ON d.id = ud.department_id
+		WHERE d.name = ? COLLATE NOCASE
+		ORDER BY u.username ASC`, department)
+	if err != nil {
+		return nil, fmt.Errorf("team members: %w", err)
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var username string
+		if err := rows.Scan(&username); err != nil {
+			return nil, err
+		}
+		out = append(out, username)
+	}
+	return out, rows.Err()
+}
+
+// openOrderCount returns how many unfinished orders a user currently owns.
+func (s *Store) openOrderCount(ctx context.Context, username string) (int, error) {
+	var count int
+	err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM orders WHERE assigned_to = ? AND status <> 'Completed'`, username).Scan(&count)
+	return count, err
+}
+
+// leastBusyMember picks the team member with the fewest unfinished orders, so a
+// team target load-balances instead of always landing on the same person.
+func (s *Store) leastBusyMember(ctx context.Context, department string) (string, []string, error) {
+	members, err := s.teamMembers(ctx, department)
+	if err != nil {
+		return "", nil, err
+	}
+	if len(members) == 0 {
+		return "", members, nil
+	}
+	best := members[0]
+	bestCount := -1
+	for _, member := range members {
+		count, err := s.openOrderCount(ctx, member)
+		if err != nil {
+			return "", members, err
+		}
+		if bestCount == -1 || count < bestCount {
+			best, bestCount = member, count
+		}
+	}
+	return best, members, nil
+}
+
+// expandTeams turns team names into their member usernames, preserving order and
+// dropping duplicates.
+func (s *Store) expandTeams(ctx context.Context, teams []string) ([]string, error) {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, team := range teams {
+		members, err := s.teamMembers(ctx, team)
+		if err != nil {
+			return nil, err
+		}
+		for _, member := range members {
+			if seen[member] {
+				continue
+			}
+			seen[member] = true
+			out = append(out, member)
+		}
+	}
+	return out, nil
+}
+
+// resolveRecipients applies per-customer routing and expands teams.
+func (s *Store) resolveRecipients(ctx context.Context, rule automation.Rule, customer string) (users []string, teams []string, err error) {
+	users, teams = rule.TargetsFor(customer)
+	if len(users)+len(teams) == 0 {
+		return users, teams, fmt.Errorf("%w: rule %q has no recipients for customer %q", automation.ErrValidation, rule.Name, customer)
+	}
+	return users, teams, nil
+}
+
 func (s *Store) executeAutomationAction(ctx context.Context, rule automation.Rule, c automationCandidate, runID int64, now time.Time) ([]string, error) {
 	body := automationNotificationBody(rule, c)
 	actor := "automation: " + rule.Name
+	users, teams, err := s.resolveRecipients(ctx, rule, c.customer)
+	if err != nil {
+		return nil, err
+	}
 	switch rule.Action {
 	case automation.ActionNotify:
-		for _, target := range rule.Targets {
+		recipients := append([]string{}, users...)
+		members, err := s.expandTeams(ctx, teams)
+		if err != nil {
+			return nil, err
+		}
+		seen := map[string]bool{}
+		for _, r := range recipients {
+			seen[r] = true
+		}
+		for _, member := range members {
+			if !seen[member] {
+				seen[member] = true
+				recipients = append(recipients, member)
+			}
+		}
+		if len(recipients) == 0 {
+			return nil, fmt.Errorf("%w: rule %q has no recipients for customer %q", automation.ErrValidation, rule.Name, c.customer)
+		}
+		for _, target := range recipients {
 			if err := s.Notify(ctx, target, "automation", c.orderID, c.orderNumber, runID, body, now); err != nil {
 				return nil, err
 			}
 		}
-		return rule.Targets, nil
+		return recipients, nil
 
 	case automation.ActionAssign:
-		target := rule.Targets[0]
+		target := ""
+		if len(users) > 0 {
+			target = users[0]
+		} else {
+			member, members, err := s.leastBusyMember(ctx, teams[0])
+			if err != nil {
+				return nil, err
+			}
+			if member == "" {
+				return nil, fmt.Errorf("%w: team %q has no members, so there is nobody to assign %s to",
+					automation.ErrValidation, teams[0], c.orderNumber)
+			}
+			target = member
+			_ = members
+		}
 		if _, err := s.SetAssignee(ctx, c.orderID, target, actor, now); err != nil {
 			return nil, err
 		}
@@ -364,12 +746,18 @@ func (s *Store) executeAutomationAction(ctx context.Context, rule automation.Rul
 			body+" — assigned to you", now); err != nil {
 			return nil, err
 		}
-		return rule.Targets, nil
+		return []string{target}, nil
 
 	case automation.ActionEscalate:
 		target := ""
-		if len(rule.Targets) == 1 {
-			target = rule.Targets[0]
+		if len(users) > 0 {
+			target = users[0]
+		} else if len(teams) > 0 {
+			member, _, err := s.leastBusyMember(ctx, teams[0])
+			if err != nil {
+				return nil, err
+			}
+			target = member
 		}
 		reason := swi.ReasonManual
 		switch rule.Trigger {

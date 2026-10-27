@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -67,7 +68,7 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 
 	o, err := s.store.OrderByNumber(r.Context(), code)
 	if err != nil {
-		if err == db.ErrNotFound {
+		if errors.Is(err, db.ErrNotFound) {
 			s.writeError(w, http.StatusNotFound, "no_match",
 				"no order matches the scanned code "+code)
 			return

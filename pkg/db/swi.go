@@ -1119,7 +1119,10 @@ func (s *Store) ImportOrder(ctx context.Context, req swi.ImportRequest, slaTarge
 	}
 	number := strings.TrimSpace(req.OrderNumber)
 	target := now.Add(slaTarget)
-	if req.TargetCompletion != nil && req.TargetCompletion.After(now) {
+	if req.TargetCompletion != nil {
+		// Use the supplied target verbatim, including one that is already in the
+		// past: silently replacing it with now+sla would hide that the imported
+		// order is overdue. Handlers validate plausibility before calling this.
 		target = req.TargetCompletion.UTC()
 	}
 

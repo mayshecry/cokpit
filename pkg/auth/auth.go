@@ -186,11 +186,16 @@ func HasPermission(role Role, perm Permission) bool {
 	return false
 }
 
+// AllPermissions is the authoritative catalogue of every permission a
+// department can be granted. It must list every Permission constant declared
+// above: anything missing here can never be granted through a department
+// (handleSetDepartmentPermissions rejects it) and is silently dropped on save.
 var AllPermissions = []Permission{
 	PermOrderList, PermOrderCreate, PermOrderView, PermOrderTransition,
 	PermHoldCreate, PermHoldResolve, PermQCSubmit, PermAuditView,
 	PermUsersManage, PermUsersList, PermScanUse, PermPickUse,
-	PermCommentRead, PermCommentPost, PermNotifyRead, PermManualManage,
+	PermCommentRead, PermCommentPost, PermNotifyRead,
+	PermManualManage, PermManualsApprove, PermCustomersManage,
 	PermSIList, PermSIView, PermSICreate, PermSIUpdate, PermSITransition,
 	PermSIProjects, PermSIManage,
 	PermProcessView, PermProcessAdvance, PermProcessEscalate, PermProcessManage, PermIntegrationsManage,
@@ -205,6 +210,41 @@ var validPermissionSet = func() map[Permission]bool {
 }()
 
 func IsValidPermission(perm Permission) bool { return validPermissionSet[perm] }
+
+// PermissionsFor returns the effective base permissions for a role.
+// Admins receive the whole catalogue so that clients never have to special
+// case the admin role.
+func PermissionsFor(role Role) []Permission {
+	if role == RoleAdmin {
+		out := make([]Permission, len(AllPermissions))
+		copy(out, AllPermissions)
+		return out
+	}
+	perms := rolePermissions[role]
+	out := make([]Permission, len(perms))
+	copy(out, perms)
+	return out
+}
+
+// RolePermissionMatrix returns a copy of the role -> base permission table.
+// Every role is present in the result, even when it has no permissions.
+func RolePermissionMatrix() map[Role][]Permission {
+	out := make(map[Role][]Permission, len(ValidRoles))
+	for _, r := range ValidRoles {
+		out[r] = PermissionsFor(r)
+	}
+	return out
+}
+
+// PermissionStrings converts a permission slice into plain strings, which is
+// what JSON responses and database rows use.
+func PermissionStrings(perms []Permission) []string {
+	out := make([]string, 0, len(perms))
+	for _, p := range perms {
+		out = append(out, string(p))
+	}
+	return out
+}
 
 type User struct {
 	ID           int64  `json:"id"`

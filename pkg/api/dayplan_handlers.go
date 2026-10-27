@@ -22,6 +22,10 @@ func cleanDay(v string) string {
 	if len(v) != 10 || v[4] != '-' || v[7] != '-' {
 		return ""
 	}
+	// Validate the calendar date too: "2026-13-45" used to be stored verbatim.
+	if _, err := time.Parse("2006-01-02", v); err != nil {
+		return ""
+	}
 	return v
 }
 

@@ -460,6 +460,13 @@ CREATE TABLE IF NOT EXISTS automation_rules (
     threshold_minutes INTEGER NOT NULL DEFAULT 0,
     action_type       TEXT    NOT NULL CHECK (action_type IN ('NOTIFY','ASSIGN','ESCALATE')),
     targets_json      TEXT    NOT NULL DEFAULT '[]',
+    teams_json        TEXT    NOT NULL DEFAULT '[]',
+    customers_json    TEXT    NOT NULL DEFAULT '[]',
+    excluded_customers_json TEXT NOT NULL DEFAULT '[]',
+    departments_json  TEXT    NOT NULL DEFAULT '[]',
+    products_json     TEXT    NOT NULL DEFAULT '[]',
+    customer_targets_json TEXT NOT NULL DEFAULT '{}',
+    customer_teams_json   TEXT NOT NULL DEFAULT '{}',
     message           TEXT    NOT NULL DEFAULT '',
     escalation_level  TEXT    NOT NULL DEFAULT 'L1',
     enabled           INTEGER NOT NULL DEFAULT 1,
@@ -545,6 +552,34 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 	return conn, nil
 }
 
+// ensureAutomationScopeColumns adds the rule-scoping columns introduced for
+// customer/department/product targeting. Older databases keep their rows; the
+// defaults make an upgraded rule behave exactly as before (no scope).
+func ensureAutomationScopeColumns(ctx context.Context, conn *sql.DB) error {
+	existing, err := tableColumns(ctx, conn, "automation_rules")
+	if err != nil {
+		return err
+	}
+	cols := map[string]string{
+		"teams_json":              `ALTER TABLE automation_rules ADD COLUMN teams_json TEXT NOT NULL DEFAULT '[]'`,
+		"customers_json":          `ALTER TABLE automation_rules ADD COLUMN customers_json TEXT NOT NULL DEFAULT '[]'`,
+		"excluded_customers_json": `ALTER TABLE automation_rules ADD COLUMN excluded_customers_json TEXT NOT NULL DEFAULT '[]'`,
+		"departments_json":        `ALTER TABLE automation_rules ADD COLUMN departments_json TEXT NOT NULL DEFAULT '[]'`,
+		"products_json":           `ALTER TABLE automation_rules ADD COLUMN products_json TEXT NOT NULL DEFAULT '[]'`,
+		"customer_targets_json":   `ALTER TABLE automation_rules ADD COLUMN customer_targets_json TEXT NOT NULL DEFAULT '{}'`,
+		"customer_teams_json":     `ALTER TABLE automation_rules ADD COLUMN customer_teams_json TEXT NOT NULL DEFAULT '{}'`,
+	}
+	for name, ddl := range cols {
+		if existing[name] {
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("add column automation_rules.%s: %w", name, err)
+		}
+	}
+	return nil
+}
+
 func migrate(ctx context.Context, conn *sql.DB) error {
 	existing, err := tableColumns(ctx, conn, "orders")
 	if err != nil {
@@ -561,6 +596,10 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		if _, err := conn.ExecContext(ctx, ddl); err != nil {
 			return fmt.Errorf("add column %s: %w", name, err)
 		}
+	}
+
+	if err := ensureAutomationScopeColumns(ctx, conn); err != nil {
+		return err
 	}
 
 	blockCols, err := tableColumns(ctx, conn, "order_manual_blocks")

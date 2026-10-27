@@ -36,7 +36,8 @@ func (s *Server) handleQCContext(w http.ResponseWriter, r *http.Request) {
 	}
 	customer, code, name, err := s.store.OrderContextKeys(r.Context(), id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		status, code, msg := s.classifyError(err)
+		s.writeError(w, status, code, msg)
 		return
 	}
 	recent, err := s.store.QCContext(r.Context(), id, customer, code, 6)

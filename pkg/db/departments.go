@@ -100,9 +100,32 @@ func (s *Store) DeleteDepartment(ctx context.Context, id int64) error {
 }
 
 func (s *Store) AddUserToDepartment(ctx context.Context, userID, departmentID int64) error {
+	// Check both sides first: a foreign-key violation would otherwise surface
+	// as an opaque 500 instead of a clean 404.
+	if err := s.mustExist(ctx, "users", userID); err != nil {
+		return err
+	}
+	if err := s.mustExist(ctx, "departments", departmentID); err != nil {
+		return err
+	}
 	_, err := s.db.ExecContext(ctx, `INSERT OR IGNORE INTO user_departments (user_id, department_id) VALUES (?, ?)`, userID, departmentID)
 	if err != nil {
 		return fmt.Errorf("add user to department: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) mustExist(ctx context.Context, table string, id int64) error {
+	if id <= 0 {
+		return ErrNotFound
+	}
+	var one int
+	err := s.db.QueryRowContext(ctx, `SELECT 1 FROM `+table+` WHERE id = ?`, id).Scan(&one)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("check %s %d: %w", table, id, err)
 	}
 	return nil
 }
