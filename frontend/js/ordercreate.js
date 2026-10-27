@@ -21,6 +21,21 @@
     return t.toISOString().slice(0, 16);
   };
 
+  // Validation rules live in core.js (SLA.targetProblem) so every create path
+  // uses the same ones; the server applies order.ValidateTargetCompletion.
+  // Reads #oc-target and returns {iso, past, problem}. Empty input means
+  // "use the server SLA default" and yields {iso: null}.
+  function readTarget() {
+    const inp = $('#oc-target');
+    if (window.SLA) return SLA.parseTargetInput(inp && inp.value);
+    const raw = (inp && inp.value) || '';
+    if (!raw) return { iso: null, past: false, problem: '' };
+    const dt = new Date(raw);
+    if (Number.isNaN(dt.getTime())) return { iso: null, past: false, problem: 'Enter a valid target date and time.' };
+    return { iso: dt.toISOString(), past: dt.getTime() < Date.now(), problem: '' };
+  }
+
+
   function avatarHue(name) {
     let h = 0;
     const s = String(name || '');
@@ -672,7 +687,14 @@
       rel.textContent = 'No target';
       return;
     }
-    const iso = new Date(val).toISOString();
+    const dtTarget = new Date(val);
+    if (Number.isNaN(dtTarget.getTime())) {
+      // A half-typed datetime-local value must not throw out of the preview.
+      pill.className = 'oc-sla-pill';
+      rel.textContent = 'Invalid target';
+      return;
+    }
+    const iso = dtTarget.toISOString();
     const st = slaOf({ targetCompletionAt: iso, customerName: selected ? selected.name : '' });
     pill.className = 'oc-sla-pill sla-' + st;
 
@@ -842,6 +864,12 @@
 
     $('#oc-target', root).addEventListener('input', () => {
       $$('#oc-chips button', root).forEach((x) => x.classList.remove('on'));
+      const problem = readTarget().problem;
+      if (problem) showErr(problem);
+      else {
+        const errEl = $('#oc-error', root);
+        if (errEl) { errEl.textContent = ''; errEl.classList.add('hidden'); }
+      }
       updateSlaPreview();
     });
 
@@ -920,6 +948,14 @@
       else { showErr('Please pick a customer or type a new name.'); $('#oc-cust-q', root).focus(); return; }
     }
 
+    const target = readTarget();
+    if (target.problem) {
+      showErr(target.problem);
+      const inp = $('#oc-target', root);
+      if (inp) inp.focus();
+      return;
+    }
+
     const btn = $('#oc-submit', root);
     btn.disabled = true;
 
@@ -954,11 +990,7 @@
     };
     Object.entries(fields).forEach(([k, v]) => { if (v) body[k] = v; });
 
-    const tVal = $('#oc-target', root).value;
-    if (tVal) {
-      const dt = new Date(tVal);
-      if (!Number.isNaN(dt.getTime())) body.targetCompletionAt = dt.toISOString();
-    }
+    if (target.iso) body.targetCompletionAt = target.iso;
 
     try {
       const d = await api('POST', '/api/v1/orders', body);
@@ -966,7 +998,8 @@
       const newNote = selected.isNew ? ` · customer “${selected.name}” added` : '';
       const slaNote = activeWorkdays ? ` · ${activeWorkdays}d SLA (no weekends)` : '';
       close();
-      toast(t('toast.created') + newNote + slaNote);
+      const pastNote = target.past ? ' · ⚠ registered past its target' : '';
+      toast(t('toast.created') + newNote + slaNote + pastNote);
       if (typeof OrderCreate.onDone === 'function') OrderCreate.onDone(created);
       if (typeof loadOrders === 'function') await loadOrders(true);
     } catch (err) {

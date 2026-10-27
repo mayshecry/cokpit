@@ -628,13 +628,20 @@
       const v = (res[k] || '').trim();
       if (v) body[k] = v;
     });
-    if (res.target) {
-      const dt = new Date(res.target);
-      if (!Number.isNaN(dt.getTime())) body.targetCompletionAt = dt.toISOString();
+    const target = window.SLA
+      ? SLA.parseTargetInput(res.target)
+      : { iso: res.target ? new Date(res.target).toISOString() : null, past: false, problem: '' };
+    if (target.problem) {
+      // Never silently drop an unparsable date: the user would get an order
+      // with a server-default SLA they did not ask for.
+      toast(target.problem, true);
+      return;
     }
+    if (target.iso) body.targetCompletionAt = target.iso;
     try {
       await api('POST', '/api/v1/orders', body);
-      toast(t('toast.created') + (isNewCustomer ? ` · new customer “${body.customerName}”` : ''));
+      toast(t('toast.created') + (isNewCustomer ? ` · new customer “${body.customerName}”` : '')
+        + (target.past ? ' · ⚠ registered past its target' : ''));
       orderCustomersAt = 0;
       await loadOrders(true);
     } catch (err) {

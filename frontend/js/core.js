@@ -555,6 +555,35 @@
   };
 
   const SLA = {
+    // Mirrors order.ValidateTargetCompletion on the server. A target in the
+    // past is legitimate (an order registered after it arrived, or imported
+    // from Omnitracker) — it simply means the order is already overdue. Only
+    // implausible values are rejected, so a typo cannot create an order that
+    // looks years overdue.
+    TARGET_FLOOR: new Date('2000-01-01T00:00:00Z').getTime(),
+    TARGET_HORIZON_DAYS: 3650,
+
+    targetProblem(date, nowMs) {
+      // Duck-typed on purpose: `instanceof Date` is false across realms.
+      const ms = date && typeof date.getTime === 'function' ? date.getTime() : NaN;
+      if (!Number.isFinite(ms)) return 'Enter a valid target date and time.';
+      const now = nowMs === undefined ? Date.now() : nowMs;
+      if (ms < SLA.TARGET_FLOOR) return 'Target date looks wrong — pick a date after 2000.';
+      if (ms > now + SLA.TARGET_HORIZON_DAYS * 86400000) return 'Target date is more than 10 years out — check the year.';
+      return '';
+    },
+
+    // Parses a datetime-local value. Returns {iso, past, problem}; an empty
+    // value yields {iso: null} meaning "use the server default".
+    parseTargetInput(value) {
+      const raw = String(value == null ? '' : value).trim();
+      if (!raw) return { iso: null, past: false, problem: '' };
+      const dt = new Date(raw);
+      const problem = SLA.targetProblem(dt);
+      if (problem) return { iso: null, past: false, problem };
+      return { iso: dt.toISOString(), past: dt.getTime() < Date.now(), problem: '' };
+    },
+
     getDefaults() {
       let saved = {};
       try { saved = JSON.parse(localStorage.getItem(SLA_DEFAULTS_KEY) || '{}') || {}; } catch {}
@@ -905,7 +934,192 @@
   let modalCleanup = null;
 
   
-  function modal({ title, description, fields = [], confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false, wide = false, bodyHtml = '', hideConfirm = false }) {
+  // ---------------------------------------------------------------------
+  // Chip picker: a searchable multi-select used for people, teams, customers
+  // and products. Values are kept in the DOM as `.chip-pick-chosen` elements so
+  // any custom section (e.g. per-customer routing) can read them the same way.
+  // ---------------------------------------------------------------------
+  const ChipsPicker = {
+    // html renders the picker. `options` is [{value, label, hint, group}].
+    html({ id, options = [], value = [], max = 0, placeholder = 'Search…', emptyHint = '' } = {}) {
+      const selected = (value || []).map((v) => (typeof v === 'string' ? v : v.value)).filter(Boolean);
+      const norm = new Map((options || []).map((o) => [String(o.value).toLowerCase(), o]));
+      const chips = selected.map((v) => {
+        const opt = norm.get(String(v).toLowerCase());
+        const label = opt ? (opt.label || opt.value) : v;
+        return `<span class="chip-pick-chip" data-value="${esc(v)}">${esc(label)}<button type="button" class="chip-pick-x" data-chip-remove="${esc(v)}" aria-label="Remove ${esc(label)}">&times;</button></span>`;
+      }).join('');
+      const list = (options || []).map((o) => {
+        const group = o.group ? ` data-group="${esc(o.group)}"` : '';
+        const hint = o.hint ? ` data-hint="${esc(o.hint)}"` : '';
+        return `<button type="button" class="chip-pick-option" data-pick-value="${esc(o.value)}"${group}${hint}>
+          <span class="chip-pick-option-label">${esc(o.label || o.value)}</span>
+          ${o.hint ? `<span class="chip-pick-option-hint">${esc(o.hint)}</span>` : ''}
+        </button>`;
+      }).join('');
+      return `<div class="chip-pick" id="${esc(id)}" data-max="${max || 0}">
+        <div class="chip-pick-box" data-chip-box>
+          <span class="chip-pick-chosen" data-chip-chosen>${chips}</span>
+          <input type="text" class="chip-pick-search" data-chip-search placeholder="${esc(placeholder)}" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="chip-pick-menu hidden" data-chip-menu>${list || '<div class="chip-pick-empty">Nothing to pick from yet.</div>'}</div>
+        <div class="chip-pick-foot"><span class="chip-pick-count" data-chip-count></span><span class="chip-pick-note" data-chip-note>${esc(emptyHint)}</span></div>
+      </div>`;
+    },
+
+    // bind wires one picker rendered by html(). onChange receives the values.
+    bind(root, { max = 0, onChange } = {}) {
+      const wrap = typeof root === 'string' ? $(root) : root;
+      if (!wrap || wrap.dataset.chipBound === '1') return wrap;
+      wrap.dataset.chipBound = '1';
+      const box = $('[data-chip-box]', wrap);
+      const chosen = $('[data-chip-chosen]', wrap);
+      const search = $('[data-chip-search]', wrap);
+      const menu = $('[data-chip-menu]', wrap);
+      // The limit is read live so a form can change it (e.g. ASSIGN allows one
+      // recipient while NOTIFY allows many) without re-rendering the picker.
+      const limit = () => Number(wrap.dataset.max || max || 0);
+      const count = $('[data-chip-count]', wrap);
+
+      const values = () => $$('.chip-pick-chip', chosen).map((el) => el.dataset.value);
+      const refresh = () => {
+        const current = values();
+        $$('.chip-pick-option', menu).forEach((btn) => {
+          const picked = current.some((v) => v.toLowerCase() === btn.dataset.pickValue.toLowerCase());
+          btn.classList.toggle('is-picked', picked);
+          btn.disabled = false;
+        });
+        if (count) {
+          const max2 = limit();
+          count.textContent = current.length === 0
+            ? 'None selected'
+            : `${current.length} selected${max2 > 0 && current.length >= max2 ? ' (max reached)' : ''}`;
+        }
+        wrap.dataset.values = JSON.stringify(current);
+        if (typeof onChange === 'function') onChange(current);
+      };
+      const add = (value, label) => {
+        const current = values();
+        if (current.some((v) => v.toLowerCase() === String(value).toLowerCase())) return;
+        // _canAdd lets a form enforce a budget shared by several pickers
+        // (e.g. ASSIGN allows one recipient across people + teams).
+        if (typeof wrap._canAdd === 'function' && !wrap._canAdd(value, current)) return;
+        const max2 = limit();
+        if (max2 > 0 && current.length >= max2) return;
+        const span = document.createElement('span');
+        span.className = 'chip-pick-chip';
+        span.dataset.value = value;
+        span.innerHTML = `${esc(label || value)}<button type="button" class="chip-pick-x" data-chip-remove="${esc(value)}" aria-label="Remove ${esc(label || value)}">&times;</button>`;
+        chosen.appendChild(span);
+        refresh();
+      };
+      const remove = (value) => {
+        $$('.chip-pick-chip', chosen).forEach((el) => {
+          if (el.dataset.value.toLowerCase() === String(value).toLowerCase()) el.remove();
+        });
+        refresh();
+      };
+
+      const filter = () => {
+        const term = (search.value || '').trim().toLowerCase();
+        let shown = 0;
+        $$('.chip-pick-option', menu).forEach((btn) => {
+          const haystack = (btn.dataset.pickValue + ' ' + btn.textContent).toLowerCase();
+          const match = !term || haystack.includes(term);
+          btn.classList.toggle('hidden', !match);
+          if (match) shown += 1;
+        });
+        menu.classList.remove('hidden');
+        const emptyMsg = $('.chip-pick-filtered-empty', menu);
+        if (emptyMsg) emptyMsg.remove();
+        if (shown === 0) {
+          const note = document.createElement('div');
+          note.className = 'chip-pick-empty chip-pick-filtered-empty';
+          note.textContent = 'No match for “' + (search.value || '') + '”.';
+          menu.appendChild(note);
+        }
+      };
+
+      box.addEventListener('click', (e) => {
+        if (e.target.closest('[data-chip-remove]')) {
+          e.preventDefault();
+          remove(e.target.closest('[data-chip-remove]').dataset.chipRemove);
+          return;
+        }
+        if (e.target === box || e.target === chosen) {
+          search.focus();
+          filter();
+        }
+      });
+      search.addEventListener('focus', filter);
+      search.addEventListener('input', filter);
+      search.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !search.value) {
+          const chips = values();
+          if (chips.length) remove(chips[chips.length - 1]);
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const first = $$('.chip-pick-option:not(.hidden)', menu)[0];
+          if (first) {
+            add(first.dataset.pickValue, $('.chip-pick-option-label', first).textContent.trim());
+            search.value = '';
+            filter();
+          }
+        }
+        if (e.key === 'Escape') menu.classList.add('hidden');
+      });
+      menu.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-pick-value]');
+        if (!btn) return;
+        e.preventDefault();
+        add(btn.dataset.pickValue, $('.chip-pick-option-label', btn).textContent.trim());
+        search.value = '';
+        filter();
+        search.focus();
+      });
+      const onDocClick = (e) => {
+        if (!wrap.contains(e.target)) menu.classList.add('hidden');
+      };
+      document.addEventListener('mousedown', onDocClick);
+
+      wrap._chipValues = values;
+      wrap._chipAdd = add;
+      wrap._chipRemove = remove;
+      wrap._chipRefresh = refresh;
+      refresh();
+      return wrap;
+    },
+
+    // values reads back whatever is currently chosen.
+    values(selectorOrEl) {
+      const wrap = typeof selectorOrEl === 'string' ? $(selectorOrEl) : selectorOrEl;
+      if (!wrap) return [];
+      if (typeof wrap._chipValues === 'function') return wrap._chipValues();
+      return $$('.chip-pick-chip', wrap).map((el) => el.dataset.value);
+    },
+
+    set(selectorOrEl, values, options) {
+      const wrap = typeof selectorOrEl === 'string' ? $(selectorOrEl) : selectorOrEl;
+      if (!wrap) return;
+      const chosen = $('[data-chip-chosen]', wrap);
+      if (!chosen) return;
+      chosen.innerHTML = '';
+      const norm = new Map(((options || []).map((o) => [String(o.value).toLowerCase(), o])));
+      (values || []).forEach((v) => {
+        const opt = norm.get(String(v).toLowerCase());
+        const span = document.createElement('span');
+        span.className = 'chip-pick-chip';
+        span.dataset.value = v;
+        span.innerHTML = `${esc((opt && (opt.label || opt.value)) || v)}<button type="button" class="chip-pick-x" data-chip-remove="${esc(v)}" aria-label="Remove">&times;</button>`;
+        chosen.appendChild(span);
+      });
+      if (typeof wrap._chipRefresh === 'function') wrap._chipRefresh();
+    },
+  };
+  window.ChipsPicker = ChipsPicker;
+
+  function modal({ title, description, fields = [], confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false, wide = false, bodyHtml = '', afterHtml = '', hideConfirm = false, onMount, collect, validate }) {
     return new Promise((resolve) => {
       const root = $('#modal-root');
 
@@ -924,6 +1138,15 @@
           control = `<label class="checkbox-label"><input id="${id}" name="${f.name}" type="checkbox"${f.checked ? ' checked' : ''}> ${esc(f.label)}</label>`;
         } else if (f.type === 'textarea') {
           control = `<textarea id="${id}" name="${f.name}" rows="3" placeholder="${esc(f.placeholder || '')}">${esc(f.value || '')}</textarea>`;
+        } else if (f.type === 'chips') {
+          control = ChipsPicker.html({
+            id: id,
+            options: f.options || [],
+            value: Array.isArray(f.value) ? f.value : (f.value ? [f.value] : []),
+            max: f.max || 0,
+            placeholder: f.placeholder || 'Search…',
+            emptyHint: f.emptyHint || '',
+          });
         } else if (f.type === 'combobox') {
           const listId = `${id}-list`;
           control = `<input id="${id}" name="${f.name}" type="text" value="${esc(f.value || '')}"
@@ -954,7 +1177,7 @@
               <h2 id="modal-title">${esc(title)}</h2>
               ${description ? `<p>${esc(description)}</p>` : ''}
             </div>
-            <div class="modal-body">${bodyHtml}${fieldHtml}<p class="form-error hidden" id="modal-error"></p></div>
+            <div class="modal-body">${bodyHtml}${fieldHtml}${afterHtml}<p class="form-error hidden" id="modal-error"></p></div>
             <div class="modal-foot">
               <button type="button" class="btn btn-secondary" data-modal-cancel>${esc(cancelLabel)}</button>
               ${hideConfirm ? '' : `<button type="submit" class="btn ${danger ? 'btn-danger' : 'btn-primary'}">${esc(confirmLabel)}</button>`}
@@ -964,6 +1187,13 @@
       root.classList.remove('hidden');
 
       const form = $('#modal-form', root);
+      fields.filter((f) => f.type === 'chips').forEach((f) => {
+        ChipsPicker.bind($('#mf-' + f.name, root), {
+          max: f.max || 0,
+          onChange: (values) => { if (typeof f.onChange === 'function') f.onChange(values, root); },
+        });
+      });
+      if (typeof onMount === 'function') onMount(form, root);
       const close = (result) => {
         document.removeEventListener('keydown', onKey, true);
         var modalBody = $('.modal-body', root);
@@ -989,16 +1219,40 @@
       form.addEventListener('submit', (e) => {
         e.preventDefault();
         const data = {};
+        const showError = (msg, focusEl) => {
+          const err = $('#modal-error', root);
+          err.textContent = msg;
+          err.classList.remove('hidden');
+          if (focusEl) focusEl.focus();
+        };
         for (const f of fields) {
           const el = form.elements[f.name];
-          data[f.name] = el
-            ? (el.type === 'checkbox' ? (el.checked ? 'on' : '') : el.value)
-            : '';
-          if (f.required && !String(data[f.name]).trim()) {
-            const err = $('#modal-error', root);
-            err.textContent = f.label + ' is required.';
-            err.classList.remove('hidden');
-            if (el) el.focus();
+          if (f.type === 'chips') {
+            data[f.name] = ChipsPicker.values($('#mf-' + f.name, root));
+          } else {
+            data[f.name] = el
+              ? (el.type === 'checkbox' ? (el.checked ? 'on' : '') : el.value)
+              : '';
+            if (f.type === 'checkbox') data[f.name] = el && el.checked ? 'on' : '';
+          }
+          const empty = Array.isArray(data[f.name]) ? data[f.name].length === 0 : !String(data[f.name]).trim();
+          if (f.required && empty) {
+            showError(f.label + ' is required.', el);
+            return;
+          }
+          if (f.max && Array.isArray(data[f.name]) && f.max > 0 && data[f.name].length > f.max) {
+            showError(`${f.label}: pick at most ${f.max}.`, el);
+            return;
+          }
+        }
+        if (typeof collect === 'function') {
+          const extra = collect(data, form, root);
+          if (extra) Object.assign(data, extra);
+        }
+        if (typeof validate === 'function') {
+          const problem = validate(data, form, root);
+          if (problem) {
+            showError(problem);
             return;
           }
         }
