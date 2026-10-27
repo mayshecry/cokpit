@@ -88,6 +88,9 @@
 
   async function enterApp() {
     stopQrFlow();
+    // Pull the authoritative role/permission table before the shell decides
+    // which navigation items and controls to show.
+    if (typeof loadPermissionMatrix === 'function') { await loadPermissionMatrix(); }
     document.body.classList.add('app-shell');
     $('#view-login').classList.add('hidden');
     $('#view-app').classList.remove('hidden');

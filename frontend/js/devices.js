@@ -620,7 +620,7 @@ const Devices = (() => {
   function updatesHtml(doc) {
     const ups = doc.updates || [];
     if (!ups.length) return '';
-    return `<div class="rd-updates">${ups.map((u) => `
+    const row = (u) => {
       let cls, icon;
       if (u.code === '0') {
         cls = 'ok';
@@ -634,7 +634,9 @@ const Devices = (() => {
       }
       return `<span class="rd-upd ${cls}" title="Exit code">
         <b>${icon}</b> ${esc(u.cmd)} <code>${esc(u.code)}</code>
-      </span>`;`).join('')}</div>`;
+      </span>`;
+    };
+    return `<div class="rd-updates">${ups.map(row).join('')}</div>`;
   }
 
   function specCard(svgIcon, label, main, sub, badgeText, tone) {

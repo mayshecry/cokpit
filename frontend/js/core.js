@@ -69,14 +69,38 @@
     },
   };
 
+  // Fallback copy of the role -> permission table. It MUST stay identical to
+  // pkg/auth/auth.go; /api/v1/auth/permissions refreshes it at runtime so the
+  // UI can never drift away from what the server actually enforces.
   const rolePerms = {
-    viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'notifications:read', 'si:list', 'si:view'],
-    operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'scan:use', 'pick:use', 'si:list', 'si:view'],
-    qc:       ['orders:list', 'orders:view', 'orders:transition', 'qc:submit', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'manuals:manage', 'si:list', 'si:view'],
-    npi:      ['si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'users:list'],
-    sc:       ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'manuals:manage', 'manuals:approve', 'si:list', 'si:view', 'users:list'],
-    admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'users:list', 'manuals:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'config:manage', 'notifications:read', 'si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'si:manage'],
+    viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'notifications:read', 'si:list', 'si:view', 'process:view'],
+    operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'scan:use', 'pick:use', 'si:list', 'si:view', 'process:view', 'process:advance', 'process:escalate'],
+    qc:       ['orders:list', 'orders:view', 'orders:transition', 'qc:submit', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'manuals:manage', 'si:list', 'si:view', 'process:view', 'process:escalate'],
+    npi:      ['si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'users:list', 'process:view', 'process:manage', 'integrations:manage'],
+    sc:       ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'manuals:manage', 'manuals:approve', 'customers:manage', 'si:list', 'si:view', 'users:list', 'process:view'],
+    admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'users:list', 'manuals:manage', 'manuals:approve', 'customers:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'notifications:read', 'si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'si:manage', 'process:view', 'process:advance', 'process:escalate', 'process:manage', 'integrations:manage'],
   };
+
+  // Replace the local table with the authoritative one from the server.
+  function applyPermissionMatrix(d) {
+    if (!d || !d.roles) return;
+    for (const role of Object.keys(d.roles)) {
+      if (Array.isArray(d.roles[role])) rolePerms[role] = d.roles[role].slice();
+    }
+  }
+
+  let permissionMatrixRequest = null;
+  async function loadPermissionMatrix() {
+    if (!permissionMatrixRequest) {
+      permissionMatrixRequest = api('GET', '/api/v1/auth/permissions')
+        .then((d) => { applyPermissionMatrix(d); return d; })
+        .catch(() => null);
+    }
+    return permissionMatrixRequest;
+  }
+
+  // Legacy UI-only permission names mapped onto the real server permission.
+  const PERM_ALIASES = { 'config:manage': 'users:manage' };
 
   const ROLES = ['viewer', 'operator', 'qc', 'npi', 'sc', 'admin'];
 
@@ -116,6 +140,7 @@
 
   const can = (perm) => {
     if (!state.user) return false;
+    perm = PERM_ALIASES[perm] || perm;
     if (state.user.role === 'admin') return true;
     const base = rolePerms[state.user.role] || [];
     return base.includes(perm) || (state.user.permissions || []).includes(perm);
@@ -158,6 +183,15 @@
     { label: 'Notifications & manuals', perms: [
       ['notifications:read', 'Read own notifications'],
       ['manuals:manage', 'Build product manuals and flag answers'],
+      ['manuals:approve', 'Approve a manual for production use'],
+      ['customers:manage', 'Manage customers and assign SC coordinators'],
+    ]},
+    { label: 'Order process (SWI)', perms: [
+      ['process:view', 'View the process board, stages and task lists'],
+      ['process:advance', 'Advance stages and tick process tasks'],
+      ['process:escalate', 'Raise and resolve process escalations'],
+      ['process:manage', 'Force stage changes and run auto escalation'],
+      ['integrations:manage', 'Claim, complete and retry external sync jobs'],
     ]},
   ];
 
@@ -376,19 +410,40 @@
     const metaScheme = document.querySelector('meta[name="color-scheme"]');
     if (metaScheme) metaScheme.setAttribute('content', dark ? 'dark' : 'light');
   }
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    if ((localStorage.getItem('cockpit_theme') || 'dark') === 'system') applyPrefs();
-  });
+  // Older Safari only has addListener(); a missing matchMedia must not abort
+  // this file, because everything else lives in the same script scope.
+  const darkSchemeQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+  if (darkSchemeQuery) {
+    const onSchemeChange = () => {
+      if ((localStorage.getItem('cockpit_theme') || 'dark') === 'system') applyPrefs();
+    };
+    if (darkSchemeQuery.addEventListener) darkSchemeQuery.addEventListener('change', onSchemeChange);
+    else if (darkSchemeQuery.addListener) darkSchemeQuery.addListener(onSchemeChange);
+  }
 
   function drawFaviconBadge(n) {
     const link = $('#favicon');
     if (!link) return;
     const c = document.createElement('canvas');
     c.width = c.height = 64;
-    const g = c.getContext('2d');
+    const g = c.getContext && c.getContext('2d');
+    // A null context (canvas disabled, memory pressure, ancient browser) or a
+    // missing roundRect() must never break the app shell.
+    if (!g) return;
     g.fillStyle = '#ff8200';
     g.beginPath();
-    g.roundRect(0, 0, 64, 64, 14);
+    if (typeof g.roundRect === 'function') g.roundRect(0, 0, 64, 64, 14);
+    else if (typeof g.arcTo === 'function') {
+      const r = 14;
+      g.moveTo(r, 0);
+      g.arcTo(64, 0, 64, 64, r);
+      g.arcTo(64, 64, 0, 64, r);
+      g.arcTo(0, 64, 0, 0, r);
+      g.arcTo(0, 0, 64, 0, r);
+      g.closePath();
+    } else {
+      g.rect(0, 0, 64, 64);
+    }
     g.fill();
     if (n > 0) {
       g.fillStyle = '#c0392f';
@@ -409,7 +464,7 @@
       g.lineTo(45, 24);
       g.stroke();
     }
-    link.href = c.toDataURL('image/png');
+    try { link.href = c.toDataURL('image/png'); } catch { /* tainted canvas */ }
   }
 
   function updateBadges() {

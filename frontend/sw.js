@@ -1,47 +1,63 @@
 'use strict';
 
-                                                                          
-                                                                            
-                                                                      
-const CACHE = 'cockpit-scan-shell-v2';
+// Offline shell for the scanner. Only public, unauthenticated app shell files
+// are precached; API responses are never cached (they are user specific).
+//
+// Assets are cached under their normalised URL (query string dropped) so that
+// bumping the cache-busting "?v=" marker in index.html can never leave a stale
+// script behind, and a single missing file can no longer abort the install.
+const CACHE = 'cockpit-scan-shell-v3';
 const SHELL = [
   '/',
   '/index.html',
-  '/styles.css?v=r6',
+  '/styles.css',
   '/fonts/Inter-var.woff2',
   '/fonts/Inter-italic-var.woff2',
   '/fonts/SpaceGrotesk-var.woff2',
   '/fonts/JetBrainsMono-var.woff2',
   '/scan.html',
   '/js/scan.js',
-  '/js/core.js?v=r6',
-  '/js/offline-scanner.js?v=r6',
-  '/js/notifications.js?v=r6',
-  '/js/auth.js?v=r6',
-  '/js/orders.js?v=r6',
-  '/js/ordercreate.js?v=r6',
-  '/js/detail.js?v=r6',
-  '/js/checklists.js?v=r6',
-  '/js/manuals.js?v=r6',
-  '/js/work.js?v=r6',
-  '/js/workload.js?v=r6',
-  '/js/dashboard.js?v=r6',
-  '/js/dayplan.js?v=r6',
-  '/js/quality.js?v=r6',
-  '/js/qcbench.js?v=r6',
-  '/js/si.js?v=r6',
-  '/js/users.js?v=r6',
-  '/js/devices.js?v=r6',
-  '/js/config.js?v=r6',
-  '/js/capa.js?v=r6',
-  '/js/automations.js?v=r6',
-  '/js/app.js?v=r6',
-  '/js/order-pages.js?v=r6',
-  '/js/ui.js?v=r6',
+  '/js/core.js',
+  '/js/offline-scanner.js',
+  '/js/notifications.js',
+  '/js/auth.js',
+  '/js/orders.js',
+  '/js/ordercreate.js',
+  '/js/detail.js',
+  '/js/checklists.js',
+  '/js/manuals.js',
+  '/js/work.js',
+  '/js/workload.js',
+  '/js/dashboard.js',
+  '/js/dayplan.js',
+  '/js/quality.js',
+  '/js/qcbench.js',
+  '/js/si.js',
+  '/js/users.js',
+  '/js/devices.js',
+  '/js/config.js',
+  '/js/capa.js',
+  '/js/automations.js',
+  '/js/app.js',
+  '/js/order-pages.js',
+  '/js/ui.js',
 ];
 
+// Same-origin cache key: keeps path, drops the version query string.
+function cacheKey(request) {
+  const url = new URL(request.url);
+  url.search = '';
+  url.hash = '';
+  return url.href;
+}
+
 self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  event.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    // allSettled: never fail the whole install because one asset is missing.
+    await Promise.allSettled(SHELL.map((path) => cache.add(path)));
+    await self.skipWaiting();
+  })());
 });
 
 self.addEventListener('activate', (event) => {
@@ -68,12 +84,13 @@ self.addEventListener('fetch', (event) => {
   }
 
   event.respondWith((async () => {
-    const cached = await caches.match(request);
+    const key = cacheKey(request);
+    const cached = await caches.match(key);
     if (cached) return cached;
     const response = await fetch(request);
     if (response.ok) {
       const cache = await caches.open(CACHE);
-      await cache.put(request, response.clone());
+      await cache.put(key, response.clone());
     }
     return response;
   })());
