@@ -1,6 +1,4 @@
-
 package main
-
 import (
 	"crypto/hmac"
 	"crypto/sha256"
@@ -14,14 +12,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
 	webview "github.com/webview/webview_go"
 )
-
 const configName = "cockpit-client.json"
-
 var serverURL = ""
-
 func detectServer(cfgPath string) string {
 	if v := os.Getenv("COCKPIT_SERVER"); v != "" {
 		return strings.TrimRight(v, "/")
@@ -34,7 +28,6 @@ func detectServer(cfgPath string) string {
 	}
 	return serverURL
 }
-
 type pairFile struct {
 	ClientID string `json:"clientId"`
 	Key      string `json:"key"` 
@@ -42,7 +35,6 @@ type pairFile struct {
 	SavedAt  string `json:"savedAt"`
 	Server   string `json:"server,omitempty"`
 }
-
 func main() {
 	cfgPath := configPath()
 	serverURL = detectServer(cfgPath)
@@ -53,12 +45,10 @@ func main() {
 		pf = nil
 		err = errors.New("machine changed, re-pair")
 	}
-
 	w := webview.New(false)
 	defer w.Destroy()
 	w.SetTitle("Esprit ICT")
 	w.SetSize(1024, 768, webview.HintNone)
-
 	if err != nil {
 		_ = w.Bind("clientMachine", func() string { return machine })
 		_ = w.Bind("clientPairSave", func(raw string) (any, error) {
@@ -87,7 +77,6 @@ func main() {
 	}
 	w.Run()
 }
-
 func signedURL(p pairFile) string {
 	key, err := hex.DecodeString(p.Key)
 	if err != nil || len(key) == 0 {
@@ -105,13 +94,11 @@ func signedURL(p pairFile) string {
 	}
 	return serverURL + "/?" + q.Encode()
 }
-
 func machineHash() string {
 	id := os.Getenv("COMPUTERNAME") + "|" + os.Getenv("PROCESSOR_IDENTIFIER")
 	sum := sha256.Sum256([]byte(id))
 	return hex.EncodeToString(sum[:])
 }
-
 func configPath() string {
 	exe, err := os.Executable()
 	if err != nil {
@@ -119,7 +106,6 @@ func configPath() string {
 	}
 	return filepath.Join(filepath.Dir(exe), configName)
 }
-
 func readPair(path string) (*pairFile, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
@@ -134,7 +120,6 @@ func readPair(path string) (*pairFile, error) {
 	}
 	return &p, nil
 }
-
 func savePair(path string, raw []byte) error {
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, raw, 0o600); err != nil {
