@@ -13,6 +13,7 @@ const Automations = {
   triggerLabels: {
     QC_FAILED: 'QC failure',
     SLA_BREACHED: 'SLA breached',
+    SLA_SPLIT: 'SLA checkpoint',
     HOLD_AGING: 'Aging hold',
   },
   actionLabels: {
@@ -20,6 +21,10 @@ const Automations = {
     ASSIGN: 'Assign the order',
     ESCALATE: 'Raise escalation',
   },
+  // The checkpoints offered for an SLA_SPLIT rule. A one-day SLA split into
+  // quarters means 25/50/75% of the *working* day.
+  splitPresets: [25, 50, 75, 90],
+
   actionHints: {
     NOTIFY: 'Everyone you pick is notified. Pick as many people and teams as you like — a team means all of its members.',
     ASSIGN: 'The order goes to one person, or to one team. With a team, the member with the fewest open orders gets it.',
@@ -43,6 +48,20 @@ const Automations = {
     {
       id: 'hold-nudge', title: 'Aging hold → nudge', hint: 'Notify after 4 hours on hold',
       apply: (dir, me) => ({ name: 'Aging hold → nudge', trigger: 'HOLD_AGING', thresholdMinutes: 240, action: 'NOTIFY', targets: me ? [me] : [], teams: [] }),
+    },
+    {
+      id: 'sla-half', title: '1-day SLA · halfway', hint: 'Act when half the working time is gone',
+      apply: (dir, me) => ({
+        name: 'SLA halfway', trigger: 'SLA_SPLIT', splitPercent: 50, action: 'NOTIFY',
+        targets: me ? [me] : [], teams: [],
+      }),
+    },
+    {
+      id: 'sla-almost', title: '1-day SLA · nearly out', hint: 'Escalate at 85% of the SLA',
+      apply: () => ({
+        name: 'SLA nearly out', trigger: 'SLA_SPLIT', splitPercent: 85, action: 'ESCALATE',
+        escalationLevel: 'L2', targets: [], teams: [],
+      }),
     },
     {
       id: 'customer-watch', title: 'One customer watchdog', hint: 'Only that customer, routed to one person',
@@ -80,6 +99,7 @@ const Automations = {
   async load() {
     Automations.bind();
     const seq = ++Automations.loadSeq;
+    Automations.loadCalendar();
     try {
       const [rules, runs] = await Promise.all([
         api('GET', '/api/v1/automations'),
@@ -93,6 +113,19 @@ const Automations = {
       if (seq !== Automations.loadSeq) return;
       toast(err.message, true);
     }
+  },
+
+  // loadCalendar caches the working pattern the SLA is measured in, so the
+  // checkpoint field can say what "50% of a 1-day SLA" means in hours.
+  async loadCalendar() {
+    if (state.slaCalendar !== undefined) return state.slaCalendar;
+    try {
+      const d = await api('GET', '/api/v1/auth/permissions');
+      state.slaCalendar = (d && d.slaCalendar) || null;
+    } catch {
+      state.slaCalendar = null;
+    }
+    return state.slaCalendar;
   },
 
   // loadDirectory fills the pickers. Everything is optional: a missing endpoint
@@ -193,14 +226,15 @@ const Automations = {
     ].join('');
     $('#automation-rule-count').textContent = `${Automations.rules.length} rule${Automations.rules.length === 1 ? '' : 's'}`;
 
-    const rows = Automations.rules.map((r) => `<tr class="rule-row rule-row-${r.action.toLowerCase()}${r.enabled ? '' : ' is-off'}${Automations.recentId === r.id ? ' is-new' : ''}" data-rule-row="${r.id}">
+    const rows = Automations.rules.map((r) => `<tr class="rule-line line-${r.action.toLowerCase()}${r.enabled ? '' : ' is-off'}${Automations.recentId === r.id ? ' is-new' : ''}" data-rule-row="${r.id}">
       <td class="mono num">${r.id}</td>
       <td>
         <strong class="rule-name">${esc(r.name)}</strong>
         ${r.message ? `<br><span class="muted rule-message">${esc(r.message)}</span>` : ''}
       </td>
       <td><span class="trigger-chip trigger-${r.trigger.toLowerCase()}">${esc(Automations.triggerLabels[r.trigger] || r.trigger)}</span></td>
-      <td class="muted">${r.trigger === 'HOLD_AGING' ? `older than ${r.thresholdMinutes} min` : 'on the event'}</td>
+      <td class="muted">${r.trigger === 'HOLD_AGING' ? `older than ${r.thresholdMinutes} min`
+        : r.trigger === 'SLA_SPLIT' ? `at ${r.splitPercent}% of the SLA` : 'on the event'}</td>
       <td><span class="badge action-${r.action.toLowerCase()}">${esc(Automations.actionLabels[r.action] || r.action)}</span></td>
       <td>${Automations.recipientsHtml(r)}</td>
       <td><div class="automation-scope">${Automations.scopeTags(r)}</div></td>
@@ -287,6 +321,17 @@ const Automations = {
             <div class="field" id="field-threshold">
               <label for="mf-thresholdMinutes">Hold older than (minutes)</label>
               <input id="mf-thresholdMinutes" name="thresholdMinutes" type="number" min="1" max="525600" value="${esc(String(current.thresholdMinutes || 240))}">
+            </div>
+            <div class="field" id="field-split">
+              <label for="mf-splitPercent">Checkpoint inside the SLA</label>
+              <div class="split-row">
+                <input id="mf-splitPercent" name="splitPercent" type="number" min="1" max="99" value="${esc(String(current.splitPercent || 50))}">
+                <span class="split-suffix">% of the SLA used</span>
+                <div class="split-presets">
+                  ${Automations.splitPresets.map((pct) => `<button type="button" class="split-preset${Number(current.splitPercent || 50) === pct ? ' is-active' : ''}" data-split="${pct}">${pct}%</button>`).join('')}
+                </div>
+              </div>
+              <span class="field-hint" id="split-hint">The SLA is measured in working time, so a 1-day SLA split at 50% fires after 12 worked hours — nights and weekends do not count.</span>
             </div>
           </div>
         </section>
@@ -454,6 +499,18 @@ const Automations = {
     form.elements.action.addEventListener('change', () => Automations.syncActionUi(root, form, current));
     form.elements.trigger.addEventListener('change', () => Automations.syncActionUi(root, form, current));
 
+    const splitInput = $('#mf-splitPercent', root);
+    if (splitInput) {
+      splitInput.addEventListener('input', () => Automations.syncActionUi(root, form, current));
+    }
+    $$('.split-preset', root).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (splitInput) splitInput.value = btn.dataset.split;
+        Automations.syncActionUi(root, form, current);
+        Automations.updateSummary(root, form);
+      });
+    });
+
     if (!current.id) {
       $$('[data-template]', root).forEach((btn) => {
         btn.addEventListener('click', () => Automations.applyTemplate(root, form, btn.dataset.template));
@@ -473,6 +530,7 @@ const Automations = {
     if (values.trigger) form.elements.trigger.value = values.trigger;
     if (values.action) form.elements.action.value = values.action;
     if (values.thresholdMinutes) form.elements.thresholdMinutes.value = String(values.thresholdMinutes);
+    if (values.splitPercent && form.elements.splitPercent) form.elements.splitPercent.value = String(values.splitPercent);
     if (values.escalationLevel) form.elements.escalationLevel.value = values.escalationLevel;
     ['targets', 'teams', 'customers', 'excludedCustomers'].forEach((key) => {
       if (!(key in values)) return;
@@ -501,6 +559,7 @@ const Automations = {
     const when = {
       QC_FAILED: 'a QC check fails',
       SLA_BREACHED: 'an order breaches its SLA',
+      SLA_SPLIT: `${draft.splitPercent}% of the working SLA has been used`,
       HOLD_AGING: `a hold has been open for more than ${draft.thresholdMinutes} min`,
     }[draft.trigger] || 'an event happens';
     const who = [
@@ -544,6 +603,18 @@ const Automations = {
     if (levelField) levelField.classList.toggle('hidden', action !== 'ESCALATE');
     const thresholdField = $('#field-threshold', root);
     if (thresholdField) thresholdField.classList.toggle('hidden', trigger !== 'HOLD_AGING');
+    const splitField = $('#field-split', root);
+    if (splitField) splitField.classList.toggle('hidden', trigger !== 'SLA_SPLIT');
+    const splitInput = $('#mf-splitPercent', root);
+    if (splitInput) {
+      const pct = Math.min(99, Math.max(1, Number(splitInput.value) || 50));
+      const calendar = (state.slaCalendar && state.slaCalendar.description) || 'Mon–Fri 08:00–17:00';
+      const hint = $('#split-hint', root);
+      if (hint) {
+        hint.textContent = `The SLA is measured in working time (${calendar}), so a 1-day SLA split at ${pct}% fires after ${(24 * pct / 100).toFixed(0)} worked hours — nights and weekends do not count.`;
+      }
+      $$('.split-preset', root).forEach((b) => b.classList.toggle('is-active', Number(b.dataset.split) === pct));
+    }
 
     // Never drop a selection behind the user's back — explain what no longer fits.
     const total = countOf('targets') + countOf('teams');
@@ -694,6 +765,7 @@ const Automations = {
       trigger,
       action: value('action', 'NOTIFY'),
       thresholdMinutes: trigger === 'HOLD_AGING' ? Number(value('thresholdMinutes', '0')) || 0 : 0,
+      splitPercent: trigger === 'SLA_SPLIT' ? Number(value('splitPercent', '50')) || 50 : 0,
       targets: ChipsPicker.values($('#mf-targets', root)),
       teams: ChipsPicker.values($('#mf-teams', root)),
       message: String(value('message', '')).trim(),
@@ -713,6 +785,12 @@ const Automations = {
   validateDraft(draft, root) {
     if (!draft.name) return 'Give the rule a name so you recognise it later.';
     const total = (draft.targets || []).length + (draft.teams || []).length;
+    if (draft.trigger === 'SLA_SPLIT') {
+      const pct = Number(draft.splitPercent);
+      if (!Number.isFinite(pct) || pct < 1 || pct > 99) {
+        return 'Pick a checkpoint between 1% and 99% of the SLA — at 100% the order has already breached.';
+      }
+    }
     if (draft.action === 'NOTIFY' && total === 0) {
       return 'Pick at least one person or team to notify.';
     }
