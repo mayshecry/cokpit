@@ -26,7 +26,6 @@ func newTestServer(t *testing.T) *httptest.Server {
 	return newTestServerConfig(t, ServerConfig{Now: fixedClock})
 }
 
-// logged-in token in testAuthToken. Extra configuration (client guard, SLA...)
 // can be supplied by the caller.
 func newTestServerConfig(t *testing.T, cfg ServerConfig) *httptest.Server {
 	t.Helper()
