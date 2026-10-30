@@ -9,7 +9,6 @@ import (
 	"cockpit/pkg/order"
 )
 
-// The SWI import path must follow the same target rules as manual creation:
 // a past target is kept verbatim (the imported order is simply overdue) and an
 // implausible target is refused instead of being silently replaced.
 func TestImportOrderPastTarget(t *testing.T) {
