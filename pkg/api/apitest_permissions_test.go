@@ -14,7 +14,6 @@ import (
 	"cockpit/pkg/auth"
 )
 
-// allPermissionConstants is a literal mirror of the Permission constants in
 // pkg/auth. If somebody adds a constant but forgets to register it in
 // AllPermissions, that permission can never be granted through a department
 // and this test fails.
