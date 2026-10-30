@@ -152,7 +152,6 @@ func TestPostCreateOrderValidation(t *testing.T) {
 	}
 }
 
-// and reported as already past its SLA.
 func TestPostCreateOrderAcceptsPastTarget(t *testing.T) {
 	ts := newTestServer(t)
 	past := fixedClock().Add(-72 * time.Hour).UTC().Format(time.RFC3339)
