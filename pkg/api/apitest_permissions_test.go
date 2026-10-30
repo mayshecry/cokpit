@@ -14,7 +14,6 @@ import (
 	"cockpit/pkg/auth"
 )
 
-// and this test fails.
 var allPermissionConstants = []auth.Permission{
 	auth.PermOrderList, auth.PermOrderCreate, auth.PermOrderView, auth.PermOrderTransition,
 	auth.PermHoldCreate, auth.PermHoldResolve, auth.PermQCSubmit, auth.PermAuditView,
