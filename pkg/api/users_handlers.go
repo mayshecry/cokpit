@@ -17,7 +17,6 @@ type createUserRequest struct {
 	Role        string `json:"role"`
 }
 
-// mayAdministerAccounts reports whether the actor is a full administrator.
 // Department grants can hand out users:manage, but that must never become a
 // path to administrator accounts: only a real admin may create, modify,
 // delete or pair a device for another administrator (otherwise a department
