@@ -7,8 +7,6 @@ import (
 	"testing"
 )
 
-// Rules now carry team targets and customer/department/product scope; the API
-
 func TestAutomationRuleScopeAndTeams(t *testing.T) {
 	ts := newTestServer(t)
 	body := `{
