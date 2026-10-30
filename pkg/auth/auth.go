@@ -230,7 +230,6 @@ func RolePermissionMatrix() map[Role][]Permission {
 }
 
 // PermissionStrings converts a permission slice into plain strings, which is
-// what JSON responses and database rows use.
 func PermissionStrings(perms []Permission) []string {
 	out := make([]string, 0, len(perms))
 	for _, p := range perms {
