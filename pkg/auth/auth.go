@@ -211,9 +211,7 @@ var validPermissionSet = func() map[Permission]bool {
 
 func IsValidPermission(perm Permission) bool { return validPermissionSet[perm] }
 
-// PermissionsFor returns the effective base permissions for a role.
-// Admins receive the whole catalogue so that clients never have to special
-// case the admin role.
+
 func PermissionsFor(role Role) []Permission {
 	if role == RoleAdmin {
 		out := make([]Permission, len(AllPermissions))
@@ -226,8 +224,7 @@ func PermissionsFor(role Role) []Permission {
 	return out
 }
 
-// RolePermissionMatrix returns a copy of the role -> base permission table.
-// Every role is present in the result, even when it has no permissions.
+
 func RolePermissionMatrix() map[Role][]Permission {
 	out := make(map[Role][]Permission, len(ValidRoles))
 	for _, r := range ValidRoles {
