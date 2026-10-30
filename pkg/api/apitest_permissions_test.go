@@ -197,7 +197,6 @@ func TestDepartmentGrantsAreAdditiveAndEffective(t *testing.T) {
 		t.Fatalf("set perms: %d %v", code, body)
 	}
 
-	// The grant must apply to the already issued session: permissions are
 	// re-read on every request, no re-login needed.
 	if code, body := doAs(t, "GET", ts.URL+"/api/v1/qc/queue", "", aliceTk); code != http.StatusOK {
 		t.Errorf("viewer with qc:submit grant = %d %v, want 200", code, body)
