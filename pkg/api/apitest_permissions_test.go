@@ -14,7 +14,6 @@ import (
 	"cockpit/pkg/auth"
 )
 
-// pkg/auth. If somebody adds a constant but forgets to register it in
 // AllPermissions, that permission can never be granted through a department
 // and this test fails.
 var allPermissionConstants = []auth.Permission{
