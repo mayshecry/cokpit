@@ -42,7 +42,6 @@ func TestImportOrderRejectsImplausibleTarget(t *testing.T) {
 	}
 }
 
-// Regression guard for the SLA rendering of an overdue registration.
 func TestPastTargetSLAIsBreached(t *testing.T) {
 	ts := newTestServer(t)
 	past := fixedClock().Add(-time.Hour).UTC()
