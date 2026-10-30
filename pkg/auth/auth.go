@@ -186,10 +186,6 @@ func HasPermission(role Role, perm Permission) bool {
 	return false
 }
 
-// AllPermissions is the authoritative catalogue of every permission a
-// department can be granted. It must list every Permission constant declared
-// above: anything missing here can never be granted through a department
-// (handleSetDepartmentPermissions rejects it) and is silently dropped on save.
 var AllPermissions = []Permission{
 	PermOrderList, PermOrderCreate, PermOrderView, PermOrderTransition,
 	PermHoldCreate, PermHoldResolve, PermQCSubmit, PermAuditView,
