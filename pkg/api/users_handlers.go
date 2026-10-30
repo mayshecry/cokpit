@@ -21,7 +21,6 @@ func (s *Server) mayAdministerAccounts(r *http.Request) bool {
 	return s.currentUser(r).Role == auth.RoleAdmin
 }
 
-// requiresAdminForTarget reports whether acting on target needs a real admin.
 func (s *Server) requiresAdminForTarget(r *http.Request, target auth.User) bool {
 	if target.Role != auth.RoleAdmin {
 		return false
