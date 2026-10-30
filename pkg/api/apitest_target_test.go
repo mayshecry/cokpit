@@ -9,7 +9,6 @@ import (
 	"cockpit/pkg/order"
 )
 
-// a past target is kept verbatim (the imported order is simply overdue) and an
 
 func TestImportOrderPastTarget(t *testing.T) {
 	ts := newTestServer(t)
