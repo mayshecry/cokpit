@@ -175,7 +175,6 @@ func TestPostCreateOrderAcceptsPastTarget(t *testing.T) {
 		t.Errorf("sla.status = %v, want BREACHED for a past target", sla["status"])
 	}
 
-	// A future target is still reported as not-past.
 	future := fixedClock().Add(6 * time.Hour).UTC().Format(time.RFC3339)
 	code, body = do(t, "POST", ts.URL+"/api/v1/orders",
 		fmt.Sprintf(`{"orderNumber":"ORD-FUT","targetCompletionAt":%q}`, future))
