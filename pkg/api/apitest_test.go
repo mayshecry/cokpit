@@ -152,7 +152,7 @@ func TestPostCreateOrderValidation(t *testing.T) {
 	}
 }
 
-// A past target is a legitimate registration (an order entered after it
+
 // arrived, or imported from Omnitracker): it must be accepted, kept verbatim
 // and reported as already past its SLA.
 func TestPostCreateOrderAcceptsPastTarget(t *testing.T) {
