@@ -26,7 +26,6 @@ func newTestServer(t *testing.T) *httptest.Server {
 	return newTestServerConfig(t, ServerConfig{Now: fixedClock})
 }
 
-// can be supplied by the caller.
 func newTestServerConfig(t *testing.T, cfg ServerConfig) *httptest.Server {
 	t.Helper()
 	ctx := context.Background()
