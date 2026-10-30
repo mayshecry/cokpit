@@ -14,7 +14,6 @@ import (
 	"cockpit/pkg/auth"
 )
 
-// AllPermissions, that permission can never be granted through a department
 // and this test fails.
 var allPermissionConstants = []auth.Permission{
 	auth.PermOrderList, auth.PermOrderCreate, auth.PermOrderView, auth.PermOrderTransition,
