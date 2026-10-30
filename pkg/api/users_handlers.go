@@ -18,7 +18,6 @@ type createUserRequest struct {
 }
 
 // path to administrator accounts: only a real admin may create, modify,
-// or pair a phone as the admin and take the console over).
 func (s *Server) mayAdministerAccounts(r *http.Request) bool {
 	return s.currentUser(r).Role == auth.RoleAdmin
 }
