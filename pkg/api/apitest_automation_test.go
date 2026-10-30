@@ -8,7 +8,7 @@ import (
 )
 
 // Rules now carry team targets and customer/department/product scope; the API
-// must round-trip them and explain recipient mistakes in plain language.
+
 func TestAutomationRuleScopeAndTeams(t *testing.T) {
 	ts := newTestServer(t)
 	body := `{
