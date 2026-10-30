@@ -229,7 +229,6 @@ func RolePermissionMatrix() map[Role][]Permission {
 	return out
 }
 
-// PermissionStrings converts a permission slice into plain strings, which is
 func PermissionStrings(perms []Permission) []string {
 	out := make([]string, 0, len(perms))
 	for _, p := range perms {
