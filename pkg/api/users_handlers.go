@@ -17,7 +17,6 @@ type createUserRequest struct {
 	Role        string `json:"role"`
 }
 
-// path to administrator accounts: only a real admin may create, modify,
 func (s *Server) mayAdministerAccounts(r *http.Request) bool {
 	return s.currentUser(r).Role == auth.RoleAdmin
 }
