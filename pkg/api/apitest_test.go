@@ -152,8 +152,6 @@ func TestPostCreateOrderValidation(t *testing.T) {
 	}
 }
 
-
-// arrived, or imported from Omnitracker): it must be accepted, kept verbatim
 // and reported as already past its SLA.
 func TestPostCreateOrderAcceptsPastTarget(t *testing.T) {
 	ts := newTestServer(t)
