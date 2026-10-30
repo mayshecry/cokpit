@@ -10,7 +10,7 @@ import (
 )
 
 // a past target is kept verbatim (the imported order is simply overdue) and an
-// implausible target is refused instead of being silently replaced.
+
 func TestImportOrderPastTarget(t *testing.T) {
 	ts := newTestServer(t)
 	past := fixedClock().Add(-48 * time.Hour).UTC().Format(time.RFC3339)
