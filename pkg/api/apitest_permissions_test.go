@@ -82,7 +82,6 @@ func TestAdminRoleCoversEverything(t *testing.T) {
 	}
 }
 
-// Documented role capabilities (README §5.3).
 func TestDocumentedRoleCapabilities(t *testing.T) {
 	cases := []struct {
 		role auth.Role
