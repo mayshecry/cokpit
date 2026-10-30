@@ -19,7 +19,6 @@ type createUserRequest struct {
 
 // Department grants can hand out users:manage, but that must never become a
 // path to administrator accounts: only a real admin may create, modify,
-// granted users:manage could mint an admin account, reset the admin password
 // or pair a phone as the admin and take the console over).
 func (s *Server) mayAdministerAccounts(r *http.Request) bool {
 	return s.currentUser(r).Role == auth.RoleAdmin
