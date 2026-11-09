@@ -39,6 +39,10 @@ func (s *Server) handleInstantiateManual(w http.ResponseWriter, r *http.Request)
 	manual, err := s.store.InstantiateManual(r.Context(), id, req.ProductID, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -55,6 +59,10 @@ func (s *Server) handleListOrderManuals(w http.ResponseWriter, r *http.Request) 
 	manuals, err := s.store.OrderManuals(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -90,6 +98,10 @@ func (s *Server) handleAnswerManualBlock(w http.ResponseWriter, r *http.Request)
 	block, err := s.store.AnswerManualBlock(r.Context(), manualID, blockID, req.Answer, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -121,6 +133,10 @@ func (s *Server) handleFlagManualBlock(w http.ResponseWriter, r *http.Request) {
 	block, notified, err := s.store.FlagManualBlock(r.Context(), manualID, blockID, set, req.Reason, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -139,6 +155,10 @@ func (s *Server) handleDeleteManual(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.DeleteOrderManual(r.Context(), manualID, s.currentUser(r).Username, s.now().UTC()); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -149,6 +169,10 @@ func (s *Server) handleListManuals(w http.ResponseWriter, r *http.Request) {
 	overviews, err := s.store.ManualOverviews(r.Context())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

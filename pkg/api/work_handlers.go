@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 
 	"cockpit/pkg/auth"
 	"cockpit/pkg/db"
@@ -22,6 +23,10 @@ func (s *Server) workOrder(w http.ResponseWriter, r *http.Request) (order.Order,
 	o, err := s.store.GetOrder(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return order.Order{}, false
+		}
 		s.writeError(w, status, code, msg)
 		return order.Order{}, false
 	}
@@ -41,7 +46,7 @@ func (s *Server) handleGetWork(w http.ResponseWriter, r *http.Request) {
 	}
 	ws, err := s.store.ActiveWorkSession(r.Context(), id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"session": ws})
@@ -63,7 +68,7 @@ func (s *Server) handleStartWork(w http.ResponseWriter, r *http.Request) {
 			s.writeError(w, http.StatusConflict, "session_taken", "another user is already clocked in on this order")
 			return
 		}
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.publishOrder(o.ID, me.Username)
@@ -109,7 +114,7 @@ func (s *Server) handleUpdateWork(w http.ResponseWriter, r *http.Request) {
 			s.writeError(w, http.StatusConflict, "session_taken", "another user is clocked in on this order")
 			return
 		}
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"session": ws})
@@ -140,7 +145,7 @@ func (s *Server) handleEndWork(w http.ResponseWriter, r *http.Request) {
 			s.writeError(w, http.StatusConflict, "session_taken", "another user is clocked in on this order")
 			return
 		}
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.publishOrder(o.ID, me.Username)
@@ -151,7 +156,7 @@ func (s *Server) handleListMyWork(w http.ResponseWriter, r *http.Request) {
 	me := s.currentUser(r)
 	sessions, err := s.store.ActiveSessionsFor(r.Context(), me.Username)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"sessions": sessions})
@@ -163,13 +168,14 @@ type wfCheck struct {
 }
 
 type wfStep struct {
-	Key    string    `json:"key"`
-	Title  string    `json:"title"`
-	Desc   string    `json:"desc"`
-	Checks []wfCheck `json:"checks"`
-	Next   *string   `json:"next"`
-	Pick   bool      `json:"pick"`
-	QcGate bool      `json:"qcGate"`
+	Key      string    `json:"key"`
+	Title    string    `json:"title"`
+	Desc     string    `json:"desc"`
+	Location string    `json:"location"`
+	Checks   []wfCheck `json:"checks"`
+	Next     *string   `json:"next"`
+	Pick     bool      `json:"pick"`
+	QcGate   bool      `json:"qcGate"`
 }
 
 var wfNextAllowed = map[string]bool{"Received": true, "Processing": true, "QC_Review": true, "Completed": true}
@@ -203,8 +209,8 @@ func validateWorkFlow(raw json.RawMessage) ([]wfStep, error) {
 			return nil, errors.New("every step needs a unique key (a-z, 0-9, - or _)")
 		}
 		seen[st.Key] = true
-		if len(st.Title) > 60 || len(st.Desc) > 200 {
-			return nil, errors.New("step title/description too long")
+		if len(st.Title) > 60 || len(st.Desc) > 200 || utf8.RuneCountInString(st.Location) > 80 {
+			return nil, errors.New("step title/description/location too long")
 		}
 		if len(st.Checks) > 12 {
 			return nil, errors.New("max 12 checks per step")
@@ -241,13 +247,13 @@ func (s *Server) handleGetWorkflow(w http.ResponseWriter, r *http.Request) {
 			s.writeJSON(w, http.StatusOK, resp)
 			return
 		} else if err != nil && !errors.Is(err, db.ErrNoCustomerFlow) {
-			s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+			s.writeInternalError(w, r, err)
 			return
 		}
 	}
 	value, err := s.store.GetSetting(r.Context(), "work_flow")
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	if value != "" {
@@ -281,14 +287,14 @@ func (s *Server) handlePutWorkflow(w http.ResponseWriter, r *http.Request) {
 	customer := strings.TrimSpace(r.URL.Query().Get("customer"))
 	if customer != "" {
 		if err := s.store.PutCustomerWorkflow(r.Context(), customer, value, me.Username, s.now().UTC()); err != nil {
-			s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+			s.writeInternalError(w, r, err)
 			return
 		}
 		s.writeJSON(w, http.StatusOK, map[string]any{"steps": steps, "source": "customer", "customer": customer})
 		return
 	}
 	if err := s.store.SetSetting(r.Context(), "work_flow", value, me.Username, s.now().UTC()); err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"steps": steps, "source": "global"})
@@ -297,7 +303,7 @@ func (s *Server) handlePutWorkflow(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListAllWork(w http.ResponseWriter, r *http.Request) {
 	sessions, err := s.store.ActiveSessionsAll(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"sessions": sessions})

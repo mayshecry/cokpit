@@ -106,8 +106,6 @@ func TestValidateAssignRecipients(t *testing.T) {
 	}
 }
 
-// The historical message was a bare "ASSIGN needs exactly one target user",
-// which did not say what to do about it. The replacement must explain itself.
 func TestAssignErrorIsActionable(t *testing.T) {
 	r := baseRule()
 	r.Action = ActionAssign

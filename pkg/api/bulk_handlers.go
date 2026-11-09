@@ -24,7 +24,7 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 	if assignee != "" {
 		users, err := s.store.ListUsers(r.Context())
 		if err != nil {
-			s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+			s.writeInternalError(w, r, err)
 			return
 		}
 		known := false
@@ -43,6 +43,10 @@ func (s *Server) handleAssign(w http.ResponseWriter, r *http.Request) {
 	updated, err := s.store.SetAssignee(r.Context(), id, assignee, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -133,7 +137,7 @@ func (s *Server) handleBulkResolve(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAdminBackup(w http.ResponseWriter, r *http.Request) {
 	tmp, err := os.CreateTemp("", "cockpit-backup-*.db")
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "cannot create temp file")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	tmpPath := tmp.Name()
@@ -142,7 +146,7 @@ func (s *Server) handleAdminBackup(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := s.store.DB().ExecContext(r.Context(), `VACUUM INTO ?`, tmpPath); err != nil {
 		s.logger.Printf("backup: %v", err)
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "backup failed")
+		s.writeInternalError(w, r, err)
 		return
 	}
 
@@ -163,7 +167,7 @@ func (s *Server) handleAdminBackup(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleListUsersBrief(w http.ResponseWriter, r *http.Request) {
 	users, err := s.store.ListUsers(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	type brief struct {

@@ -9,7 +9,6 @@ import (
 	"cockpit/pkg/order"
 )
 
-
 func TestImportOrderPastTarget(t *testing.T) {
 	ts := newTestServer(t)
 	past := fixedClock().Add(-48 * time.Hour).UTC().Format(time.RFC3339)

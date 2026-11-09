@@ -42,8 +42,6 @@ func TestValidateTargetCompletion(t *testing.T) {
 }
 
 func TestValidateTargetCompletionIsNotFutureOnly(t *testing.T) {
-	// Regression: the API used to reject any target that was not strictly in
-	// the future, which blocked registering an order that already arrived.
 	now := time.Now().UTC()
 	if err := ValidateTargetCompletion(now.Add(-time.Hour), now); err != nil {
 		t.Fatalf("a past target must be accepted, got %v", err)

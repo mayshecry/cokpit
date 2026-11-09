@@ -30,9 +30,6 @@ func (s *Server) productDeptAllowed(r *http.Request, prod order.Product) bool {
 
 func (s *Server) autoApprove(r *http.Request, prod order.Product) order.Product {
 	me := s.currentUser(r)
-	// Permission based, not role based: a department can grant manuals:approve
-	// to (for example) an operator, and that grant must behave exactly like the
-	// SC role does.
 	if s.userHasPerm(r, me, auth.PermManualsApprove) {
 		if approved, err := s.store.ApproveProduct(r.Context(), prod.ID, me.Username, s.now().UTC()); err == nil {
 			return approved
@@ -64,12 +61,16 @@ func (s *Server) handleQuickManual(w http.ResponseWriter, r *http.Request) {
 	prod, err := s.store.CreateProduct(r.Context(), code, name, "", cleanString(req.Department), me.Username, now)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
-	for i, step := range steps {
+	for _, step := range steps {
 		if _, err := s.store.AddManualBlock(r.Context(), prod.ID, step, "", "", now); err != nil {
-			s.writeError(w, http.StatusInternalServerError, "internal_error", "block "+stepTitle(i)+" could not be added")
+			s.writeInternalError(w, r, err)
 			return
 		}
 	}
@@ -91,6 +92,10 @@ func (s *Server) handleApproveProduct(w http.ResponseWriter, r *http.Request) {
 	prod, err := s.store.ApproveProduct(r.Context(), id, me.Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -111,6 +116,10 @@ func (s *Server) handleSetProductDepartment(w http.ResponseWriter, r *http.Reque
 	prod, err := s.store.SetProductDepartment(r.Context(), id, cleanString(req.Department), s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -141,6 +150,10 @@ func (s *Server) handleSetCustomerCoordinator(w http.ResponseWriter, r *http.Req
 	cust, err := s.store.SetCustomerCoordinator(r.Context(), id, username)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

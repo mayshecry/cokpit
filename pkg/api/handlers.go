@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"cockpit/pkg/db"
@@ -27,10 +28,6 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 	now := s.now().UTC()
 	target := now.Add(s.slaHrs)
 	if req.TargetCompletion != nil {
-		// A target in the past is allowed on purpose: orders are regularly
-		// registered after they arrived (or imported from Omnitracker), and such
-		// an order is simply already past its SLA. Only implausible values are
-		// refused, so a typo cannot create an order that looks years overdue.
 		provided := req.TargetCompletion.UTC()
 		if err := order.ValidateTargetCompletion(provided, now); err != nil {
 			s.writeError(w, http.StatusBadRequest, targetErrorCode(err), err.Error())
@@ -39,7 +36,31 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 		target = provided
 	}
 
-	created, err := s.store.CreateOrder(r.Context(), number, target, now, s.currentUser(r).Username)
+	customerName := cleanString(req.CustomerName)
+	profileID := int64(0)
+	profileName := ""
+	if req.WorkflowProfileID < 0 {
+		s.writeError(w, http.StatusBadRequest, "bad_request", "workflowProfileId must be positive")
+		return
+	}
+	if req.WorkflowProfileID > 0 {
+		profile, profileErr := s.store.GetWorkflowProfile(r.Context(), req.WorkflowProfileID)
+		if errors.Is(profileErr, db.ErrWorkflowProfileNotFound) {
+			s.writeError(w, http.StatusBadRequest, "invalid_workflow_profile", "selected workflow profile does not exist")
+			return
+		}
+		if profileErr != nil {
+			s.writeInternalError(w, r, profileErr)
+			return
+		}
+		if !strings.EqualFold(strings.TrimSpace(profile.Customer), customerName) {
+			s.writeError(w, http.StatusBadRequest, "invalid_workflow_profile", "selected workflow profile belongs to a different customer")
+			return
+		}
+		profileID = profile.ID
+		profileName = profile.Name
+	}
+	created, err := s.store.CreateOrderWithWorkflow(r.Context(), number, target, now, s.currentUser(r).Username, customerName, profileID, profileName)
 	if err != nil {
 		if errors.Is(err, db.ErrDuplicateOrderNumber) {
 
@@ -61,6 +82,10 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -81,8 +106,6 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 			s.publishOrder(created.ID, s.currentUser(r).Username)
 		}
 	}
-	// The SLA block tells the caller straight away whether the order was
-	// registered already overdue (a past target is allowed, see above).
 	sla := order.ComputeSLAPaused(created.TargetCompletion, s.now().UTC(), created.PausedSeconds, nil)
 	s.writeJSON(w, http.StatusCreated, map[string]any{
 		"order":        created,
@@ -91,8 +114,6 @@ func (s *Server) handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// targetErrorCode maps a target-completion validation error onto the machine
-// readable API code.
 func targetErrorCode(err error) string {
 	if errors.Is(err, order.ErrTargetTooFar) {
 		return "target_too_far"
@@ -132,6 +153,10 @@ func (s *Server) handleListOrders(w http.ResponseWriter, r *http.Request) {
 	orders, total, err := s.store.ListOrdersFiltered(r.Context(), q)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -172,18 +197,22 @@ func (s *Server) handleGetOrder(w http.ResponseWriter, r *http.Request) {
 	o, err := s.store.GetOrder(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 
 	holds, err := s.store.ActiveHolds(r.Context(), id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	checks, err := s.store.QCChecks(r.Context(), id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	var holdSince *time.Time
@@ -227,6 +256,10 @@ func (s *Server) handleTransition(w http.ResponseWriter, r *http.Request) {
 	updated, err := s.store.TransitionOrderGuarded(r.Context(), id, string(req.Status), s.currentUser(r).Username, req.ExpectedUpdatedAt, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -250,6 +283,10 @@ func (s *Server) handleUpdateOmnitrackerInfo(w http.ResponseWriter, r *http.Requ
 	updated, err := s.store.UpdateOmnitrackerInfo(r.Context(), id, req, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -272,6 +309,10 @@ func (s *Server) handleGenerateBarcode(w http.ResponseWriter, r *http.Request) {
 	barcode, err := s.store.GenerateBarcode(r.Context(), id, req.Regenerate, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -288,6 +329,10 @@ func (s *Server) handleGetBarcode(w http.ResponseWriter, r *http.Request) {
 	o, err := s.store.GetOrder(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -304,6 +349,10 @@ func (s *Server) handleScanBarcode(w http.ResponseWriter, r *http.Request) {
 	o, err := s.store.OrderByBarcode(r.Context(), barcode)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -332,6 +381,10 @@ func (s *Server) handleBarcodeScanHistory(w http.ResponseWriter, r *http.Request
 	events, err := s.store.BarcodeScanHistory(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

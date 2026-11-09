@@ -14,8 +14,6 @@ var ErrDuplicateUsername = errors.New("username already exists")
 
 var ErrInvalidToken = errors.New("invalid or expired token")
 
-// ErrLastAdmin guards against locking everybody out of the console: the final
-// administrator can neither be demoted nor deleted.
 var ErrLastAdmin = errors.New("at least one administrator must remain")
 
 func scanUser(row interface{ Scan(...any) error }) (auth.User, error) {

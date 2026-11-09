@@ -60,7 +60,7 @@ func (s *Server) handleQRLoginCreate(w http.ResponseWriter, r *http.Request) {
 		s.qr.mu.Lock()
 		delete(s.qr.m, id)
 		s.qr.mu.Unlock()
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "QR generation failed")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{
@@ -121,13 +121,13 @@ func (s *Server) handleQRLoginApprove(w http.ResponseWriter, r *http.Request) {
 	user := s.currentUser(r)
 	token, err := auth.NewToken()
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	now := s.now().UTC()
 	expiresAt := now.Add(s.sessionHours)
 	if err := s.store.IssueToken(r.Context(), user.ID, token, now, expiresAt); err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	user.PasswordHash = ""

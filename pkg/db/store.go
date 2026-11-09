@@ -36,14 +36,40 @@ func New(conn *sql.DB) *Store { return &Store{db: conn} }
 func (s *Store) DB() *sql.DB { return s.db }
 
 const orderCols = `id, order_number, status, target_completion_at, created_at, updated_at, assigned_to, paused_seconds,
-		debit_number, customer_name, omnitracker_ticket, device, asset_number, configuration, si_id, barcode`
+		debit_number, customer_name, omnitracker_ticket, device, asset_number, configuration, workflow_profile_id, workflow_profile_name, si_id, barcode`
 
-func scanOrder(row *sql.Row) (order.Order, error) {
+type orderScanner interface {
+	Scan(dest ...any) error
+}
+
+func orderScanDest(o *order.Order, tgt, created, updated *int64, siID *sql.NullInt64) []any {
+	return []any{
+		&o.ID,
+		&o.OrderNumber,
+		&o.Status,
+		tgt,
+		created,
+		updated,
+		&o.Assignee,
+		&o.PausedSeconds,
+		&o.DebitNumber,
+		&o.CustomerName,
+		&o.OmnitrackerTicket,
+		&o.Device,
+		&o.AssetNumber,
+		&o.Configuration,
+		&o.WorkflowProfileID,
+		&o.WorkflowProfileName,
+		siID,
+		&o.Barcode,
+	}
+}
+
+func scanOrderRow(sc orderScanner) (order.Order, error) {
 	var o order.Order
 	var tgt, created, updated int64
 	var siID sql.NullInt64
-	err := row.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated, &o.Assignee, &o.PausedSeconds,
-		&o.DebitNumber, &o.CustomerName, &o.OmnitrackerTicket, &o.Device, &o.AssetNumber, &o.Configuration, &siID, &o.Barcode)
+	err := sc.Scan(orderScanDest(&o, &tgt, &created, &updated, &siID)...)
 	if err != nil {
 		return order.Order{}, err
 	}
@@ -56,7 +82,55 @@ func scanOrder(row *sql.Row) (order.Order, error) {
 	return o, nil
 }
 
+func scanOrder(row *sql.Row) (order.Order, error) {
+	return scanOrderRow(row)
+}
+
+var ErrSchemaMismatch = errors.New("database schema does not match this build")
+
+func orderScanCount() int {
+	var probe order.Order
+	var tgt, created, updated int64
+	var siID sql.NullInt64
+	return len(orderScanDest(&probe, &tgt, &created, &updated, &siID))
+}
+
+func countOrderColumns(ctx context.Context, db *sql.DB) (int, error) {
+	rows, err := db.QueryContext(ctx, "SELECT "+orderCols+" FROM orders LIMIT 0")
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	cols, err := rows.Columns()
+	if err != nil {
+		return 0, err
+	}
+	return len(cols), nil
+}
+
+func (s *Store) VerifyOrderColumns(ctx context.Context) error {
+	scanned := orderScanCount()
+	rows, err := s.db.QueryContext(ctx, "SELECT "+orderCols+" FROM orders LIMIT 0")
+	if err != nil {
+		return fmt.Errorf("%w: running the order query failed: %v", ErrSchemaMismatch, err)
+	}
+	cols, err := rows.Columns()
+	rows.Close()
+	if err != nil {
+		return fmt.Errorf("%w: reading order columns failed: %v", ErrSchemaMismatch, err)
+	}
+	if selected := len(cols); scanned != selected {
+		return fmt.Errorf("%w: the order query selects %d columns but the scanner reads %d",
+			ErrSchemaMismatch, selected, scanned)
+	}
+	return nil
+}
+
 func (s *Store) CreateOrder(ctx context.Context, number string, target time.Time, now time.Time, performedBy string) (order.Order, error) {
+	return s.CreateOrderWithWorkflow(ctx, number, target, now, performedBy, "", 0, "")
+}
+
+func (s *Store) CreateOrderWithWorkflow(ctx context.Context, number string, target time.Time, now time.Time, performedBy, customerName string, profileID int64, profileName string) (order.Order, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return order.Order{}, fmt.Errorf("begin: %w", err)
@@ -77,9 +151,9 @@ func (s *Store) CreateOrder(ctx context.Context, number string, target time.Time
 	}
 
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO orders (order_number, status, target_completion_at, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?)`,
-		number, string(order.StatusReceived), millis(target), millis(now), millis(now))
+		`INSERT INTO orders (order_number, status, target_completion_at, created_at, updated_at, customer_name, workflow_profile_id, workflow_profile_name)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		number, string(order.StatusReceived), millis(target), millis(now), millis(now), customerName, profileID, profileName)
 	if err != nil {
 		return order.Order{}, fmt.Errorf("insert order: %w", err)
 	}
@@ -99,12 +173,15 @@ func (s *Store) CreateOrder(ctx context.Context, number string, target time.Time
 	}
 
 	return order.Order{
-		ID:               id,
-		OrderNumber:      number,
-		Status:           order.StatusReceived,
-		TargetCompletion: target.UTC(),
-		CreatedAt:        now.UTC(),
-		UpdatedAt:        now.UTC(),
+		ID:                  id,
+		OrderNumber:         number,
+		Status:              order.StatusReceived,
+		TargetCompletion:    target.UTC(),
+		CreatedAt:           now.UTC(),
+		UpdatedAt:           now.UTC(),
+		CustomerName:        customerName,
+		WorkflowProfileID:   profileID,
+		WorkflowProfileName: profileName,
 	}, nil
 }
 
@@ -563,18 +640,9 @@ func (s *Store) ListOrdersFiltered(ctx context.Context, q ListQuery) ([]order.Or
 
 	orders := []order.Order{}
 	for rows.Next() {
-		var o order.Order
-		var tgt, created, updated int64
-		var siID sql.NullInt64
-		if err := rows.Scan(&o.ID, &o.OrderNumber, &o.Status, &tgt, &created, &updated, &o.Assignee, &o.PausedSeconds,
-			&o.DebitNumber, &o.CustomerName, &o.OmnitrackerTicket, &o.Device, &o.AssetNumber, &o.Configuration, &siID, &o.Barcode); err != nil {
+		o, err := scanOrderRow(rows)
+		if err != nil {
 			return nil, 0, fmt.Errorf("scan order: %w", err)
-		}
-		o.TargetCompletion = fromMillis(tgt)
-		o.CreatedAt = fromMillis(created)
-		o.UpdatedAt = fromMillis(updated)
-		if siID.Valid {
-			o.SIID = &siID.Int64
 		}
 		orders = append(orders, o)
 	}

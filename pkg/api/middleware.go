@@ -111,5 +111,9 @@ func (s *Server) recoverMiddleware(next http.Handler) http.Handler {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	out := map[string]string{"status": "ok"}
+	if s.build != "" {
+		out["build"] = s.build
+	}
+	s.writeJSON(w, http.StatusOK, out)
 }

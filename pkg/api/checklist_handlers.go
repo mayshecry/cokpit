@@ -19,6 +19,10 @@ func (s *Server) handleGetChecklist(w http.ResponseWriter, r *http.Request) {
 	items, err := s.store.ChecklistItems(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -43,6 +47,10 @@ func (s *Server) handleSetChecklist(w http.ResponseWriter, r *http.Request) {
 	items, err := s.store.SetChecklist(r.Context(), id, req.Items, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -73,6 +81,10 @@ func (s *Server) toggleChecklistItem(w http.ResponseWriter, r *http.Request, tic
 	}
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -84,6 +96,10 @@ func (s *Server) handleListChecklists(w http.ResponseWriter, r *http.Request) {
 	overviews, err := s.store.ChecklistOverviews(r.Context())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -94,6 +110,10 @@ func (s *Server) handleSeedDemoChecklists(w http.ResponseWriter, r *http.Request
 	n, err := s.store.SeedDemoChecklists(r.Context(), s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

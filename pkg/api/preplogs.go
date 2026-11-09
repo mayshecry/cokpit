@@ -532,7 +532,7 @@ func (s *Server) handlePostPrepLog(w http.ResponseWriter, r *http.Request) {
 		UploaderIP:   clientIP(r),
 	}, s.now())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "store_failed", "Could not store the log.")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	stats, _ := doc["stats"].(map[string]any)
@@ -564,7 +564,7 @@ func normalizeText(b []byte) []byte {
 func (s *Server) handleListPrepDevices(w http.ResponseWriter, r *http.Request) {
 	items, err := s.store.ListPrepDevices(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "store_failed", "Could not list devices.")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"devices": items})

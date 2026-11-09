@@ -27,6 +27,10 @@ func (s *Server) handlePlaceHold(w http.ResponseWriter, r *http.Request) {
 	hold, updated, err := s.store.PlaceHoldGuarded(r.Context(), id, reason, s.currentUser(r).Username, req.ExpectedUpdatedAt, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -47,6 +51,10 @@ func (s *Server) handleResolveHold(w http.ResponseWriter, r *http.Request) {
 	hold, updated, err := s.store.ResolveHold(r.Context(), holdID, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -86,6 +94,10 @@ func (s *Server) handleSubmitQC(w http.ResponseWriter, r *http.Request) {
 	check, err := s.store.SubmitQC(r.Context(), id, req.Status, inspector, req.Notes, failReason, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -109,6 +121,10 @@ func (s *Server) handleAudit(w http.ResponseWriter, r *http.Request) {
 	logs, err := s.store.AuditLog(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

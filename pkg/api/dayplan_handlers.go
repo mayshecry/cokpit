@@ -22,7 +22,6 @@ func cleanDay(v string) string {
 	if len(v) != 10 || v[4] != '-' || v[7] != '-' {
 		return ""
 	}
-	// Validate the calendar date too: "2026-13-45" used to be stored verbatim.
 	if _, err := time.Parse("2006-01-02", v); err != nil {
 		return ""
 	}
@@ -36,7 +35,7 @@ func (s *Server) handleGetDayplan(w http.ResponseWriter, r *http.Request) {
 	}
 	goals, err := s.store.DayGoals(r.Context(), day)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"day": day, "goals": goals})
@@ -61,7 +60,7 @@ func (s *Server) handlePutDayGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	g, err := s.store.SetDayGoal(r.Context(), day, username, goal, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"goal": g})
@@ -81,7 +80,7 @@ func (s *Server) handleSendDayGoal(w http.ResponseWriter, r *http.Request) {
 	}
 	goals, err := s.store.DayGoals(r.Context(), day)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	var found *struct {
@@ -107,11 +106,11 @@ func (s *Server) handleSendDayGoal(w http.ResponseWriter, r *http.Request) {
 		body = "Check today's plan on the Workload board."
 	}
 	if err := s.store.Notify(r.Context(), username, "goal", 0, "", now.UnixMilli(), body, now); err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	if err := s.store.MarkGoalSent(r.Context(), found.id, now); err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.publishNotification(username)
@@ -132,7 +131,7 @@ func (s *Server) handleQCStats(w http.ResponseWriter, r *http.Request) {
 	to := from.AddDate(0, 1, 0)
 	dash, err := s.store.QCDashboard(r.Context(), from.UnixMilli(), to.UnixMilli(), from.AddDate(0, -1, 0).UnixMilli(), from.UnixMilli())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	names := map[string]string{}

@@ -10,6 +10,10 @@ func (s *Server) handleListProducts(w http.ResponseWriter, r *http.Request) {
 	products, err := s.store.Products(r.Context())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -25,6 +29,10 @@ func (s *Server) handleCreateProduct(w http.ResponseWriter, r *http.Request) {
 	product, err := s.store.CreateProduct(r.Context(), req.Code, req.Name, req.Description, cleanString(req.Department), s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -41,6 +49,10 @@ func (s *Server) handleGetProduct(w http.ResponseWriter, r *http.Request) {
 	product, blocks, err := s.store.ProductByID(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -64,6 +76,10 @@ func (s *Server) handleUpdateProduct(w http.ResponseWriter, r *http.Request) {
 	product, err := s.store.UpdateProduct(r.Context(), id, req.Code, req.Name, req.Description, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -78,6 +94,10 @@ func (s *Server) handleDeleteProduct(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.DeleteProduct(r.Context(), id); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -98,6 +118,10 @@ func (s *Server) handleAddManualBlock(w http.ResponseWriter, r *http.Request) {
 	block, err := s.store.AddManualBlock(r.Context(), id, req.Title, req.Body, req.Assignee, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -123,6 +147,10 @@ func (s *Server) handleUpdateManualBlock(w http.ResponseWriter, r *http.Request)
 	block, err := s.store.UpdateManualBlock(r.Context(), productID, blockID, req.Title, req.Body, req.Assignee, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -148,6 +176,10 @@ func (s *Server) handleMoveManualBlock(w http.ResponseWriter, r *http.Request) {
 	blocks, err := s.store.MoveManualBlock(r.Context(), productID, blockID, req.Direction, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -167,6 +199,10 @@ func (s *Server) handleDeleteManualBlock(w http.ResponseWriter, r *http.Request)
 	}
 	if err := s.store.DeleteManualBlock(r.Context(), productID, blockID); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

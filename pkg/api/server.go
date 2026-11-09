@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log"
@@ -32,6 +33,7 @@ type Server struct {
 	hub          *eventHub
 	automationMu sync.Mutex
 	config       ServerConfig
+	build        string
 }
 
 type ServerConfig struct {
@@ -47,6 +49,8 @@ type ServerConfig struct {
 	SessionHours int
 
 	Logger *log.Logger
+
+	Build string
 
 	OmnitrackerBaseURL string
 }
@@ -77,6 +81,7 @@ func New(store *db.Store, cfg ServerConfig) *Server {
 		logger:       cfg.Logger,
 		hub:          newEventHub(),
 		config:       cfg,
+		build:        cfg.Build,
 	}
 }
 
@@ -140,6 +145,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/stats/ops", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleOpsStats)))
 	mux.HandleFunc("GET /api/v1/workflow", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleGetWorkflow)))
 	mux.HandleFunc("PUT /api/v1/workflow", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handlePutWorkflow)))
+	mux.HandleFunc("GET /api/v1/workflow-profiles", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleListWorkflowProfiles)))
+	mux.HandleFunc("GET /api/v1/workflow-profiles/{id}", s.requireAuth(s.requirePerm(auth.PermOrderList, s.handleGetWorkflowProfile)))
+	mux.HandleFunc("POST /api/v1/workflow-profiles", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleCreateWorkflowProfile)))
+	mux.HandleFunc("PUT /api/v1/workflow-profiles/{id}", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleUpdateWorkflowProfile)))
 	mux.HandleFunc("GET /api/v1/work/sessions", s.requireAuth(s.requirePerm(auth.PermUsersManage, s.handleListAllWork)))
 	mux.HandleFunc("GET /api/v1/work/mine", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleListMyWork)))
 	mux.HandleFunc("GET /api/v1/orders/{id}/work", s.requireAuth(s.requirePerm(auth.PermOrderView, s.handleGetWork)))
@@ -278,6 +287,43 @@ type apiErrorBody struct {
 
 func (s *Server) writeError(w http.ResponseWriter, status int, code, message string) {
 	s.writeJSON(w, status, apiError{Error: apiErrorBody{Code: code, Message: message}})
+}
+
+func (s *Server) isCanceled(r *http.Request, err error) bool {
+	if err == nil {
+		return false
+	}
+	if r != nil && r.Context().Err() == context.Canceled {
+		return true
+	}
+	return errors.Is(err, context.Canceled)
+}
+
+func (s *Server) writeCanceled(w http.ResponseWriter, r *http.Request) {
+	if r != nil && r.Context().Err() == context.Canceled {
+		s.logf("client canceled: %s %s", r.Method, r.URL.Path)
+		return
+	}
+	s.writeError(w, http.StatusRequestTimeout, "request_canceled", "the request was canceled before it finished")
+}
+
+func (s *Server) logf(format string, args ...any) {
+	if s.logger != nil {
+		s.logger.Printf(format, args...)
+	}
+}
+
+func (s *Server) writeInternalError(w http.ResponseWriter, r *http.Request, err error) {
+	if s.isCanceled(r, err) {
+		s.writeCanceled(w, r)
+		return
+	}
+	if r != nil {
+		s.logf("internal error: %s %s: %v", r.Method, r.URL.Path, err)
+	} else {
+		s.logf("internal error: %v", err)
+	}
+	s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
 }
 
 func (s *Server) decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {

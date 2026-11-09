@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/skip2/go-qrcode"
 	"io"
@@ -316,7 +317,7 @@ func (s *Server) handleClientPair(w http.ResponseWriter, r *http.Request) {
 	}
 	g.store.Keys[clientID] = clientKeyEntry{Key: key, Machine: req.Machine, Name: name, Username: boundUser, CreatedAt: s.now().UTC()}
 	if err := g.saveLocked(); err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 
@@ -469,7 +470,7 @@ func (s *Server) handleAdminPairQR(w http.ResponseWriter, r *http.Request) {
 	}
 	code := s.ensurePairCode(r, boundQ)
 	if code == "" {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, errors.New("could not create a pairing code"))
 		return
 	}
 	boundUser := boundQ
@@ -514,9 +515,6 @@ func (s *Server) handleAdminPairCode(w http.ResponseWriter, r *http.Request) {
 				s.writeError(w, http.StatusNotFound, "no_user", "unknown username: "+req.Username)
 				return
 			}
-			// A pairing code that carries a username hands the scanning browser a
-			// full session for that account, so it is as sensitive as a password
-			// reset: administrators may only be paired by other administrators.
 			if s.requiresAdminForTarget(r, bound) {
 				s.writeForbiddenAdminTarget(w)
 				return
@@ -526,7 +524,7 @@ func (s *Server) handleAdminPairCode(w http.ResponseWriter, r *http.Request) {
 	}
 	code := s.ensurePairCode(r, boundUser)
 	if code == "" {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, errors.New("could not create a pairing code"))
 		return
 	}
 	if s.logger != nil {
@@ -584,7 +582,7 @@ func (s *Server) handleRevokePairedClient(w http.ResponseWriter, r *http.Request
 	err := g.saveLocked()
 	g.mu.Unlock()
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]bool{"ok": true})

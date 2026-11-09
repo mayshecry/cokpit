@@ -18,7 +18,7 @@ var QCReasonCatalog = []string{
 func (s *Server) handleQCQueue(w http.ResponseWriter, r *http.Request) {
 	queue, err := s.store.QCQueue(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"queue": queue})
@@ -37,12 +37,16 @@ func (s *Server) handleQCContext(w http.ResponseWriter, r *http.Request) {
 	customer, code, name, err := s.store.OrderContextKeys(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	recent, err := s.store.QCContext(r.Context(), id, customer, code, 6)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{

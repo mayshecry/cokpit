@@ -23,6 +23,10 @@ func (s *Server) handleGetProcess(w http.ResponseWriter, r *http.Request) {
 	proc, err := s.store.GetProcess(r.Context(), orderID)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -42,6 +46,10 @@ func (s *Server) handleAdvanceProcess(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := swi.ValidateAdvance(req); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -54,6 +62,10 @@ func (s *Server) handleAdvanceProcess(w http.ResponseWriter, r *http.Request) {
 	proc, jobs, err := s.store.AdvanceProcess(r.Context(), orderID, req.Stage, cleanString(req.Note), user.Username, req.Force, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -74,6 +86,10 @@ func (s *Server) handleEscalateProcess(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := swi.ValidateEscalation(req); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -82,6 +98,10 @@ func (s *Server) handleEscalateProcess(w http.ResponseWriter, r *http.Request) {
 		cleanString(req.Note), cleanString(req.EscalatedTo), s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -116,6 +136,10 @@ func (s *Server) handleResolveEscalation(w http.ResponseWriter, r *http.Request)
 	esc, proc, jobs, err := s.store.ResolveEscalation(r.Context(), id, cleanString(req.Resolution), s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -134,6 +158,10 @@ func (s *Server) handleListEscalations(w http.ResponseWriter, r *http.Request) {
 	escalations, err := s.store.ListEscalations(r.Context(), openOnly, limit)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -161,6 +189,10 @@ func (s *Server) handleProcessTasks(w http.ResponseWriter, r *http.Request) {
 	tasks, err := s.store.ProcessTasks(r.Context(), orderID, stage)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -192,6 +224,10 @@ func (s *Server) setProcessTaskDone(w http.ResponseWriter, r *http.Request, done
 	task, orderID, err := s.store.SetProcessTaskDone(r.Context(), id, done, cleanString(req.Note), s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -207,6 +243,10 @@ func (s *Server) handleProcessEvents(w http.ResponseWriter, r *http.Request) {
 	events, err := s.store.ProcessEvents(r.Context(), orderID, queryInt(r, "limit", 200, 1, 1000))
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -229,12 +269,20 @@ func (s *Server) handleProcessBoard(w http.ResponseWriter, r *http.Request) {
 	procs, err := s.store.ListProcesses(r.Context(), stage, limit)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	metrics, err := s.store.ProcessMetrics(r.Context(), now)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -250,12 +298,20 @@ func (s *Server) handleProcessMetrics(w http.ResponseWriter, r *http.Request) {
 	metrics, err := s.store.ProcessMetrics(r.Context(), now)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	overdue, err := s.store.OverdueProcesses(r.Context(), now)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -275,12 +331,13 @@ func (s *Server) handleImportOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := swi.ValidateImport(req); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
-	// Imported orders go through exactly the same target-completion rules as
-	// manually created ones: a past target is allowed (the order is simply
-	// registered overdue), but a typo such as 2072 or a zero date is refused.
 	if req.TargetCompletion != nil {
 		if err := order.ValidateTargetCompletion(req.TargetCompletion.UTC(), s.now().UTC()); err != nil {
 			s.writeError(w, http.StatusBadRequest, targetErrorCode(err), err.Error())
@@ -291,18 +348,30 @@ func (s *Server) handleImportOrder(w http.ResponseWriter, r *http.Request) {
 	o, created, err := s.store.ImportOrder(r.Context(), req, s.slaHrs, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	proc, err := s.store.GetProcess(r.Context(), o.ID)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	jobs, err := s.store.ListSyncJobs(r.Context(), swi.SyncJobFilter{OrderID: o.ID, Limit: 50})
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -325,6 +394,10 @@ func (s *Server) handleAutoEscalate(w http.ResponseWriter, r *http.Request) {
 	raised, err := s.store.AutoEscalate(r.Context(), s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -364,6 +437,10 @@ func (s *Server) handleListSyncJobs(w http.ResponseWriter, r *http.Request) {
 	jobs, err := s.store.ListSyncJobs(r.Context(), f)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -380,6 +457,10 @@ func (s *Server) handleClaimSyncJobs(w http.ResponseWriter, r *http.Request) {
 	jobs, err := s.store.ClaimSyncJobs(r.Context(), system, queryInt(r, "limit", 20, 1, 200), s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -399,6 +480,10 @@ func (s *Server) handleCompleteSyncJob(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := swi.ValidateComplete(req); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -406,6 +491,10 @@ func (s *Server) handleCompleteSyncJob(w http.ResponseWriter, r *http.Request) {
 	job, err := s.store.CompleteSyncJob(r.Context(), id, req.Status, cleanString(req.Response), cleanString(req.Error), s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -421,6 +510,10 @@ func (s *Server) handleRetrySyncJob(w http.ResponseWriter, r *http.Request) {
 	job, err := s.store.RetrySyncJob(r.Context(), id, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

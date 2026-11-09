@@ -12,6 +12,10 @@ func (s *Server) handleListCustomers(w http.ResponseWriter, r *http.Request) {
 	customers, err := s.store.ListCustomers(r.Context())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -32,6 +36,10 @@ func (s *Server) handleCreateCustomer(w http.ResponseWriter, r *http.Request) {
 	customer, err := s.store.CreateCustomer(r.Context(), cleanString(req.Number), cleanString(req.Name), s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -43,12 +51,20 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 	customer, err := s.store.CustomerByNumber(r.Context(), number)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	projects, err := s.store.ListProjects(r.Context(), customer.ID)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -71,6 +87,10 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 	project, err := s.store.CreateProject(r.Context(), req.CustomerID, cleanString(req.Code), cleanString(req.Name), req.Description, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -99,6 +119,10 @@ func (s *Server) handleListSIs(w http.ResponseWriter, r *http.Request) {
 	sis, err := s.store.ListSIs(r.Context(), r.URL.Query().Get("customer"), projectID, status)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -114,6 +138,10 @@ func (s *Server) handleCreateSI(w http.ResponseWriter, r *http.Request) {
 	created, err := s.store.CreateSI(r.Context(), req, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -128,6 +156,10 @@ func (s *Server) handleGetSI(w http.ResponseWriter, r *http.Request) {
 	siRec, err := s.store.GetSI(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -148,6 +180,10 @@ func (s *Server) handleUpdateSI(w http.ResponseWriter, r *http.Request) {
 	updated, err := s.store.UpdateSI(r.Context(), id, req, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -176,6 +212,10 @@ func (s *Server) handleTransitionSI(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -196,6 +236,10 @@ func (s *Server) handleSetSIProjects(w http.ResponseWriter, r *http.Request) {
 	updated, err := s.store.SetSIProjects(r.Context(), id, req.ProjectIDs, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -211,6 +255,10 @@ func (s *Server) handleSIEvents(w http.ResponseWriter, r *http.Request) {
 	events, err := s.store.SIEvents(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -221,6 +269,10 @@ func (s *Server) handleSeedDemoSI(w http.ResponseWriter, r *http.Request) {
 	count, err := s.store.SeedDemoSI(r.Context(), s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -236,6 +288,10 @@ func (s *Server) handleListChecklist(w http.ResponseWriter, r *http.Request) {
 	items, err := s.store.ProjectChecklist(r.Context(), projectID)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -256,6 +312,10 @@ func (s *Server) handleAddChecklistItem(w http.ResponseWriter, r *http.Request) 
 	item, err := s.store.AddProjectChecklistItem(r.Context(), projectID, req.Label, req.Description, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -272,6 +332,10 @@ func (s *Server) handleSITickChecklistItem(w http.ResponseWriter, r *http.Reques
 	item, err := s.store.TickProjectChecklistItem(r.Context(), itemID, username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -287,6 +351,10 @@ func (s *Server) handleSIUntickChecklistItem(w http.ResponseWriter, r *http.Requ
 	item, err := s.store.UntickProjectChecklistItem(r.Context(), itemID, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -301,6 +369,10 @@ func (s *Server) handleDeleteChecklistItem(w http.ResponseWriter, r *http.Reques
 	}
 	if err := s.store.DeleteProjectChecklistItem(r.Context(), itemID); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

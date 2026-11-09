@@ -56,7 +56,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	ok, err := auth.CheckPassword(user.PasswordHash, req.Password)
@@ -69,13 +69,13 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 	token, err := auth.NewToken()
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	now := s.now().UTC()
 	expiresAt := now.Add(s.sessionHours)
 	if err := s.store.IssueToken(r.Context(), user.ID, token, now, expiresAt); err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 
@@ -87,7 +87,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.DeleteToken(r.Context(), s.requestToken(r)); err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.clearSessionCookie(w, r)
@@ -117,9 +117,6 @@ func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, map[string]auth.User{"user": user})
 }
 
-// handlePermissionCatalogue publishes the authoritative role/permission table
-// so the browser never has to keep its own copy in sync. The Go middleware
-// stays authoritative; the frontend only uses this for rendering.
 func (s *Server) handlePermissionCatalogue(w http.ResponseWriter, r *http.Request) {
 	matrix := auth.RolePermissionMatrix()
 	roles := make(map[string][]string, len(matrix))

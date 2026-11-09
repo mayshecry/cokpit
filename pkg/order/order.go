@@ -3,24 +3,26 @@ package order
 import "time"
 
 type Order struct {
-	ID                int64      `json:"id"`
-	OrderNumber       string     `json:"orderNumber"`
-	Status            Status     `json:"status"`
-	TargetCompletion  time.Time  `json:"targetCompletionAt"`
-	CreatedAt         time.Time  `json:"createdAt"`
-	UpdatedAt         time.Time  `json:"updatedAt"`
-	Assignee          string     `json:"assignee,omitempty"`
-	PausedSeconds     int64      `json:"pausedSeconds,omitempty"`
-	HoldSince         *time.Time `json:"holdSince,omitempty"`
-	SLA               *SLA       `json:"sla,omitempty"`
-	DebitNumber       string     `json:"debitNumber,omitempty"`
-	CustomerName      string     `json:"customerName,omitempty"`
-	OmnitrackerTicket string     `json:"omnitrackerTicket,omitempty"`
-	Device            string     `json:"device,omitempty"`
-	AssetNumber       string     `json:"assetNumber,omitempty"`
-	Configuration     string     `json:"configuration,omitempty"`
-	SIID              *int64     `json:"siId,omitempty"`
-	Barcode           string     `json:"barcode,omitempty"`
+	ID                  int64      `json:"id"`
+	OrderNumber         string     `json:"orderNumber"`
+	Status              Status     `json:"status"`
+	TargetCompletion    time.Time  `json:"targetCompletionAt"`
+	CreatedAt           time.Time  `json:"createdAt"`
+	UpdatedAt           time.Time  `json:"updatedAt"`
+	Assignee            string     `json:"assignee,omitempty"`
+	PausedSeconds       int64      `json:"pausedSeconds,omitempty"`
+	HoldSince           *time.Time `json:"holdSince,omitempty"`
+	SLA                 *SLA       `json:"sla,omitempty"`
+	DebitNumber         string     `json:"debitNumber,omitempty"`
+	CustomerName        string     `json:"customerName,omitempty"`
+	OmnitrackerTicket   string     `json:"omnitrackerTicket,omitempty"`
+	Device              string     `json:"device,omitempty"`
+	AssetNumber         string     `json:"assetNumber,omitempty"`
+	Configuration       string     `json:"configuration,omitempty"`
+	WorkflowProfileID   int64      `json:"workflowProfileId,omitempty"`
+	WorkflowProfileName string     `json:"workflowProfileName,omitempty"`
+	SIID                *int64     `json:"siId,omitempty"`
+	Barcode             string     `json:"barcode,omitempty"`
 }
 
 type Hold struct {
@@ -134,6 +136,7 @@ type CreateOrderRequest struct {
 	Device            string     `json:"device"`
 	AssetNumber       string     `json:"assetNumber"`
 	Configuration     string     `json:"configuration"`
+	WorkflowProfileID int64      `json:"workflowProfileId,omitempty"`
 }
 
 type TransitionRequest struct {

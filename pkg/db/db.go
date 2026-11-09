@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS orders (
     device              TEXT    NOT NULL DEFAULT '',
     asset_number        TEXT    NOT NULL DEFAULT '',
     configuration       TEXT    NOT NULL DEFAULT '',
+    workflow_profile_id INTEGER NOT NULL DEFAULT 0,
+    workflow_profile_name TEXT NOT NULL DEFAULT '',
     si_id               INTEGER REFERENCES system_integrations(id),
     barcode             TEXT    NOT NULL DEFAULT ''
 );
@@ -283,6 +285,18 @@ CREATE TABLE IF NOT EXISTS customer_workflows (
     updated_by    TEXT NOT NULL DEFAULT '',
     updated_at    BIGINT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS workflow_profiles (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_name TEXT NOT NULL,
+    name          TEXT NOT NULL COLLATE NOCASE,
+    steps_json    TEXT NOT NULL,
+    updated_by    TEXT NOT NULL DEFAULT '',
+    updated_at    BIGINT NOT NULL,
+    UNIQUE(customer_name, name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_profiles_customer ON workflow_profiles(customer_name, name);
 
 CREATE TABLE IF NOT EXISTS customers (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -552,9 +566,6 @@ func Open(ctx context.Context, path string) (*sql.DB, error) {
 	return conn, nil
 }
 
-// ensureAutomationScopeColumns adds the rule-scoping columns introduced for
-// customer/department/product targeting. Older databases keep their rows; the
-// defaults make an upgraded rule behave exactly as before (no scope).
 func ensureAutomationScopeColumns(ctx context.Context, conn *sql.DB) error {
 	existing, err := tableColumns(ctx, conn, "automation_rules")
 	if err != nil {
@@ -686,7 +697,9 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		"omnitracker_ticket": `ALTER TABLE orders ADD COLUMN omnitracker_ticket TEXT NOT NULL DEFAULT ''`,
 		"device":             `ALTER TABLE orders ADD COLUMN device TEXT NOT NULL DEFAULT ''`,
 		"asset_number":       `ALTER TABLE orders ADD COLUMN asset_number TEXT NOT NULL DEFAULT ''`,
-		"configuration":      `ALTER TABLE orders ADD COLUMN configuration TEXT NOT NULL DEFAULT ''`,
+		"configuration":          `ALTER TABLE orders ADD COLUMN configuration TEXT NOT NULL DEFAULT ''`,
+		"workflow_profile_id":   `ALTER TABLE orders ADD COLUMN workflow_profile_id INTEGER NOT NULL DEFAULT 0`,
+		"workflow_profile_name": `ALTER TABLE orders ADD COLUMN workflow_profile_name TEXT NOT NULL DEFAULT ''`,
 		"si_id":              `ALTER TABLE orders ADD COLUMN si_id INTEGER`,
 		"barcode":            `ALTER TABLE orders ADD COLUMN barcode TEXT NOT NULL DEFAULT ''`,
 	}

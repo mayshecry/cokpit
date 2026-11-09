@@ -12,7 +12,6 @@ import (
 	"cockpit/pkg/order"
 )
 
-// teamOf creates a department and returns its id.
 func teamOf(t *testing.T, s *Store, name string, members ...string) int64 {
 	t.Helper()
 	ctx := context.Background()
@@ -33,7 +32,6 @@ func teamOf(t *testing.T, s *Store, name string, members ...string) int64 {
 	return dep.ID
 }
 
-// orderForCustomer creates an order and records its customer name.
 func orderForCustomer(t *testing.T, s *Store, number, customer string, target time.Time) order.Order {
 	t.Helper()
 	ctx := context.Background()
@@ -181,7 +179,6 @@ func TestAutomationAssignTeamPicksLeastBusy(t *testing.T) {
 	ctx := context.Background()
 	now := fixedNow()
 	teamOf(t, s, "Field", "finn", "fleur")
-	// finn already owns two open orders, fleur none.
 	for i, number := range []string{"BUSY-1", "BUSY-2"} {
 		o, err := s.CreateOrder(ctx, number, now.Add(24*time.Hour), now, "tester")
 		if err != nil {
@@ -391,7 +388,6 @@ func TestAutomationPreview(t *testing.T) {
 	if len(row.Recipients) != 2 || row.Recipients[0] != "alice" || row.Recipients[1] != "fleur" {
 		t.Errorf("recipients = %v, want alice and fleur", row.Recipients)
 	}
-	// Nothing was written.
 	if runs, _ := s.ListAutomationRuns(ctx, 10); len(runs) != 0 {
 		t.Errorf("preview wrote %d runs", len(runs))
 	}
@@ -426,8 +422,6 @@ func TestAutomationPreviewAssignTeam(t *testing.T) {
 	}
 }
 
-// An existing installation must upgrade in place: the rule-scoping columns are
-// added to the existing table and old rules keep applying to everything.
 func TestAutomationScopeMigrationOnExistingDatabase(t *testing.T) {
 	ctx := context.Background()
 	path := filepath.Join(t.TempDir(), "old.db")
@@ -436,7 +430,6 @@ func TestAutomationScopeMigrationOnExistingDatabase(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open: %v", err)
 	}
-	// Pretend this database was created before rule scoping existed.
 	for _, col := range []string{
 		"teams_json", "customers_json", "excluded_customers_json", "departments_json",
 		"products_json", "customer_targets_json", "customer_teams_json",

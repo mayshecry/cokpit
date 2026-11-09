@@ -36,7 +36,7 @@ func (s *Server) writeForbiddenAdminTarget(w http.ResponseWriter) {
 func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := s.store.ListUsers(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	for i := range users {
@@ -72,7 +72,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	user, err := s.store.CreateUser(r.Context(), username, hash, cleanString(req.DisplayName), role, s.now().UTC())
@@ -81,7 +81,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 			s.writeError(w, http.StatusConflict, "duplicate_username", "username already exists")
 			return
 		}
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	user.PasswordHash = ""
@@ -111,6 +111,10 @@ func (s *Server) handleSetUserRole(w http.ResponseWriter, r *http.Request) {
 	target, err := s.store.UserByID(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -121,6 +125,10 @@ func (s *Server) handleSetUserRole(w http.ResponseWriter, r *http.Request) {
 	user, err := s.store.SetUserRole(r.Context(), id, role)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -146,6 +154,10 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 	target, err := s.store.UserByID(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -159,12 +171,16 @@ func (s *Server) handleResetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	hash, err := auth.HashPassword(req.Password)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	user, err := s.store.SetUserPassword(r.Context(), id, hash)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -185,6 +201,10 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	target, err := s.store.UserByID(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -194,6 +214,10 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.DeleteUser(r.Context(), id); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

@@ -108,7 +108,6 @@ func TestLastAdminCannotBeRemoved(t *testing.T) {
 	if _, err := s.SetUserRole(ctx, root.ID, auth.RoleViewer); err != nil {
 		t.Fatalf("demote with a spare admin: %v", err)
 	}
-	// root is now a viewer and "second" is the only admin again.
 	if err := s.DeleteUser(ctx, second.ID); !errors.Is(err, ErrLastAdmin) {
 		t.Fatalf("delete the remaining admin: err = %v, want ErrLastAdmin", err)
 	}

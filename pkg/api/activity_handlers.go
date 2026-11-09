@@ -15,12 +15,16 @@ func (s *Server) handleAttention(w http.ResponseWriter, r *http.Request) {
 	orders, err := s.store.ListOrders(r.Context(), nil)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	holds, err := s.store.AllActiveHolds(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]attention.Projection{
@@ -88,12 +92,12 @@ func (s *Server) handleScan(w http.ResponseWriter, r *http.Request) {
 
 	holds, err := s.store.ActiveHolds(r.Context(), o.ID)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	checks, err := s.store.QCChecks(r.Context(), o.ID)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	var holdSince *time.Time
@@ -145,12 +149,16 @@ func (s *Server) handleListScans(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := s.store.GetOrder(r.Context(), id); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	events, err := s.store.ScanEvents(r.Context(), id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string][]order.ScanEvent{"scanEvents": events})
@@ -166,12 +174,16 @@ func (s *Server) handleListComments(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := s.store.GetOrder(r.Context(), id); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	comments, err := s.store.Comments(r.Context(), id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string][]order.Comment{"comments": comments})
@@ -202,6 +214,10 @@ func (s *Server) handleAddComment(w http.ResponseWriter, r *http.Request) {
 	o, err := s.store.GetOrder(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -209,7 +225,7 @@ func (s *Server) handleAddComment(w http.ResponseWriter, r *http.Request) {
 	parsed := mention.Parse(body)
 	users, err := s.store.ListUsers(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	known := make(map[string]bool, len(users))
@@ -222,6 +238,10 @@ func (s *Server) handleAddComment(w http.ResponseWriter, r *http.Request) {
 	comment, err := s.store.AddComment(r.Context(), o.ID, user.Username, user.DisplayName, body, resolved, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -236,7 +256,7 @@ func (s *Server) handleListNotifications(w http.ResponseWriter, r *http.Request)
 	unreadOnly := r.URL.Query().Get("unread") == "true"
 	notes, unread, err := s.store.Notifications(r.Context(), s.currentUser(r).Username, unreadOnly, 100)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, order.NotificationsResponse{
@@ -261,7 +281,7 @@ func (s *Server) handleMarkNotificationsRead(w http.ResponseWriter, r *http.Requ
 	}
 	marked, err := s.store.MarkNotificationsRead(r.Context(), s.currentUser(r).Username, req.IDs, s.now().UTC())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]int64{"marked": marked})

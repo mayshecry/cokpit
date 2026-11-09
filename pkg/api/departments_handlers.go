@@ -12,7 +12,7 @@ import (
 func (s *Server) handleListDepartments(w http.ResponseWriter, r *http.Request) {
 	departments, err := s.store.ListDepartments(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"departments": departments})
@@ -36,6 +36,10 @@ func (s *Server) handleCreateDepartment(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -50,6 +54,10 @@ func (s *Server) handleDeleteDepartment(w http.ResponseWriter, r *http.Request) 
 	}
 	if err := s.store.DeleteDepartment(r.Context(), id); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -73,6 +81,10 @@ func (s *Server) handleAddUserToDepartment(w http.ResponseWriter, r *http.Reques
 	}
 	if err := s.store.AddUserToDepartment(r.Context(), req.UserID, departmentID); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -92,6 +104,10 @@ func (s *Server) handleRemoveUserFromDepartment(w http.ResponseWriter, r *http.R
 	}
 	if err := s.store.RemoveUserFromDepartment(r.Context(), userID, departmentID); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -107,6 +123,10 @@ func (s *Server) handleListDepartmentUsers(w http.ResponseWriter, r *http.Reques
 	users, err := s.store.DepartmentUsers(r.Context(), departmentID)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -122,6 +142,10 @@ func (s *Server) handleListUserDepartments(w http.ResponseWriter, r *http.Reques
 	departments, err := s.store.UserDepartments(r.Context(), userID)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -164,9 +188,6 @@ func (s *Server) handleSetDepartmentPermissions(w http.ResponseWriter, r *http.R
 			perms = append(perms, p)
 		}
 	}
-	// Silently dropping unknown grants used to make the UI and the server drift
-	// apart without anybody noticing (the permission simply never took effect).
-	// Fail loudly instead so the caller can fix the typo or upgrade the server.
 	if len(unknown) > 0 {
 		s.writeJSON(w, http.StatusBadRequest, apiError{Error: apiErrorBody{
 			Code:    "invalid_permission",
@@ -177,12 +198,20 @@ func (s *Server) handleSetDepartmentPermissions(w http.ResponseWriter, r *http.R
 	}
 	if err := s.store.SetDepartmentPermissions(r.Context(), id, perms); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	department, err := s.store.DepartmentByID(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

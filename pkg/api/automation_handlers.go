@@ -11,7 +11,7 @@ import (
 func (s *Server) handleListAutomationRules(w http.ResponseWriter, r *http.Request) {
 	rules, err := s.store.ListAutomationRules(r.Context(), false)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"rules": rules})
@@ -28,6 +28,10 @@ func (s *Server) handleCreateAutomationRule(w http.ResponseWriter, r *http.Reque
 	created, err := s.store.CreateAutomationRule(r.Context(), rule, rule.CreatedBy, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -50,6 +54,10 @@ func (s *Server) handleUpdateAutomationRule(w http.ResponseWriter, r *http.Reque
 	updated, err := s.store.UpdateAutomationRule(r.Context(), rule, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -65,6 +73,10 @@ func (s *Server) handleDeleteAutomationRule(w http.ResponseWriter, r *http.Reque
 	}
 	if err := s.store.DeleteAutomationRule(r.Context(), id); err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -72,8 +84,6 @@ func (s *Server) handleDeleteAutomationRule(w http.ResponseWriter, r *http.Reque
 	s.writeJSON(w, http.StatusOK, map[string]any{"deleted": true})
 }
 
-// handlePreviewAutomationRule is a dry run: it reports which orders a rule
-// would act on right now and who it would reach, and writes nothing.
 func (s *Server) handlePreviewAutomationRule(w http.ResponseWriter, r *http.Request) {
 	var rule automation.Rule
 	if err := s.decodeJSON(w, r, &rule); err != nil {
@@ -95,6 +105,10 @@ func (s *Server) handlePreviewAutomationRule(w http.ResponseWriter, r *http.Requ
 	preview, err := s.store.PreviewAutomation(r.Context(), rule, s.now().UTC(), limit)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -104,8 +118,6 @@ func (s *Server) handlePreviewAutomationRule(w http.ResponseWriter, r *http.Requ
 func (s *Server) handleListAutomationRuns(w http.ResponseWriter, r *http.Request) {
 	limit := 100
 	if raw := r.URL.Query().Get("limit"); raw != "" {
-		// Clamp: the value goes straight into SQL LIMIT, so a negative or huge
-		// number must not be able to dump (or starve) the whole table.
 		if n, err := strconv.Atoi(raw); err == nil {
 			if n < 1 {
 				n = 1
@@ -118,7 +130,7 @@ func (s *Server) handleListAutomationRuns(w http.ResponseWriter, r *http.Request
 	}
 	runs, err := s.store.ListAutomationRuns(r.Context(), limit)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"runs": runs})
@@ -128,7 +140,7 @@ func (s *Server) handleEvaluateAutomations(w http.ResponseWriter, r *http.Reques
 	runs, err := s.RunAutomations(r.Context())
 	if err != nil {
 		s.logger.Printf("automation evaluation: %v", err)
-		s.writeError(w, http.StatusInternalServerError, "automation_evaluation_failed", "automation evaluation failed")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"runs": runs, "executed": len(runs)})

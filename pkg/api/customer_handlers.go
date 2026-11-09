@@ -12,12 +12,12 @@ func (s *Server) handleListCustomersDirectory(w http.ResponseWriter, r *http.Req
 	ctx := r.Context()
 	managed, err := s.store.ListCustomers(ctx)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	flows, err := s.store.ListCustomerWorkflows(ctx)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	flowSet := map[string]db.CustomerFlowMeta{}
@@ -31,7 +31,7 @@ func (s *Server) handleListCustomersDirectory(w http.ResponseWriter, r *http.Req
 	}
 	custom, err := s.store.DistinctOrderCustomers(ctx)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	for _, n := range custom {
@@ -91,7 +91,7 @@ func (s *Server) handleCreateCustomerManaged(w http.ResponseWriter, r *http.Requ
 	ctx := r.Context()
 	managed, err := s.store.ListCustomers(ctx)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	byName := map[string]string{}
@@ -123,7 +123,7 @@ func (s *Server) handleCreateCustomerManaged(w http.ResponseWriter, r *http.Requ
 	}
 	cust, err := s.store.CreateCustomer(ctx, number, req.Name, s.now().UTC())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusCreated, map[string]any{"customer": cust})
@@ -132,7 +132,7 @@ func (s *Server) handleCreateCustomerManaged(w http.ResponseWriter, r *http.Requ
 func (s *Server) handleListCustomerFlows(w http.ResponseWriter, r *http.Request) {
 	flows, err := s.store.ListCustomerWorkflows(r.Context())
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"overrides": flows})

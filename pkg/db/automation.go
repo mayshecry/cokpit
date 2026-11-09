@@ -21,8 +21,6 @@ const automationRuleCols = `id, name, trigger_type, threshold_minutes, action_ty
 	customer_targets_json, customer_teams_json,
 	message, escalation_level, enabled, created_by, created_at, updated_at`
 
-// cleanList trims every entry, drops empties and removes case-insensitive
-// duplicates while keeping the original order.
 func cleanList(values []string) []string {
 	out := make([]string, 0, len(values))
 	seen := map[string]bool{}
@@ -41,7 +39,6 @@ func cleanList(values []string) []string {
 	return out
 }
 
-// cleanMap cleans the per-customer routing map, dropping empty entries.
 func cleanMap(values map[string][]string) map[string][]string {
 	out := map[string][]string{}
 	for name, list := range values {
@@ -146,7 +143,6 @@ func scanAutomationRule(row interface{ Scan(...any) error }) (automation.Rule, e
 	return r, nil
 }
 
-// encodeAutomationRule renders the list/map columns for storage.
 func encodeAutomationRule(r automation.Rule) (targets, teams, customers, excluded, departments, products, custTargets, custTeams string) {
 	marshal := func(v any) string {
 		raw, err := json.Marshal(v)
@@ -398,8 +394,6 @@ type automationCandidate struct {
 	scope       automation.Scope
 }
 
-// automationScopes loads the customer, product codes and product departments
-// for a set of orders, so rule scoping can be evaluated in memory.
 func (s *Store) automationScopes(ctx context.Context, orderIDs []int64) (map[int64]automation.Scope, error) {
 	out := map[int64]automation.Scope{}
 	if len(orderIDs) == 0 {
@@ -453,8 +447,6 @@ func splitCSV(raw string) []string {
 	return out
 }
 
-// applyScope attaches the order scope to every candidate and drops the ones the
-// rule does not apply to.
 func (s *Store) applyScope(ctx context.Context, rule automation.Rule, candidates []automationCandidate) ([]automationCandidate, error) {
 	if len(candidates) == 0 {
 		return candidates, nil
@@ -604,7 +596,6 @@ func automationNotificationBody(rule automation.Rule, c automationCandidate) str
 	return body
 }
 
-// teamMembers returns the usernames in a department, ordered by name.
 func (s *Store) teamMembers(ctx context.Context, department string) ([]string, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT u.username FROM users u
@@ -627,7 +618,6 @@ func (s *Store) teamMembers(ctx context.Context, department string) ([]string, e
 	return out, rows.Err()
 }
 
-// openOrderCount returns how many unfinished orders a user currently owns.
 func (s *Store) openOrderCount(ctx context.Context, username string) (int, error) {
 	var count int
 	err := s.db.QueryRowContext(ctx,
@@ -635,8 +625,6 @@ func (s *Store) openOrderCount(ctx context.Context, username string) (int, error
 	return count, err
 }
 
-// leastBusyMember picks the team member with the fewest unfinished orders, so a
-// team target load-balances instead of always landing on the same person.
 func (s *Store) leastBusyMember(ctx context.Context, department string) (string, []string, error) {
 	members, err := s.teamMembers(ctx, department)
 	if err != nil {
@@ -659,8 +647,6 @@ func (s *Store) leastBusyMember(ctx context.Context, department string) (string,
 	return best, members, nil
 }
 
-// expandTeams turns team names into their member usernames, preserving order and
-// dropping duplicates.
 func (s *Store) expandTeams(ctx context.Context, teams []string) ([]string, error) {
 	out := []string{}
 	seen := map[string]bool{}
@@ -680,7 +666,6 @@ func (s *Store) expandTeams(ctx context.Context, teams []string) ([]string, erro
 	return out, nil
 }
 
-// resolveRecipients applies per-customer routing and expands teams.
 func (s *Store) resolveRecipients(ctx context.Context, rule automation.Rule, customer string) (users []string, teams []string, err error) {
 	users, teams = rule.TargetsFor(customer)
 	if len(users)+len(teams) == 0 {

@@ -100,8 +100,6 @@ func (s *Store) DeleteDepartment(ctx context.Context, id int64) error {
 }
 
 func (s *Store) AddUserToDepartment(ctx context.Context, userID, departmentID int64) error {
-	// Check both sides first: a foreign-key violation would otherwise surface
-	// as an opaque 500 instead of a clean 404.
 	if err := s.mustExist(ctx, "users", userID); err != nil {
 		return err
 	}

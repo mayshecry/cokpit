@@ -35,12 +35,12 @@ func (s *Server) handleListCAPA(w http.ResponseWriter, r *http.Request) {
 	now := s.now().UTC()
 	actions, err := s.store.ListCAPA(r.Context(), filter, now)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	summary, err := s.store.CAPASummary(r.Context(), now)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"actions": actions, "summary": summary})
@@ -55,12 +55,16 @@ func (s *Server) handleGetCAPA(w http.ResponseWriter, r *http.Request) {
 	action, err := s.store.GetCAPA(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
 	events, err := s.store.CAPAEvents(r.Context(), id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.writeJSON(w, http.StatusOK, map[string]any{"action": action, "events": events})
@@ -75,6 +79,10 @@ func (s *Server) handleCreateCAPA(w http.ResponseWriter, r *http.Request) {
 	created, err := s.store.CreateCAPA(r.Context(), req, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -96,6 +104,10 @@ func (s *Server) handleUpdateCAPA(w http.ResponseWriter, r *http.Request) {
 	current, err := s.store.GetCAPA(r.Context(), id)
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -116,6 +128,10 @@ func (s *Server) handleUpdateCAPA(w http.ResponseWriter, r *http.Request) {
 	updated, err := s.store.UpdateCAPA(r.Context(), id, req, user.Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}
@@ -139,6 +155,10 @@ func (s *Server) handleVerifyCAPA(w http.ResponseWriter, r *http.Request) {
 	verified, err := s.store.VerifyCAPA(r.Context(), id, req.Note, s.currentUser(r).Username, s.now().UTC())
 	if err != nil {
 		status, code, msg := s.classifyError(err)
+		if status == http.StatusInternalServerError {
+			s.writeInternalError(w, r, err)
+			return
+		}
 		s.writeError(w, status, code, msg)
 		return
 	}

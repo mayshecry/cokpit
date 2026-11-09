@@ -197,15 +197,12 @@ func TestDepartmentGrantsAreAdditiveAndEffective(t *testing.T) {
 		t.Fatalf("set perms: %d %v", code, body)
 	}
 
-	// re-read on every request, no re-login needed.
 	if code, body := doAs(t, "GET", ts.URL+"/api/v1/qc/queue", "", aliceTk); code != http.StatusOK {
 		t.Errorf("viewer with qc:submit grant = %d %v, want 200", code, body)
 	}
-	// Additive: the role permission is still there too.
 	if code, _ := doAs(t, "GET", ts.URL+"/api/v1/orders", "", aliceTk); code != http.StatusOK {
 		t.Errorf("viewer lost orders:list after grant: %d", code)
 	}
-	// ...and the grant cannot subtract: a role permission must not vanish.
 	if code, _ := doAs(t, "GET", ts.URL+"/api/v1/orders/1/audit", "", aliceTk); code == http.StatusForbidden {
 		t.Error("viewer lost audit:view after grant")
 	}
@@ -320,16 +317,13 @@ func TestDepartmentGrantsCannotEscalateToAdmin(t *testing.T) {
 
 	bobTk := loginAs(t, ts.URL, "bob", "password123")
 
-	// A department-granted users:manage really is users:manage...
 	if code, body := doAs(t, "POST", ts.URL+"/api/v1/users",
 		`{"username":"delegate-first","password":"password123","role":"viewer"}`, bobTk); code != http.StatusCreated {
 		t.Fatalf("delegated user management = %d %v, want 201", code, body)
 	}
-	// ...and the plain users:list permission was not handed out as a side effect.
 	if code, _ := doAs(t, "GET", ts.URL+"/api/v1/users", "", bobTk); code != http.StatusForbidden {
 		t.Errorf("users:manage leaked users:list: %d, want 403", code)
 	}
-	// ...but it must never touch administrator accounts.
 	cases := []struct {
 		name   string
 		method string
@@ -349,7 +343,6 @@ func TestDepartmentGrantsCannotEscalateToAdmin(t *testing.T) {
 		}
 	}
 
-	// Ordinary accounts stay manageable for the delegate.
 	if code, body := doAs(t, "POST", ts.URL+"/api/v1/users",
 		`{"username":"newbie","password":"password123","role":"viewer"}`, bobTk); code != http.StatusCreated {
 		t.Errorf("delegate cannot create a viewer: %d %v", code, body)
@@ -369,12 +362,10 @@ func TestLastAdministratorIsProtected(t *testing.T) {
 	adminID := int64(body["user"].(map[string]any)["id"].(float64))
 	secondAdminID := createRoleUser(t, ts, testAuthToken, "root2", "admin")
 
-	// Two admins: demoting one is fine.
 	if code, body := doAs(t, "POST", fmt.Sprintf("%s/api/v1/users/%d/role", ts.URL, secondAdminID),
 		`{"role":"sc"}`, testAuthToken); code != http.StatusOK {
 		t.Fatalf("demote second admin = %d %v", code, body)
 	}
-	// One admin left: it can no longer demote itself.
 	code, body = doAs(t, "POST", fmt.Sprintf("%s/api/v1/users/%d/role", ts.URL, adminID),
 		`{"role":"viewer"}`, testAuthToken)
 	if code != http.StatusConflict {
@@ -384,7 +375,6 @@ func TestLastAdministratorIsProtected(t *testing.T) {
 		t.Errorf("error code = %v, want last_admin", body["error"])
 	}
 
-	// And it cannot be deleted by another administrator either.
 	promoteAgain := createRoleUser(t, ts, testAuthToken, "root3", "admin")
 	root3Tk := loginAs(t, ts.URL, "root3", "password123")
 	if code, _ := doAs(t, "DELETE", fmt.Sprintf("%s/api/v1/users/%d", ts.URL, adminID), "", root3Tk); code != http.StatusOK {
@@ -414,14 +404,11 @@ func TestAdminPairCodeCannotTargetAdministrators(t *testing.T) {
 	if code, body := doAs(t, "GET", ts.URL+"/api/v1/admin/pair-qr?username=admin", "", bobTk); code != http.StatusForbidden {
 		t.Errorf("pair QR for admin = %d %v, want 403", code, body)
 	}
-	// Pairing an ordinary account is still allowed for the delegate.
 	if code, body := doAs(t, "POST", ts.URL+"/api/v1/admin/pair-code", `{"username":"bob"}`, bobTk); code != http.StatusOK {
 		t.Errorf("pair code for own role = %d %v, want 200", code, body)
 	}
 }
 
-// TestUserDepartmentPermissionsRequireGrant ensures department listings cannot
-// be used as a back door: only users:list/users:manage holders see them.
 func TestDepartmentRoutesNeedPermissions(t *testing.T) {
 	ts := newTestServer(t)
 	aliceID := createRoleUser(t, ts, testAuthToken, "alice", "operator")
@@ -445,9 +432,6 @@ func TestDepartmentRoutesNeedPermissions(t *testing.T) {
 	}
 }
 
-// TestFrontendRoleMapMatchesServer keeps frontend/js/core.js from drifting away
-// from pkg/auth (the browser copy is a rendering aid, but a stale copy hides
-// buttons the user is actually allowed to press).
 func TestFrontendRoleMapMatchesServer(t *testing.T) {
 	raw, err := os.ReadFile(filepath.Join("..", "..", "frontend", "js", "core.js"))
 	if err != nil {
@@ -492,8 +476,6 @@ func newTestServerWithGuard(t *testing.T) *httptest.Server {
 var feRoleLine = regexp.MustCompile(`(?m)^\s*(viewer|operator|qc|npi|sc|admin)\s*:\s*\[([^\]]*)\]`)
 var fePermLiteral = regexp.MustCompile(`'([a-z]+:[a-z]+)'`)
 
-// parseFrontendRolePerms extracts the fallback role -> permission table from
-// frontend/js/core.js.
 func parseFrontendRolePerms(src string) (map[string][]string, error) {
 	out := map[string][]string{}
 	for _, m := range feRoleLine.FindAllStringSubmatch(src, -1) {

@@ -10,8 +10,6 @@ import (
 	"cockpit/pkg/automation"
 )
 
-// AutomationPreviewCandidate is one order a rule would act on, with the people
-// it would reach.
 type AutomationPreviewCandidate struct {
 	OrderID     int64    `json:"orderId"`
 	OrderNumber string   `json:"orderNumber"`
@@ -22,8 +20,6 @@ type AutomationPreviewCandidate struct {
 	Problem     string   `json:"problem,omitempty"`
 }
 
-// AutomationPreview is a dry run of a rule: what it would match right now and
-// who it would notify or assign to. Nothing is written.
 type AutomationPreview struct {
 	Rule       automation.Rule              `json:"rule"`
 	Matched    int                          `json:"matched"`
@@ -31,8 +27,6 @@ type AutomationPreview struct {
 	Warnings   []string                     `json:"warnings,omitempty"`
 }
 
-// PreviewAutomation evaluates a rule without side effects, so the UI can show
-// "this would hit 3 orders and notify @alice, @bob" before a rule is saved.
 func (s *Store) PreviewAutomation(ctx context.Context, rule automation.Rule, now time.Time, limit int) (AutomationPreview, error) {
 	rule = normalizeAutomationRule(rule)
 	if err := automation.Validate(rule); err != nil {
@@ -155,8 +149,6 @@ func (s *Store) PreviewAutomation(ctx context.Context, rule automation.Rule, now
 		preview.Candidates = append(preview.Candidates, row)
 	}
 
-	// Surface the routing that applies per customer, so a long list of overrides
-	// is not a black box.
 	if len(rule.Customers) == 0 && len(rule.ExcludedCustomers) == 0 && !rule.HasCustomerRouting() {
 		preview.Warnings = append(preview.Warnings,
 			"This rule applies to every customer. Add customers or exclusions to narrow it.")

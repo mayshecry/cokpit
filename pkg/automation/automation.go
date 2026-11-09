@@ -34,15 +34,6 @@ const (
 
 var ErrValidation = errors.New("invalid automation rule")
 
-// Rule is one automation rule.
-//
-// Recipients are expressed either as individual users (Targets) or as
-// departments/teams (Teams). A team is expanded at execution time:
-// NOTIFY notifies every member, ASSIGN hands the order to the member with the
-// fewest open orders, ESCALATE records the team as the escalation owner.
-//
-// Scope narrows which orders a rule applies to. Every scope list is optional
-// and an empty list means "no restriction on this dimension".
 type Rule struct {
 	ID               int64     `json:"id"`
 	Name             string    `json:"name"`
@@ -58,23 +49,11 @@ type Rule struct {
 	CreatedAt        time.Time `json:"createdAt"`
 	UpdatedAt        time.Time `json:"updatedAt"`
 
-	// Customers limits the rule to these customer names. Empty = every
-	// customer.
-	Customers []string `json:"customers,omitempty"`
-	// ExcludedCustomers removes customers from whatever the other scope
-	// allows. Exclusions win over inclusions.
+	Customers         []string `json:"customers,omitempty"`
 	ExcludedCustomers []string `json:"excludedCustomers,omitempty"`
-	// Departments limits the rule to orders whose product belongs to one of
-	// these departments.
-	Departments []string `json:"departments,omitempty"`
-	// Products limits the rule to orders that carry one of these product
-	// codes.
-	Products []string `json:"products,omitempty"`
+	Departments       []string `json:"departments,omitempty"`
+	Products          []string `json:"products,omitempty"`
 
-	// CustomerTargets / CustomerTeams route a specific customer to different
-	// people than the rule default. A key matches a customer name
-	// case-insensitively and replaces the default recipients for that
-	// customer.
 	CustomerTargets map[string][]string `json:"customerTargets,omitempty"`
 	CustomerTeams   map[string][]string `json:"customerTeams,omitempty"`
 }
@@ -94,7 +73,6 @@ type Run struct {
 	NotifiedUsers []string  `json:"-"`
 }
 
-// Scope is the part of an order that rule scoping looks at.
 type Scope struct {
 	Customer    string
 	Departments []string
@@ -123,7 +101,6 @@ func validationError(format string, args ...any) error {
 	return fmt.Errorf("%w: %s", ErrValidation, fmt.Sprintf(format, args...))
 }
 
-// has reports whether list contains value, compared case-insensitively.
 func has(list []string, value string) bool {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -137,8 +114,6 @@ func has(list []string, value string) bool {
 	return false
 }
 
-// MatchesScope reports whether the rule applies to an order with the given
-// scope. Exclusions always win over inclusions.
 func (r Rule) MatchesScope(s Scope) bool {
 	customer := strings.TrimSpace(s.Customer)
 	if len(r.Customers) > 0 && !has(r.Customers, customer) {
@@ -174,9 +149,6 @@ func (r Rule) MatchesScope(s Scope) bool {
 	return true
 }
 
-// TargetsFor returns the recipients that apply to one customer: the
-// per-customer override when the rule has one for that customer, otherwise the
-// rule defaults.
 func (r Rule) TargetsFor(customer string) (users []string, teams []string) {
 	customer = strings.TrimSpace(customer)
 	for name, override := range r.CustomerTargets {
@@ -206,12 +178,10 @@ func lookupFold(m map[string][]string, key string) ([]string, bool) {
 	return nil, false
 }
 
-// HasCustomerRouting reports whether at least one per-customer override exists.
 func (r Rule) HasCustomerRouting() bool {
 	return len(r.CustomerTargets) > 0 || len(r.CustomerTeams) > 0
 }
 
-// CustomerRouting returns the customer names that have an override, sorted.
 func (r Rule) CustomerRouting() []string {
 	seen := map[string]bool{}
 	out := []string{}
@@ -235,8 +205,6 @@ func (r Rule) CustomerRouting() []string {
 	return out
 }
 
-// describeRecipients renders "2 people" / "the team Warehouse" for error
-// messages so a rejected rule explains itself.
 func describeRecipients(users, teams []string) string {
 	parts := []string{}
 	if len(users) == 1 {
@@ -255,8 +223,6 @@ func describeRecipients(users, teams []string) string {
 	return strings.Join(parts, " and ")
 }
 
-// ValidateRecipients checks a recipient set against the rule's action. where
-// is appended to the message, e.g. " for customer Kenter".
 func ValidateRecipients(action Action, users, teams []string, where string) error {
 	switch action {
 	case ActionNotify:
@@ -311,7 +277,6 @@ func Validate(r Rule) error {
 		}
 	}
 
-	// Recipient lists.
 	seen := map[string]bool{}
 	for _, target := range r.Targets {
 		trimmed := strings.TrimSpace(target)
@@ -336,7 +301,6 @@ func Validate(r Rule) error {
 		seen[key] = true
 	}
 
-	// Scope lists.
 	for _, list := range []struct {
 		field  string
 		values []string
@@ -367,7 +331,6 @@ func Validate(r Rule) error {
 		}
 	}
 
-	// Per-customer routing must itself be valid for the action.
 	for _, name := range r.CustomerRouting() {
 		if len(r.Customers) > 0 && !has(r.Customers, name) {
 			return validationError(

@@ -22,33 +22,33 @@ func (s *Server) handleOpsStats(w http.ResponseWriter, r *http.Request) {
 
 	comp, err := s.store.CompletedPerDay(ctx, sinceMs)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	created, err := s.store.CreatedPerDay(ctx, sinceMs)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	clocked, err := s.store.ClockedPerDay(ctx, sinceMs)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	avgMs, avgOrders, err := s.store.HandleAvgMs(ctx)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	board, err := s.store.Leaderboard(ctx, sinceMs)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 
 	orders, err := s.store.ListOrders(ctx, nil)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "internal server error")
+		s.writeInternalError(w, r, err)
 		return
 	}
 	s.annotateOrders(ctx, orders)

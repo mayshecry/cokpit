@@ -80,7 +80,6 @@ func TestAutomationUnknownTeam(t *testing.T) {
 
 func TestAutomationPreviewEndpoint(t *testing.T) {
 	ts := newTestServer(t)
-	// One order that is already past its target.
 	code, _ := do(t, "POST", ts.URL+"/api/v1/orders", fmt.Sprintf(
 		`{"orderNumber":"PREV-1","customerName":"Kenter","targetCompletionAt":%q}`,
 		fixedClock().Add(-2*60*60*1e9).UTC().Format("2006-01-02T15:04:05Z")))
