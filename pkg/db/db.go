@@ -692,16 +692,18 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		return err
 	}
 	orderMigrations := map[string]string{
-		"debit_number":       `ALTER TABLE orders ADD COLUMN debit_number TEXT NOT NULL DEFAULT ''`,
-		"customer_name":      `ALTER TABLE orders ADD COLUMN customer_name TEXT NOT NULL DEFAULT ''`,
-		"omnitracker_ticket": `ALTER TABLE orders ADD COLUMN omnitracker_ticket TEXT NOT NULL DEFAULT ''`,
-		"device":             `ALTER TABLE orders ADD COLUMN device TEXT NOT NULL DEFAULT ''`,
-		"asset_number":       `ALTER TABLE orders ADD COLUMN asset_number TEXT NOT NULL DEFAULT ''`,
-		"configuration":          `ALTER TABLE orders ADD COLUMN configuration TEXT NOT NULL DEFAULT ''`,
-		"workflow_profile_id":   `ALTER TABLE orders ADD COLUMN workflow_profile_id INTEGER NOT NULL DEFAULT 0`,
-		"workflow_profile_name": `ALTER TABLE orders ADD COLUMN workflow_profile_name TEXT NOT NULL DEFAULT ''`,
-		"si_id":              `ALTER TABLE orders ADD COLUMN si_id INTEGER`,
-		"barcode":            `ALTER TABLE orders ADD COLUMN barcode TEXT NOT NULL DEFAULT ''`,
+		"debit_number":            `ALTER TABLE orders ADD COLUMN debit_number TEXT NOT NULL DEFAULT ''`,
+		"customer_name":           `ALTER TABLE orders ADD COLUMN customer_name TEXT NOT NULL DEFAULT ''`,
+		"omnitracker_ticket":      `ALTER TABLE orders ADD COLUMN omnitracker_ticket TEXT NOT NULL DEFAULT ''`,
+		"device":                  `ALTER TABLE orders ADD COLUMN device TEXT NOT NULL DEFAULT ''`,
+		"asset_number":            `ALTER TABLE orders ADD COLUMN asset_number TEXT NOT NULL DEFAULT ''`,
+		"configuration":           `ALTER TABLE orders ADD COLUMN configuration TEXT NOT NULL DEFAULT ''`,
+		"workflow_profile_id":     `ALTER TABLE orders ADD COLUMN workflow_profile_id INTEGER NOT NULL DEFAULT 0`,
+		"workflow_profile_name":   `ALTER TABLE orders ADD COLUMN workflow_profile_name TEXT NOT NULL DEFAULT ''`,
+		"si_id":                   `ALTER TABLE orders ADD COLUMN si_id INTEGER`,
+		"barcode":                 `ALTER TABLE orders ADD COLUMN barcode TEXT NOT NULL DEFAULT ''`,
+		"split_from_order_id":     `ALTER TABLE orders ADD COLUMN split_from_order_id INTEGER`,
+		"split_reason":            `ALTER TABLE orders ADD COLUMN split_reason TEXT NOT NULL DEFAULT ''`,
 	}
 	for name, ddl := range orderMigrations {
 		if orderCols[name] {
@@ -747,6 +749,42 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_barcode_scans_barcode ON barcode_scans(barcode);
 	`); err != nil {
 		return fmt.Errorf("create barcode_scans table: %w", err)
+	}
+
+	if _, err := conn.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS order_splits (
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			original_order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+			split_order_id   INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+			requested_by     TEXT    NOT NULL,
+			accepted_by      TEXT    NOT NULL DEFAULT '',
+			status           TEXT    NOT NULL DEFAULT 'pending',
+			reason           TEXT    NOT NULL DEFAULT '',
+			created_at       BIGINT  NOT NULL,
+			accepted_at      BIGINT
+		);
+		CREATE INDEX IF NOT EXISTS idx_order_splits_original ON order_splits(original_order_id);
+		CREATE INDEX IF NOT EXISTS idx_order_splits_status ON order_splits(status, created_at);
+	`); err != nil {
+		return fmt.Errorf("create order_splits table: %w", err)
+	}
+
+	if _, err := conn.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS workflow_step_results (
+			id             INTEGER PRIMARY KEY AUTOINCREMENT,
+			order_id       INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+			step_key       TEXT    NOT NULL,
+			step_index     INTEGER NOT NULL DEFAULT 0,
+			performed_by   TEXT    NOT NULL,
+			correct        INTEGER NOT NULL DEFAULT 0,
+			customer_impact INTEGER NOT NULL DEFAULT 0,
+			notes          TEXT    NOT NULL DEFAULT '',
+			created_at     BIGINT  NOT NULL
+		);
+		CREATE INDEX IF NOT EXISTS idx_workflow_step_results_order ON workflow_step_results(order_id, step_index);
+		CREATE INDEX IF NOT EXISTS idx_workflow_step_results_person ON workflow_step_results(performed_by, correct);
+	`); err != nil {
+		return fmt.Errorf("create workflow_step_results table: %w", err)
 	}
 
 	siCols, err := tableColumns(ctx, conn, "system_integrations")

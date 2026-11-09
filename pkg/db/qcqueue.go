@@ -8,30 +8,33 @@ import (
 )
 
 type QCQueueItem struct {
-	ID          int64  `json:"id"`
-	OrderNumber string `json:"orderNumber"`
-	Customer    string `json:"customer"`
-	Device      string `json:"device"`
-	Tech        string `json:"tech"`
-	UpdatedAt   int64  `json:"updatedAt"`
-	TargetAt    int64  `json:"targetAt"`
-	ProductCode string `json:"productCode"`
-	ProductName string `json:"productName"`
+	ID           int64  `json:"id"`
+	OrderNumber  string `json:"orderNumber"`
+	Customer     string `json:"customer"`
+	Device       string `json:"device"`
+	Tech         string `json:"tech"`
+	UpdatedAt    int64  `json:"updatedAt"`
+	TargetAt     int64  `json:"targetAt"`
+	ProductCode  string `json:"productCode"`
+	ProductName  string `json:"productName"`
+	SplitFrom    int64  `json:"splitFrom,omitempty"`
+	IsSplit      bool   `json:"isSplit,omitempty"`
 }
 
 func (s *Store) QCQueue(ctx context.Context) ([]QCQueueItem, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT o.id, o.order_number, o.customer_name, o.device, o.assigned_to,
 		       o.updated_at, o.target_completion_at,
-		       COALESCE(m.pc, ''), COALESCE(m.pn, '')
-		  FROM orders o
-		  LEFT JOIN (
-		        SELECT order_id,
-		               group_concat(product_code, ' + ') AS pc,
-		               group_concat(product_name, ' + ') AS pn
-		          FROM order_manuals
-		         GROUP BY order_id
-		       ) m ON m.order_id = o.id
+		       COALESCE(m.pc, ''), COALESCE(m.pn, ''),
+		       COALESCE(o.split_from_order_id, 0)
+		FROM orders o
+		LEFT JOIN (
+			SELECT order_id,
+			       group_concat(product_code, ' + ') AS pc,
+			       group_concat(product_name, ' + ') AS pn
+			FROM order_manuals
+			GROUP BY order_id
+		) m ON m.order_id = o.id
 		 WHERE o.status = 'QC_Review'
 		 ORDER BY o.target_completion_at ASC, o.id ASC`)
 	if err != nil {
@@ -41,8 +44,13 @@ func (s *Store) QCQueue(ctx context.Context) ([]QCQueueItem, error) {
 	out := []QCQueueItem{}
 	for rows.Next() {
 		var q QCQueueItem
-		if err := rows.Scan(&q.ID, &q.OrderNumber, &q.Customer, &q.Device, &q.Tech, &q.UpdatedAt, &q.TargetAt, &q.ProductCode, &q.ProductName); err != nil {
+		var splitFrom int64
+		if err := rows.Scan(&q.ID, &q.OrderNumber, &q.Customer, &q.Device, &q.Tech, &q.UpdatedAt, &q.TargetAt, &q.ProductCode, &q.ProductName, &splitFrom); err != nil {
 			return nil, fmt.Errorf("scan qc queue: %w", err)
+		}
+		if splitFrom > 0 {
+			q.SplitFrom = splitFrom
+			q.IsSplit = true
 		}
 		out = append(out, q)
 	}

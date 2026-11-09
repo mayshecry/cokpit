@@ -207,7 +207,6 @@ var validPermissionSet = func() map[Permission]bool {
 
 func IsValidPermission(perm Permission) bool { return validPermissionSet[perm] }
 
-
 func PermissionsFor(role Role) []Permission {
 	if role == RoleAdmin {
 		out := make([]Permission, len(AllPermissions))
@@ -219,7 +218,6 @@ func PermissionsFor(role Role) []Permission {
 	copy(out, perms)
 	return out
 }
-
 
 func RolePermissionMatrix() map[Role][]Permission {
 	out := make(map[Role][]Permission, len(ValidRoles))

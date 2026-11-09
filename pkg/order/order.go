@@ -230,3 +230,52 @@ type ChecklistItemInput struct {
 	Locatie      string `json:"locatie"`
 	Aantal       int    `json:"aantal"`
 }
+
+type OrderSplit struct {
+	ID              int64     `json:"id"`
+	OriginalOrderID int64     `json:"originalOrderId"`
+	SplitOrderID    int64     `json:"splitOrderId"`
+	RequestedBy     string    `json:"requestedBy"`
+	AcceptedBy      string    `json:"acceptedBy,omitempty"`
+	Status          string    `json:"status"`
+	Reason          string    `json:"reason"`
+	CreatedAt       time.Time `json:"createdAt"`
+	AcceptedAt      *time.Time `json:"acceptedAt,omitempty"`
+}
+
+type SplitRequest struct {
+	RequestedBy string `json:"requestedBy"`
+	Reason      string `json:"reason"`
+	TargetUser  string `json:"targetUser"`
+}
+
+type SplitAcceptRequest struct {
+	AcceptedBy string `json:"acceptedBy"`
+}
+
+type WorkflowStepResult struct {
+	ID            int64     `json:"id"`
+	OrderID       int64     `json:"orderId"`
+	StepKey       string    `json:"stepKey"`
+	StepIndex     int       `json:"stepIndex"`
+	PerformedBy   string    `json:"performedBy"`
+	Correct       bool      `json:"correct"`
+	CustomerImpact bool     `json:"customerImpact"`
+	Notes         string    `json:"notes"`
+	CreatedAt     time.Time `json:"createdAt"`
+}
+
+type WorkflowStepResultRequest struct {
+	OrderID        int64  `json:"orderId"`
+	StepKey        string `json:"stepKey"`
+	StepIndex      int    `json:"stepIndex"`
+	PerformedBy    string `json:"performedBy"`
+	Correct        bool   `json:"correct"`
+	CustomerImpact bool   `json:"customerImpact"`
+	Notes          string `json:"notes"`
+}
+
+type RerunWorkflowRequest struct {
+	OrderID   int64  `json:"orderId"`
+	PerformedBy string `json:"performedBy"`
+}
