@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strconv"
 	"syscall"
 	"time"
@@ -16,8 +18,35 @@ import (
 	"cockpit/pkg/db"
 )
 
+var buildStamp = "dev"
+
+func describeBuild() string {
+	stamp := buildStamp
+	if stamp == "dev" {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			for _, setting := range info.Settings {
+				if setting.Key == "vcs.revision" && setting.Value != "" {
+					stamp = setting.Value
+					if len(stamp) > 12 {
+						stamp = stamp[:12]
+					}
+				}
+			}
+		}
+	}
+	if exe, err := os.Executable(); err == nil {
+		if fi, statErr := os.Stat(exe); statErr == nil {
+			return fmt.Sprintf("%s built %s", stamp, fi.ModTime().UTC().Format(time.RFC3339))
+		}
+	}
+	return stamp
+}
+
 func main() {
 	logger := log.New(os.Stdout, "[cockpit] ", log.LstdFlags|log.Lmsgprefix)
+
+	build := describeBuild()
+	logger.Printf("build %s", build)
 
 	dbPath := envOr("DB_PATH", "cockpit.db")
 	port := envOr("PORT", "80")
@@ -42,6 +71,10 @@ func main() {
 	defer conn.Close()
 
 	store := db.New(conn)
+
+	if err := store.VerifyOrderColumns(ctx); err != nil {
+		logger.Fatalf("startup check failed: %v", err)
+	}
 
 	adminUser := envOr("ADMIN_USERNAME", "admin")
 	adminPass := os.Getenv("ADMIN_PASSWORD")
@@ -89,6 +122,7 @@ func main() {
 		PublicURL:             os.Getenv("COCKPIT_PUBLIC_URL"),
 		ClientGuard:           clientGuard,
 		Logger:                logger,
+		Build:                 build,
 	})
 	svr.EnsureBootPairCode(ctx)
 

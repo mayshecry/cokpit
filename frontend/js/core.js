@@ -69,9 +69,6 @@
     },
   };
 
-  // Fallback copy of the role -> permission table. It MUST stay identical to
-  // pkg/auth/auth.go; /api/v1/auth/permissions refreshes it at runtime so the
-  // UI can never drift away from what the server actually enforces.
   const rolePerms = {
     viewer:   ['orders:list', 'orders:view', 'audit:view', 'comments:read', 'notifications:read', 'si:list', 'si:view', 'process:view'],
     operator: ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'audit:view', 'comments:read', 'comments:post', 'notifications:read', 'scan:use', 'pick:use', 'si:list', 'si:view', 'process:view', 'process:advance', 'process:escalate'],
@@ -81,7 +78,6 @@
     admin:    ['orders:list', 'orders:create', 'orders:view', 'orders:transition', 'holds:create', 'holds:resolve', 'qc:submit', 'audit:view', 'users:manage', 'users:list', 'manuals:manage', 'manuals:approve', 'customers:manage', 'comments:read', 'comments:post', 'scan:use', 'pick:use', 'notifications:read', 'si:list', 'si:view', 'si:create', 'si:update', 'si:transition', 'si:projects', 'si:manage', 'process:view', 'process:advance', 'process:escalate', 'process:manage', 'integrations:manage'],
   };
 
-  // Replace the local table with the authoritative one from the server.
   function applyPermissionMatrix(d) {
     if (!d || !d.roles) return;
     for (const role of Object.keys(d.roles)) {
@@ -99,7 +95,6 @@
     return permissionMatrixRequest;
   }
 
-  // Legacy UI-only permission names mapped onto the real server permission.
   const PERM_ALIASES = { 'config:manage': 'users:manage' };
 
   const ROLES = ['viewer', 'operator', 'qc', 'npi', 'sc', 'admin'];
@@ -262,9 +257,9 @@
       'orders.assignee': 'Assignee',
       'info.debit': 'Debit number', 'info.device': 'Device', 'info.asset': 'Asset number',
       'info.config': 'Configuration', 'info.omni': 'Omnitracker ticket',
-      'work.start': 'Start Work', 'work.resume': 'Resume', 'work.inprogress': 'In progress',
+      'work.start': 'Start Work', 'work.resume': 'Resume', 'work.inprogress': 'In progress', 'work.goTo': 'Go to', 'work.station': 'GO TO THIS STATION / TABLE', 'work.locationHint': 'Go here before completing this step.',
       'work.busy': 'Another user is clocked in on this order', 'work.title': 'Work session',
-      'work.readySub': 'Clock in to start the guided flow. Every step has manual checks — Next unlocks once everything is ticked off.',
+      'work.readySub': 'Review each step’s task and destination below. During the work session, the current step will repeat its station or table so you know where to go.',
       'work.step.intake': 'Intake & verify', 'work.step.intaked': 'Confirm the order and the device in front of you match.',
       'work.step.build': 'Pick & configure', 'work.step.buildd': 'Pick the parts and apply the configuration.',
       'work.step.test': 'Self-test & hand to QC', 'work.step.testd': 'Test the device, then send it to QC review.',
@@ -357,9 +352,9 @@
     'orders.assignee': 'Toegewezen aan',
     'info.debit': 'Debitnummer', 'info.device': 'Apparaat', 'info.asset': 'Assetnummer',
     'info.config': 'Configuratie', 'info.omni': 'Omnitracker-ticket',
-    'work.start': 'Start werk', 'work.resume': 'Hervat', 'work.inprogress': 'Bezig',
+    'work.start': 'Start werk', 'work.resume': 'Hervat', 'work.inprogress': 'Bezig', 'work.goTo': 'Ga naar', 'work.station': 'GA NAAR DEZE WERKPLEK / TAFEL', 'work.locationHint': 'Ga hierheen voordat je deze stap uitvoert.',
     'work.busy': 'Een andere gebruiker is ingeklokt op deze order', 'work.title': 'Werksessie',
-    'work.readySub': 'Klok in om de begeleide flow te starten. Elke stap heeft handmatige checks — Volgende gaat open als alles is afgevinkt.',
+    'work.readySub': 'Bekijk hieronder per stap wat je gaat doen en waar je heen moet. Tijdens het werk verschijnt de werkplek of tafel opnieuw bij de actieve stap.',
     'work.step.intake': 'Intake & controle', 'work.step.intaked': 'Bevestig dat order en apparaat voor je neus overeenkomen.',
     'work.step.build': 'Picken & configureren', 'work.step.buildd': 'Pick de onderdelen en voer de configuratie toe.',
     'work.step.test': 'Zelftest & overdracht aan QC', 'work.step.testd': 'Test het apparaat en stuur het naar QC-review.',
@@ -410,8 +405,6 @@
     const metaScheme = document.querySelector('meta[name="color-scheme"]');
     if (metaScheme) metaScheme.setAttribute('content', dark ? 'dark' : 'light');
   }
-  // Older Safari only has addListener(); a missing matchMedia must not abort
-  // this file, because everything else lives in the same script scope.
   const darkSchemeQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   if (darkSchemeQuery) {
     const onSchemeChange = () => {
@@ -427,8 +420,6 @@
     const c = document.createElement('canvas');
     c.width = c.height = 64;
     const g = c.getContext && c.getContext('2d');
-    // A null context (canvas disabled, memory pressure, ancient browser) or a
-    // missing roundRect() must never break the app shell.
     if (!g) return;
     g.fillStyle = '#ff8200';
     g.beginPath();
@@ -464,7 +455,7 @@
       g.lineTo(45, 24);
       g.stroke();
     }
-    try { link.href = c.toDataURL('image/png'); } catch { /* tainted canvas */ }
+    try { link.href = c.toDataURL('image/png'); } catch {  }
   }
 
   function updateBadges() {
@@ -555,16 +546,10 @@
   };
 
   const SLA = {
-    // Mirrors order.ValidateTargetCompletion on the server. A target in the
-    // past is legitimate (an order registered after it arrived, or imported
-    // from Omnitracker) — it simply means the order is already overdue. Only
-    // implausible values are rejected, so a typo cannot create an order that
-    // looks years overdue.
     TARGET_FLOOR: new Date('2000-01-01T00:00:00Z').getTime(),
     TARGET_HORIZON_DAYS: 3650,
 
     targetProblem(date, nowMs) {
-      // Duck-typed on purpose: `instanceof Date` is false across realms.
       const ms = date && typeof date.getTime === 'function' ? date.getTime() : NaN;
       if (!Number.isFinite(ms)) return 'Enter a valid target date and time.';
       const now = nowMs === undefined ? Date.now() : nowMs;
@@ -573,8 +558,6 @@
       return '';
     },
 
-    // Parses a datetime-local value. Returns {iso, past, problem}; an empty
-    // value yields {iso: null} meaning "use the server default".
     parseTargetInput(value) {
       const raw = String(value == null ? '' : value).trim();
       if (!raw) return { iso: null, past: false, problem: '' };
@@ -934,13 +917,7 @@
   let modalCleanup = null;
 
   
-  // ---------------------------------------------------------------------
-  // Chip picker: a searchable multi-select used for people, teams, customers
-  // and products. Values are kept in the DOM as `.chip-pick-chosen` elements so
-  // any custom section (e.g. per-customer routing) can read them the same way.
-  // ---------------------------------------------------------------------
   const ChipsPicker = {
-    // html renders the picker. `options` is [{value, label, hint, group}].
     html({ id, options = [], value = [], max = 0, placeholder = 'Search…', emptyHint = '' } = {}) {
       const selected = (value || []).map((v) => (typeof v === 'string' ? v : v.value)).filter(Boolean);
       const norm = new Map((options || []).map((o) => [String(o.value).toLowerCase(), o]));
@@ -967,7 +944,6 @@
       </div>`;
     },
 
-    // bind wires one picker rendered by html(). onChange receives the values.
     bind(root, { max = 0, onChange } = {}) {
       const wrap = typeof root === 'string' ? $(root) : root;
       if (!wrap || wrap.dataset.chipBound === '1') return wrap;
@@ -976,8 +952,6 @@
       const chosen = $('[data-chip-chosen]', wrap);
       const search = $('[data-chip-search]', wrap);
       const menu = $('[data-chip-menu]', wrap);
-      // The limit is read live so a form can change it (e.g. ASSIGN allows one
-      // recipient while NOTIFY allows many) without re-rendering the picker.
       const limit = () => Number(wrap.dataset.max || max || 0);
       const count = $('[data-chip-count]', wrap);
 
@@ -997,7 +971,6 @@
         }
         wrap.dataset.values = JSON.stringify(current);
         if (typeof onChange === 'function') onChange(current);
-        // Bubbling so a form can react to every picker at once (live summaries).
         try {
           wrap.dispatchEvent(new CustomEvent('chipchange', { bubbles: true, detail: current }));
         } catch {}
@@ -1005,8 +978,6 @@
       const add = (value, label) => {
         const current = values();
         if (current.some((v) => v.toLowerCase() === String(value).toLowerCase())) return;
-        // _canAdd lets a form enforce a budget shared by several pickers
-        // (e.g. ASSIGN allows one recipient across people + teams).
         if (typeof wrap._canAdd === 'function' && !wrap._canAdd(value, current)) return;
         const max2 = limit();
         if (max2 > 0 && current.length >= max2) return;
@@ -1095,7 +1066,6 @@
       return wrap;
     },
 
-    // values reads back whatever is currently chosen.
     values(selectorOrEl) {
       const wrap = typeof selectorOrEl === 'string' ? $(selectorOrEl) : selectorOrEl;
       if (!wrap) return [];

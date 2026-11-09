@@ -298,10 +298,8 @@ const Devices = (() => {
                 <stop offset="0%" stop-color="#18181b"/><stop offset="50%" stop-color="#1e1b4b"/><stop offset="100%" stop-color="#3b1d0c"/>
               </linearGradient>
             </defs>
-            <!-- Monitor -->
             <rect x="26" y="22" width="152" height="98" rx="8" fill="#18181b" stroke="#52525b" stroke-width="2"/>
             <rect x="32" y="28" width="140" height="84" rx="4" fill="url(#twScrn)"/>
-            <!-- Windows bloom on screen -->
             <circle cx="102" cy="70" r="26" fill="#ff6b00" fill-opacity="0.18"/>
             <g transform="translate(91, 59) scale(0.95)">
               <rect x="0" y="0" width="10" height="10" rx="1.5" fill="#38bdf8"/>
@@ -311,7 +309,6 @@ const Devices = (() => {
             </g>
             <path d="M90 120h24l6 18H84l6-18z" fill="#3f3f46"/>
             <rect x="68" y="138" width="68" height="5" rx="2.5" fill="#52525b"/>
-            <!-- Tower chassis -->
             <rect x="194" y="18" width="62" height="125" rx="7" fill="url(#twBody)" stroke="#52525b" stroke-width="2"/>
             <line x1="204" y1="34" x2="246" y2="34" stroke="#ff6b00" stroke-width="2.5" stroke-linecap="round"/>
             <circle cx="225" cy="52" r="4" fill="#22c55e"/>
@@ -353,20 +350,15 @@ const Devices = (() => {
             </radialGradient>
           </defs>
 
-          <!-- Ambient stage shadow & glow -->
           <ellipse cx="160" cy="176" rx="126" ry="12" fill="#000" fill-opacity="0.65"/>
           <ellipse cx="160" cy="95" rx="110" ry="70" fill="url(#glow-${uid})"/>
 
-          <!-- Laptop lid / outer shell -->
           <rect x="52" y="18" width="216" height="134" rx="11" fill="#141418" stroke="${bezelStroke}" stroke-width="2.2"/>
-          <!-- Camera notch -->
           <rect x="146" y="19" width="28" height="4" rx="2" fill="#27272a"/>
           <circle cx="160" cy="21" r="1.5" fill="#38bdf8"/>
 
-          <!-- Inner 16:10 display -->
           <rect x="60" y="26" width="200" height="116" rx="6" fill="url(#scrn-${uid})"/>
 
-          <!-- Windows 11 Bloom & Glass Wallpaper on Laptop Screen -->
           <circle cx="160" cy="80" r="36" fill="#ff6b00" fill-opacity="0.16"/>
           <circle cx="145" cy="74" r="26" fill="#38bdf8" fill-opacity="0.18"/>
           <g transform="translate(147, 62)">
@@ -380,21 +372,15 @@ const Devices = (() => {
             <text x="160" y="121" text-anchor="middle" fill="#a1a1aa" font-family="Inter, sans-serif" font-size="8.5">${host}</text>
           ` : ''}
 
-          <!-- Taskbar on screen -->
           <rect x="118" y="133" width="84" height="5" rx="2.5" fill="#ffffff" fill-opacity="0.18"/>
 
-          <!-- Bottom bezel brand wordmark -->
           <text x="160" y="149" text-anchor="middle" fill="#a1a1aa" font-family="Inter, sans-serif" font-size="7.5" font-weight="700" letter-spacing="0.14em">${brandUpper}</text>
 
-          <!-- Hinge -->
           <rect x="78" y="151" width="164" height="4" rx="1.5" fill="#27272a"/>
 
-          <!-- Base deck / keyboard lip -->
           <path d="M22 155H298L286 169C283 172 278 173 272 173H48C42 173 37 172 34 169L22 155Z" fill="url(#base-${uid})" stroke="${bezelStroke}" stroke-width="1.2"/>
-          <!-- Trackpad -->
           <rect x="136" y="155" width="48" height="4" rx="2" fill="#09090b" fill-opacity="0.45"/>
 
-          <!-- ThinkPad iconic red TrackPoint dot -->
           ${isThinkPad ? `<circle cx="160" cy="153" r="2.6" fill="#ef4444" stroke="#7f1d1d" stroke-width="0.6"/>` : ''}
         </svg>
       </div>`;

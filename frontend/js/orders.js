@@ -632,8 +632,6 @@
       ? SLA.parseTargetInput(res.target)
       : { iso: res.target ? new Date(res.target).toISOString() : null, past: false, problem: '' };
     if (target.problem) {
-      // Never silently drop an unparsable date: the user would get an order
-      // with a server-default SLA they did not ask for.
       toast(target.problem, true);
       return;
     }

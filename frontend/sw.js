@@ -1,12 +1,6 @@
 'use strict';
 
-// Offline shell for the scanner. Only public, unauthenticated app shell files
-// are precached; API responses are never cached (they are user specific).
-//
-// Assets are cached under their normalised URL (query string dropped) so that
-// bumping the cache-busting "?v=" marker in index.html can never leave a stale
-// script behind, and a single missing file can no longer abort the install.
-const CACHE = 'cockpit-scan-shell-v3';
+const CACHE = 'cockpit-scan-shell-v8';
 const SHELL = [
   '/',
   '/index.html',
@@ -43,7 +37,6 @@ const SHELL = [
   '/js/ui.js',
 ];
 
-// Same-origin cache key: keeps path, drops the version query string.
 function cacheKey(request) {
   const url = new URL(request.url);
   url.search = '';
@@ -54,7 +47,6 @@ function cacheKey(request) {
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE);
-    // allSettled: never fail the whole install because one asset is missing.
     await Promise.allSettled(SHELL.map((path) => cache.add(path)));
     await self.skipWaiting();
   })());

@@ -31,6 +31,7 @@ const DEFAULT_WORK_STEPS = [
 const WorkFlow = {
   session: null,                                            
   flowLoaded: false,
+  flowProfileID: 0,
   order: null,                                            
   step: 0,
   checks: {},                                       
@@ -50,14 +51,18 @@ const WorkFlow = {
   },
 
   async loadFlow(force, reset) {
-    if (reset) { WorkFlow.flowLoaded = false; WorkFlow.flowCustomer = undefined; }
+    if (reset) { WorkFlow.flowLoaded = false; WorkFlow.flowCustomer = undefined; WorkFlow.flowProfileID = 0; }
     const cust = (WorkFlow.order && WorkFlow.order.customerName && String(WorkFlow.order.customerName).trim()) || '';
-    if (WorkFlow.flowLoaded && !force && WorkFlow.flowCustomer === cust) return;
+    const profileID = Number(WorkFlow.order && WorkFlow.order.workflowProfileId) || 0;
+    if (WorkFlow.flowLoaded && !force && WorkFlow.flowCustomer === cust && WorkFlow.flowProfileID === profileID) return;
     try {
-      const d = await api('GET', '/api/v1/workflow' + (cust ? '?customer=' + encodeURIComponent(cust) : ''));
-      state.workFlow = d.steps || null;
+      const d = profileID
+        ? await api('GET', `/api/v1/workflow-profiles/${profileID}`)
+        : await api('GET', '/api/v1/workflow' + (cust ? '?customer=' + encodeURIComponent(cust) : ''));
+      state.workFlow = profileID ? ((d.profile && d.profile.steps) || null) : (d.steps || null);
       WorkFlow.flowLoaded = true;
       WorkFlow.flowCustomer = cust;
+      WorkFlow.flowProfileID = profileID;
     } catch {                     }
   },
 
@@ -199,7 +204,7 @@ const WorkFlow = {
           <div>
             <div class="eyebrow">${esc(t('work.title'))}</div>
             <h2 class="mono">${esc(o.orderNumber)}</h2>
-            <p class="wb-sub">${esc(o.customerName || '')}${o.device ? ' · ' + esc(o.device) : ''}</p>
+            <p class="wb-sub">${esc(o.customerName || '')}${o.device ? ' · ' + esc(o.device) : ''}${o.workflowProfileName ? ' · ' + esc(o.workflowProfileName) : ''}</p>
           </div>
           <button type="button" class="icon-btn" data-wb-close aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
@@ -208,7 +213,7 @@ const WorkFlow = {
         <div class="wb-ready">
           <p>${esc(t('work.readySub'))}</p>
           <ol class="wb-steplist">
-            ${WorkFlow.steps().map((s, i) => `<li><span class="wb-n">${i + 1}</span><div><strong>${esc(WorkFlow.stepTitle(s))}</strong><span>${esc(WorkFlow.stepDesc(s))}</span></div></li>`).join('')}
+            ${WorkFlow.steps().map((s, i) => `<li><span class="wb-n">${i + 1}</span><div><strong>${esc(WorkFlow.stepTitle(s))}</strong><span>${esc(WorkFlow.stepDesc(s))}${s.location ? `<span class="wb-ready-location"><span class="wb-ready-pin" aria-hidden="true">📍</span><span><strong>${esc(t('work.goTo'))} ${esc(s.location)}</strong><small>${esc(t('work.locationHint'))}</small></span></span>` : ''}</span></div></li>`).join('')}
           </ol>
           <div class="wb-ready-foot">
             <span class="rel">${esc(t('work.target'))} ${fmtTime(o.targetCompletionAt)} <span class="sub">${esc(relTime(o.targetCompletionAt))}</span></span>
@@ -344,7 +349,7 @@ const WorkFlow = {
           <div>
             <div class="eyebrow">${esc(t('work.title'))} · #${o.id}</div>
             <h2 class="mono">${esc(o.orderNumber)}</h2>
-            <p class="wb-sub">${esc(o.customerName || '')}${o.device ? ' · ' + esc(o.device) : ''} · ${badge('status-' + statusClass(o.status), statusLabel(o.status))}</p>
+            <p class="wb-sub">${esc(o.customerName || '')}${o.device ? ' · ' + esc(o.device) : ''}${o.workflowProfileName ? ' · ' + esc(o.workflowProfileName) : ''} · ${badge('status-' + statusClass(o.status), statusLabel(o.status))}</p>
           </div>
           <div class="wb-head-right">
             <span class="wb-timer mono" title="${esc(t('work.elapsed'))}">
@@ -371,6 +376,7 @@ const WorkFlow = {
         <div class="wb-body">
           <h3>${esc(WorkFlow.stepTitle(step))}</h3>
           <p class="wb-desc">${esc(WorkFlow.stepDesc(step))}</p>
+          ${step.location ? `<div class="wb-location" role="note"><span class="wb-location-icon" aria-hidden="true">📍</span><span><small>${esc(t('work.station'))}</small><strong>${esc(step.location)}</strong><em>${esc(t('work.locationHint'))}</em></span></div>` : ''}
 
           ${step.pick ? WorkFlow.pickHtml() : ''}
           ${step.pick ? WorkFlow.manualsHtml() : ''}
@@ -500,7 +506,7 @@ const WorkFlow = {
     root.querySelector('#wb-next').addEventListener('click', async () => {
       const btn = root.querySelector('#wb-next');
       const step = WorkFlow.steps()[WorkFlow.step];
-      const target = step.next(WorkFlow.order);
+      const target = WorkFlow.stepTarget(step, WorkFlow.order);
       if (target) {
         btn.disabled = true;
         const ok = await act('POST', `/api/v1/orders/${WorkFlow.order.id}/transition`, { status: target }, null, { quiet: true });

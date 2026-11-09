@@ -14,6 +14,8 @@
   let activeWorkdays = null;
   let excludeWeekends = true;
   let cleanup = null;
+  let workflowProfiles = [];
+  let workflowProfilesRequest = Promise.resolve();
 
   const toLocalInput = (d) => {
     const dt = d instanceof Date ? d : new Date(d);
@@ -21,10 +23,6 @@
     return t.toISOString().slice(0, 16);
   };
 
-  // Validation rules live in core.js (SLA.targetProblem) so every create path
-  // uses the same ones; the server applies order.ValidateTargetCompletion.
-  // Reads #oc-target and returns {iso, past, problem}. Empty input means
-  // "use the server SLA default" and yields {iso: null}.
   function readTarget() {
     const inp = $('#oc-target');
     if (window.SLA) return SLA.parseTargetInput(inp && inp.value);
@@ -183,6 +181,8 @@
   function open(opts = {}) {
     customers = window.SLA ? SLA.mergeCustomersWithDefaults(opts.customers || []) : (opts.customers || []).slice();
     selected = null;
+    workflowProfiles = [];
+    workflowProfilesRequest = Promise.resolve();
     selectedRanDevice = null;
     deviceMode = 'ran';
     excludeWeekends = window.SLA ? SLA.excludeWeekends() : true;
@@ -210,7 +210,6 @@
           </header>
 
           <div class="oc-body">
-            <!-- 1. Identification -->
             <section class="oc-sec">
               <div class="oc-sec-head">
                 <span class="oc-sec-title">Order identification</span>
@@ -232,7 +231,6 @@
               </div>
             </section>
 
-            <!-- 2. Customer -->
             <section class="oc-sec">
               <div class="oc-sec-head">
                 <span class="oc-sec-title">${esc(t('orders.customer'))} <em>*</em></span>
@@ -259,9 +257,13 @@
                   <div class="oc-menu" id="oc-cust-menu" role="listbox"></div>
                 </div>
               </div>
+              <div class="oc-workflow hidden" id="oc-workflow-box">
+                <label for="oc-workflow-profile">Workflow for this order</label>
+                <select id="oc-workflow-profile" name="workflowProfileId"></select>
+                <small id="oc-workflow-hint">Choose which guided steps this order will follow.</small>
+              </div>
             </section>
 
-            <!-- 3. Target & Customer SLA (Workdays, excluding weekends) -->
             <section class="oc-sec">
               <div class="oc-sec-head">
                 <span class="oc-sec-title">Target completion &amp; Customer SLA</span>
@@ -300,7 +302,6 @@
               </div>
             </section>
 
-            <!-- 4. Device & Hardware (Ran Device Picker OR Manual Entry) -->
             <section class="oc-sec">
               <div class="oc-sec-head">
                 <span class="oc-sec-title">Device &amp; hardware</span>
@@ -317,7 +318,6 @@
                 </div>
               </div>
 
-              <!-- Ran Device Picker Pane -->
               <div class="oc-ran-pane" id="oc-ran-pane">
                 <div class="oc-sel hidden" id="oc-ran-sel">
                   <span class="oc-av oc-ran-av" id="oc-ran-av">PC</span>
@@ -341,7 +341,6 @@
                 </div>
               </div>
 
-              <!-- Manual Device Quick-Assist & Register Pane -->
               <div class="oc-manual-pane hidden" id="oc-manual-pane">
                 <div class="oc-manual-presets">
                   <span class="oc-preset-lbl">Quick models:</span>
@@ -657,10 +656,36 @@
 
                                                                           
     applyWorkdaysTarget(custDays);
+    workflowProfilesRequest = loadOrderWorkflowProfiles(selected.name);
+  }
+
+  async function loadOrderWorkflowProfiles(customerName) {
+    const box = $('#oc-workflow-box');
+    const select = $('#oc-workflow-profile');
+    if (!box || !select) return;
+    box.classList.add('hidden');
+    select.innerHTML = '';
+    workflowProfiles = [];
+    try {
+      const d = await api('GET', '/api/v1/workflow-profiles?customer=' + encodeURIComponent(customerName));
+      if (!selected || selected.name !== customerName) return;
+      workflowProfiles = d.profiles || [];
+      if (!workflowProfiles.length) return;
+      const chooseOption = workflowProfiles.length > 1 ? '<option value="">Select a workflow profile…</option>' : '';
+      select.innerHTML = chooseOption + workflowProfiles.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+      if (workflowProfiles.length > 1) select.value = '';
+      box.classList.remove('hidden');
+    } catch {
+      workflowProfiles = [];
+    }
   }
 
   function clearCustomer() {
     selected = null;
+    workflowProfiles = [];
+    workflowProfilesRequest = Promise.resolve();
+    const workflowBox = $('#oc-workflow-box');
+    if (workflowBox) workflowBox.classList.add('hidden');
     $('#oc-cust-sel').classList.add('hidden');
     $('#oc-cust-search').classList.remove('hidden');
     const saveBtn = $('#oc-save-cust-sla');
@@ -689,7 +714,6 @@
     }
     const dtTarget = new Date(val);
     if (Number.isNaN(dtTarget.getTime())) {
-      // A half-typed datetime-local value must not throw out of the preview.
       pill.className = 'oc-sla-pill';
       rel.textContent = 'Invalid target';
       return;
@@ -802,6 +826,9 @@
       const cr = e.target.closest('[data-create]');
       if (cr) { chooseCustomer(cr.dataset.create, true); }
     });
+
+    const workflowSelect = $('#oc-workflow-profile', root);
+    if (workflowSelect) workflowSelect.addEventListener('change', updateSummary);
 
                                             
     const daysInp = $('#oc-cust-sla-days', root);
@@ -948,6 +975,13 @@
       else { showErr('Please pick a customer or type a new name.'); $('#oc-cust-q', root).focus(); return; }
     }
 
+    await workflowProfilesRequest;
+    if (workflowProfiles.length > 1 && !$('#oc-workflow-profile', root).value) {
+      showErr('Select a workflow profile for this order.');
+      $('#oc-workflow-profile', root).focus();
+      return;
+    }
+
     const target = readTarget();
     if (target.problem) {
       showErr(target.problem);
@@ -981,6 +1015,8 @@
     }
 
     const body = { orderNumber: num, customerName: selected.name };
+    const workflowProfileId = Number($('#oc-workflow-profile', root)?.value || 0);
+    if (workflowProfileId > 0) body.workflowProfileId = workflowProfileId;
     const fields = {
       debitNumber: debit,
       device: devVal,

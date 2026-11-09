@@ -428,9 +428,12 @@
   }
 
                                                  
-  let wfDraft = null;
-  let wfScope = '';                                                               
-  const wfDrafts = { '': null };                            
+let wfDraft = null;
+  let wfScope = '';
+  let wfProfileID = 0;
+  let wfProfileName = '';
+  let wfProfiles = [];
+  const wfDrafts = { '': null };
   let custList = [];                                                
 
   async function refreshCustomersCard() {
@@ -545,13 +548,14 @@
     }
   }
 
-  function switchScopeTo(name) {
+  async function switchScopeTo(name) {
     wfDrafts[wfScope] = wfDraft;
     wfScope = name;
+    wfProfileID = 0;
+    wfProfileName = '';
     const sel = $('#wf-scope'); if (sel) sel.value = name;
     const ed = $('#wf-editor'); if (ed) ed.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    if (wfDrafts[wfScope]) { wfDraft = wfDrafts[wfScope]; renderWorkflowEditor(); updateScopeUI(); }
-    else loadWorkflowEditor();
+    await loadWorkflowProfiles();
   }
 
   function fillScopeOptions() {
@@ -560,6 +564,7 @@
     const flowNames = new Set(custList.filter((c) => c.hasFlow).map((c) => c.name));
     sel.innerHTML = '<option value="">Global default</option>' + custList.map((c) =>
       `<option value="${esc(c.name)}"${c.name === wfScope ? ' selected' : ''}>${esc(c.name)}${flowNames.has(c.name) ? ' ●' : ''}</option>`).join('');
+    renderWorkflowProfilePicker();
     updateScopeUI();
   }
 
@@ -569,9 +574,16 @@
     const ed = $('#wf-editor'); if (ed) ed.classList.toggle('scoped', scoped);
     const vc = $('#wf-scope-val'); if (vc) vc.classList.toggle('hidden', !scoped);
     const gc = $('#wf-global-chip'); if (gc) gc.classList.toggle('hidden', scoped);
+    const profileTools = $('#wf-profile-tools'); if (profileTools) profileTools.classList.toggle('hidden', !scoped);
     const desc = $('#wf-scope-desc');
-    if (desc) desc.innerHTML = scoped ? `Customer flow — overrides the default for <b>${esc(wfScope)}</b> orders` : 'Default for every customer';
-    const rst = $('#wf-reset'); if (rst) rst.textContent = scoped ? 'Remove custom flow' : 'Reset to default';
+    if (desc) desc.innerHTML = scoped
+      ? `Choose a saved profile for <b>${esc(wfScope)}</b>, or edit the legacy customer flow. Profiles can be selected when creating orders.`
+      : 'Default for every customer';
+    const rst = $('#wf-reset');
+    if (rst) {
+      rst.textContent = scoped ? 'Remove custom flow' : 'Reset to default';
+      rst.classList.toggle('hidden', scoped && (!!wfProfileID || !!wfProfileName));
+    }
   }
 
   function wfDefaultDraft() {
@@ -590,12 +602,60 @@
 
   async function loadWorkflowEditor() {
     try {
-      const d = await api('GET', '/api/v1/workflow' + (wfScope ? '?customer=' + encodeURIComponent(wfScope) : ''));
-      wfDraft = d.steps
-        ? d.steps.map((st) => ({ key: st.key, title: st.title || '', desc: st.desc || '', checks: (st.checks || []).map((c) => ({ key: c.key, label: c.label })), next: st.next || '', pick: !!st.pick, qcGate: !!st.qcGate }))
+      const d = wfProfileID
+        ? await api('GET', `/api/v1/workflow-profiles/${wfProfileID}`)
+        : await api('GET', '/api/v1/workflow' + (wfScope ? '?customer=' + encodeURIComponent(wfScope) : ''));
+      const steps = wfProfileID ? (d.profile && d.profile.steps) : d.steps;
+      wfDraft = steps
+        ? steps.map((st) => ({ key: st.key, title: st.title || '', desc: st.desc || '', location: st.location || '', checks: (st.checks || []).map((c) => ({ key: c.key, label: c.label })), next: st.next || '', pick: !!st.pick, qcGate: !!st.qcGate }))
         : wfDefaultDraft();
     } catch { wfDraft = wfDefaultDraft(); }
     wfDrafts[wfScope] = wfDraft;
+    renderWorkflowEditor();
+    updateScopeUI();
+  }
+
+  async function loadWorkflowProfiles(preferredID = 0) {
+    wfProfiles = [];
+    if (!wfScope) { renderWorkflowProfilePicker(); updateScopeUI(); return; }
+    try {
+      const d = await api('GET', '/api/v1/workflow-profiles?customer=' + encodeURIComponent(wfScope));
+      wfProfiles = d.profiles || [];
+    } catch { wfProfiles = []; }
+    const preferred = wfProfiles.find((p) => Number(p.id) === Number(preferredID));
+    const chosen = preferred || wfProfiles[0] || null;
+    wfProfileID = chosen ? Number(chosen.id) : 0;
+    wfProfileName = chosen ? chosen.name : '';
+    renderWorkflowProfilePicker();
+    updateScopeUI();
+    await loadWorkflowEditor();
+  }
+
+  function renderWorkflowProfilePicker() {
+    const sel = $('#wf-profile');
+    if (!sel) return;
+    const opts = ['<option value="">Legacy customer flow</option>'].concat(wfProfiles.map((p) =>
+      `<option value="${p.id}"${Number(p.id) === Number(wfProfileID) ? ' selected' : ''}>${esc(p.name)}</option>`));
+    if (wfProfileName && !wfProfileID) opts.push(`<option value="new" selected>New profile: ${esc(wfProfileName)} (unsaved)</option>`);
+    if (!wfProfileID && !wfProfileName) opts[0] = '<option value="" selected>Legacy customer flow</option>';
+    sel.innerHTML = opts.join('');
+  }
+
+  async function newWorkflowProfile() {
+    if (!wfScope) return;
+    const vals = await modal({
+      title: 'New workflow profile',
+      description: `Create a named workflow for ${wfScope}. You can select it when creating an order for this customer.`,
+      confirmLabel: 'Create profile',
+      fields: [{ name: 'name', label: 'Profile name', placeholder: 'e.g. Standard setup, Repair, Reimage', required: true }],
+    });
+    if (!vals) return;
+    const name = String(vals.name || '').trim();
+    if (!name) return;
+    wfProfileID = 0;
+    wfProfileName = name;
+    wfDraft = wfDefaultDraft();
+    renderWorkflowProfilePicker();
     renderWorkflowEditor();
     updateScopeUI();
   }
@@ -621,6 +681,7 @@
           </span>
         </div>
         <input data-f="desc" class="wf-desc" value="${esc(st.desc)}" placeholder="Short description shown under the title" maxlength="200">
+        <input data-f="location" class="wf-location" value="${esc(st.location || '')}" placeholder="Station / table / area (e.g. Bench 3, QC table)" maxlength="80" aria-label="Work location">
         <div class="wf-checks">
           ${st.checks.map((c, ci) => `
             <span class="wf-checkrow">
@@ -635,7 +696,7 @@
   function wfCollect() {
     return wfDraft.map((st, i) => ({
       key: st.key || ('step' + (i + 1)),
-      title: st.title, desc: st.desc,
+      title: st.title, desc: st.desc, location: st.location || '',
       checks: st.checks.map((c, ci) => ({ key: c.key || ('k' + (ci + 1)), label: c.label })),
       next: st.next || null, pick: st.pick, qcGate: st.qcGate,
     }));
@@ -652,6 +713,7 @@
       const f = e.target.dataset.f;
       if (f === 'title') st.title = e.target.value;
       if (f === 'desc') st.desc = e.target.value;
+      if (f === 'location') st.location = e.target.value;
       if (f === 'check') st.checks[Number(e.target.dataset.ci)].label = e.target.value;
     });
     stepsHost.addEventListener('change', (e) => {
@@ -676,14 +738,25 @@
       renderWorkflowEditor();
     });
     $('#wf-add-step', root).addEventListener('click', () => {
-      wfDraft.push({ key: '', title: '', desc: '', checks: [{ key: '', label: '' }], next: '', pick: false, qcGate: false });
+      wfDraft.push({ key: '', title: '', desc: '', location: '', checks: [{ key: '', label: '' }], next: '', pick: false, qcGate: false });
       renderWorkflowEditor();
     });
     $('#wf-save', root).addEventListener('click', async () => {
       try {
-        const qs = wfScope ? '?customer=' + encodeURIComponent(wfScope) : '';
-        await api('PUT', '/api/v1/workflow' + qs, { steps: wfCollect() });
-        toast(wfScope ? `Customer flow saved — only "${wfScope}" orders use it` : 'Work flow saved — everyone uses it now');
+        const body = { name: wfProfileName, steps: wfCollect() };
+        if (wfScope && wfProfileName) {
+          const result = wfProfileID
+            ? await api('PUT', `/api/v1/workflow-profiles/${wfProfileID}`, body)
+            : await api('POST', '/api/v1/workflow-profiles?customer=' + encodeURIComponent(wfScope), body);
+          wfProfileID = Number(result.profile.id);
+          wfProfileName = result.profile.name;
+          await loadWorkflowProfiles(wfProfileID);
+          toast(`Workflow profile “${wfProfileName}” saved for ${wfScope}`);
+        } else {
+          const qs = wfScope ? '?customer=' + encodeURIComponent(wfScope) : '';
+          await api('PUT', '/api/v1/workflow' + qs, { steps: wfCollect() });
+          toast(wfScope ? `Customer flow saved — only "${wfScope}" orders use it` : 'Work flow saved — everyone uses it now');
+        }
         if (window.WorkFlow) WorkFlow.loadFlow(true, true);
         refreshCustomersCard();
       } catch (err) { toast(err.message, true); }
@@ -711,12 +784,26 @@
     });
 
     const scopeSel = $('#wf-scope', root);
-    if (scopeSel) scopeSel.addEventListener('change', () => {
+    if (scopeSel) scopeSel.addEventListener('change', async () => {
       wfDrafts[wfScope] = wfDraft;
       wfScope = scopeSel.value;
-      if (wfDrafts[wfScope]) { wfDraft = wfDrafts[wfScope]; renderWorkflowEditor(); updateScopeUI(); }
-      else loadWorkflowEditor();
+      wfProfileID = 0;
+      wfProfileName = '';
+      if (wfScope) await loadWorkflowProfiles();
+      else { wfProfiles = []; renderWorkflowProfilePicker(); await loadWorkflowEditor(); }
     });
+    const profileSel = $('#wf-profile', root);
+    if (profileSel) profileSel.addEventListener('change', async () => {
+      if (profileSel.value === 'new') return;
+      wfProfileID = Number(profileSel.value) || 0;
+      const chosen = wfProfiles.find((p) => Number(p.id) === wfProfileID);
+      wfProfileName = chosen ? chosen.name : '';
+      await loadWorkflowEditor();
+      renderWorkflowProfilePicker();
+      updateScopeUI();
+    });
+    const newProfileBtn = $('#wf-profile-new', root);
+    if (newProfileBtn) newProfileBtn.addEventListener('click', newWorkflowProfile);
   }
 
   function renderConfig() {
@@ -797,7 +884,7 @@
       <section class="card wf-editor" id="wf-editor">
         <div class="cfg-sec-head">
           <div class="cfg-sec-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="6" r="2.1"/><circle cx="5.5" cy="18" r="2.1"/><circle cx="18.5" cy="12" r="2.6"/><path d="M7.6 6h6.5a2.9 2.9 0 0 1 0 5.8H9.9A2.9 2.9 0 0 0 7 14.7V16"/></svg></div>
-          <div class="cfg-sec-txt"><h3>Guided work flow</h3><p class="muted">The steps, manual checks and status moves behind every Start Work session — saved on the server for the whole team. Pick a customer below to give that customer its own flow.</p></div>
+          <div class="cfg-sec-txt"><h3>Guided work flow</h3><p class="muted">The steps, manual checks and status moves behind every Start Work session — saved on the server for the whole team. Add a station or table to each step: workers see where to go before starting and while doing that step. Pick a customer below to edit its default flow or create named profiles that can be selected on each new order.</p></div>
           <div class="cfg-sec-acts wf-head-actions">
             <button type="button" class="btn btn-ghost btn-sm" id="wf-reset">Reset to default</button>
             <button type="button" class="btn btn-primary btn-sm" id="wf-save">Save flow</button>
@@ -809,6 +896,11 @@
           <span class="chip hidden" id="wf-global-chip">Default</span>
           <span class="chip chip-ok hidden" id="wf-scope-val">Custom</span>
           <span class="wf-scope-desc muted" id="wf-scope-desc">Default for every customer</span>
+          <div class="wf-profile-tools hidden" id="wf-profile-tools">
+            <label for="wf-profile">Customer workflow</label>
+            <select id="wf-profile" class="wf-profile-select"></select>
+            <button type="button" class="btn btn-secondary btn-sm" id="wf-profile-new">+ New profile</button>
+          </div>
         </div>
         <div id="wf-steps"></div>
         <button type="button" class="btn btn-secondary btn-sm" id="wf-add-step">+ Add step</button>

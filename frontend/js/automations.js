@@ -5,9 +5,7 @@ const Automations = {
   runs: [],
   bound: false,
   loadSeq: 0,
-  // Directory caches for the pickers (people, teams, customers, products).
   dir: { users: [], teams: [], customers: [], products: [], loadedAt: 0 },
-  // Row to highlight after a save, so the user sees what they just created.
   recentId: 0,
 
   triggerLabels: {
@@ -21,8 +19,6 @@ const Automations = {
     ASSIGN: 'Assign the order',
     ESCALATE: 'Raise escalation',
   },
-  // The checkpoints offered for an SLA_SPLIT rule. A one-day SLA split into
-  // quarters means 25/50/75% of the *working* day.
   splitPresets: [25, 50, 75, 90],
 
   actionHints: {
@@ -31,8 +27,6 @@ const Automations = {
     ESCALATE: 'Raises an escalation. Optionally give it one owner (a person or a team).',
   },
 
-  // Ready-made starting points. They only fill the dialog in; nothing is saved
-  // until you press the create button.
   templates: [
     {
       id: 'sla-team', title: 'Late order → team', hint: 'Assign SLA breaches to the least busy member',
@@ -115,8 +109,6 @@ const Automations = {
     }
   },
 
-  // loadCalendar caches the working pattern the SLA is measured in, so the
-  // checkpoint field can say what "50% of a 1-day SLA" means in hours.
   async loadCalendar() {
     if (state.slaCalendar !== undefined) return state.slaCalendar;
     try {
@@ -128,8 +120,6 @@ const Automations = {
     return state.slaCalendar;
   },
 
-  // loadDirectory fills the pickers. Everything is optional: a missing endpoint
-  // (permissions) just leaves that picker empty instead of breaking the dialog.
   async loadDirectory(force) {
     if (!force && Automations.dir.loadedAt && Date.now() - Automations.dir.loadedAt < 60000) return Automations.dir;
     Automations.dir = { users: [], teams: [], customers: [], products: [], loadedAt: 0 };
@@ -171,9 +161,6 @@ const Automations = {
     return found ? found.label : '@' + username;
   },
 
-  // ---------------------------------------------------------------------
-  // List
-  // ---------------------------------------------------------------------
   recipientsHtml(rule) {
     const people = (rule.targets || []).map((u) => `<span class="recip recip-user">@${esc(u)}</span>`);
     const teams = (rule.teams || []).map((t) => `<span class="recip recip-team">${Automations.teamIcon()}${esc(t)}</span>`);
@@ -269,9 +256,6 @@ const Automations = {
     $('#automation-runs-table tbody').innerHTML = history || '<tr><td colspan="7"><div class="empty-inline">Nothing has run yet. Actions appear here as soon as a rule fires.</div></td></tr>';
   },
 
-  // ---------------------------------------------------------------------
-  // Editor
-  // ---------------------------------------------------------------------
   async edit(rule) {
     const dir = await Automations.loadDirectory();
     const me = (state.user || {}).username;
@@ -443,8 +427,6 @@ const Automations = {
       ChipsPicker.bind(wrap, {
         onChange: (values) => {
           if (name === 'customers' || name === 'excludedCustomers') {
-            // An overlap is rejected by the server; resolve it here so the user
-            // never hits that wall.
             const other = name === 'customers' ? 'excludedCustomers' : 'customers';
             const otherWrap = $('#mf-' + other, root);
             const overlaps = values.filter((v) => ChipsPicker.values(otherWrap)
@@ -486,7 +468,6 @@ const Automations = {
       }
     });
 
-    // Cmd/Ctrl+Enter saves, like the rest of the app.
     form.addEventListener('keydown', (e) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
         e.preventDefault();
@@ -545,7 +526,6 @@ const Automations = {
     toast(`Template applied — adjust it and save.`);
   },
 
-  // The live sentence: the whole rule in one readable line.
   updateSummary(root, form) {
     const el = $('#rule-sentence', root);
     if (!el || !form || !form.elements.action) return;
@@ -583,7 +563,6 @@ const Automations = {
     el.classList.toggle('is-ready', problems.length === 0);
   },
 
-  // syncActionUi keeps the recipient pickers honest while the dialog is open.
   syncActionUi(root, form, current) {
     const action = form.elements.action.value;
     const trigger = form.elements.trigger.value;
@@ -616,7 +595,6 @@ const Automations = {
       $$('.split-preset', root).forEach((b) => b.classList.toggle('is-active', Number(b.dataset.split) === pct));
     }
 
-    // Never drop a selection behind the user's back — explain what no longer fits.
     const total = countOf('targets') + countOf('teams');
     const err = $('#modal-error', root);
     if (err) {
@@ -730,7 +708,6 @@ const Automations = {
     }
   },
 
-  // refreshRoutingCustomers keeps the customer dropdowns free of duplicates.
   refreshRoutingCustomers(root) {
     const rows = $$('[data-routing-row]', root);
     const used = new Set();
@@ -745,8 +722,6 @@ const Automations = {
     });
   },
 
-  // draftRule builds the API body from the live dialog. Used both for saving and
-  // for the dry-run check, so the preview always matches what will be saved.
   draftRule(form, root) {
     const routing = { customerTargets: {}, customerTeams: {} };
     $$('[data-routing-row]', root).forEach((row) => {
@@ -780,8 +755,6 @@ const Automations = {
     };
   },
 
-  // validateDraft mirrors the server's rules so a mistake is explained in the
-  // dialog instead of coming back as a 400.
   validateDraft(draft, root) {
     if (!draft.name) return 'Give the rule a name so you recognise it later.';
     const total = (draft.targets || []).length + (draft.teams || []).length;
