@@ -758,6 +758,9 @@
         </div>
         <div class="detail-head-actions">
           ${window.WorkFlow ? `<span data-work-slot="${o.id}">${WorkFlow.buttonFor(o)}</span>` : ''}
+          <button type="button" class="icon-btn" id="detail-split-btn" aria-label="Split order" title="Split order to colleague" ${o.status === 'Completed' ? 'disabled' : ''}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5v13l11-6.5z"/><path d="M16 5.5v13l-11-6.5z"/></svg>
+          </button>
           <button type="button" class="icon-btn" id="copy-link-btn" aria-label="Copy link" title="Copy link to this order">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
           </button>
@@ -813,7 +816,99 @@
         if (ok) toast(v ? `Assigned to ${v}` : 'Unassigned');
       });
     }
+
   }
+  const splitBtn = $('#detail-split-btn');
+  if (splitBtn) {
+    splitBtn.addEventListener('click', () => openSplitModal(o.id, () => {
+      splitBtn.title = 'Split pending';
+      splitBtn.style.opacity = '0.6';
+      splitBtn.disabled = true;
+    }));
+  }
+
+
+
+  async function loadSplitUsersInto(selectEl) {
+    try {
+      const d = await api('GET', '/api/v1/users/brief');
+      const users = d.users || [];
+      selectEl.innerHTML = users.map((u) =>
+        `<option value="${esc(u.username)}">${esc(u.displayName || u.username)}</option>`).join('');
+    } catch {  }
+  }
+
+  window.openSplitModal = async function(orderId, onSuccess) {
+    const modal = $('#split-modal');
+    const backdrop = $('#split-modal-backdrop');
+    const card = $('#split-modal-card');
+    const targetSel = $('#split-target');
+    const reasonTxt = $('#split-reason');
+    const confirmBtn = $('#split-confirm');
+    const cancelBtn = $('#split-cancel');
+
+    if (!modal) return;
+
+    targetSel.innerHTML = '<option>Loading colleagues…</option>';
+    reasonTxt.value = '';
+    confirmBtn.disabled = true;
+
+    await loadSplitUsersInto(targetSel);
+
+    // Select first user by default
+    if (targetSel.options.length > 0) {
+      targetSel.selectedIndex = 0;
+      confirmBtn.disabled = false;
+    }
+
+    const show = () => {
+      modal.style.display = 'block';
+      modal.classList.remove('hidden');
+      backdrop.classList.remove('hidden');
+      card.classList.remove('hidden');
+      targetSel.focus();
+    };
+    const hide = () => {
+      modal.style.display = 'none';
+      modal.classList.add('hidden');
+      backdrop.classList.add('hidden');
+      card.classList.add('hidden');
+    };
+
+    targetSel.addEventListener('change', () => {
+      confirmBtn.disabled = !targetSel.value;
+    });
+
+    cancelBtn.addEventListener('click', () => { hide(); });
+
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) hide();
+    });
+
+    confirmBtn.addEventListener('click', async () => {
+      const target = targetSel.value;
+      const reason = reasonTxt.value.trim();
+      if (!target) { toast('Choose a colleague', true); return; }
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Splitting…';
+      try {
+        await api('POST', `/api/v1/orders/${orderId}/split`, {
+          targetUser: target,
+          reason: reason,
+        });
+        hide();
+        if (onSuccess) onSuccess();
+        toast('Split order created — colleague can pick up where you left off');
+      } catch (err) {
+        toast(err.message || 'Split failed', true);
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Split order';
+      }
+    });
+
+    show();
+  };
+
 
 
                                                

@@ -234,7 +234,7 @@
             <section class="oc-sec">
               <div class="oc-sec-head">
                 <span class="oc-sec-title">${esc(t('orders.customer'))} <em>*</em></span>
-                <span class="oc-sec-meta" id="oc-cust-meta">${customers.length ? `${customers.length} known · Kenter (2d) &amp; Dela (5d) pre-configured` : 'Type a name to create your first customer'}</span>
+                <span class="oc-sec-meta" id="oc-cust-meta">${customers.length ? `${customers.length} known` : 'Type a name to create your first customer'}</span>
               </div>
 
               <div class="oc-cust" id="oc-cust-picker">
@@ -293,9 +293,9 @@
                 <div class="oc-chips" id="oc-chips">
                   <button type="button" data-preset="today">Today 17:00</button>
                   <button type="button" data-workdays="1">1 workday</button>
-                  <button type="button" data-workdays="2" class="${defDays === 2 ? 'on' : ''}">2 workdays <small>Kenter</small></button>
+                  <button type="button" data-workdays="2" class="${defDays === 2 ? 'on' : ''}">2 workdays</button>
                   <button type="button" data-workdays="3">3 workdays</button>
-                  <button type="button" data-workdays="5" class="${defDays === 5 ? 'on' : ''}">5 workdays <small>Dela</small></button>
+                  <button type="button" data-workdays="5" class="${defDays === 5 ? 'on' : ''}">5 workdays</button>
                   <button type="button" data-workdays="10">10 workdays</button>
                 </div>
                 <input id="oc-target" name="target" type="datetime-local" value="${toLocalInput(initTarget)}">

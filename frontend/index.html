@@ -25,6 +25,33 @@
 
 <div id="modal-root" class="modal-root hidden"></div>
 
+<div id="split-modal" class="hidden" style="display:none">
+  <div id="split-modal-backdrop"></div>
+  <div id="split-modal-card">
+    <div class="modal-head">
+      <h2>Split order</h2>
+      <p class="muted">Send remaining work to a colleague. Progress carries over — they pick up exactly where you left off.</p>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Colleague</label>
+        <select id="split-target" aria-label="Colleague"></select>
+      </div>
+      <div class="field">
+        <label>Reason (optional)</label>
+        <textarea id="split-reason" rows="3" placeholder="Why are you splitting this order?"></textarea>
+      </div>
+      <div class="split-hint muted" id="split-hint">
+        The split order keeps your current workflow step, checklist, and manuals.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button type="button" class="btn btn-ghost btn-sm" id="split-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" id="split-confirm">Split order</button>
+    </div>
+  </div>
+</div>
+
 <div id="palette-root" class="palette-root hidden" role="dialog" aria-modal="true" aria-label="Command palette">
   <div class="palette-card">
     <input id="palette-input" type="text" autocomplete="off" spellcheck="false"

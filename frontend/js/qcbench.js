@@ -15,16 +15,18 @@ function qcbLoadFilters() {
 const QCBench = {
   queue: [],
   reasons: [],
-                                                         
+                                                        
   idx: 0,
   step: 0,
-  checks: {},                                              
-  verdict: null,                         
+  checks: {},                                             
+  verdict: null,                        
   reason: '',
   note: '',
+  stepResults: {},
+  customerImpact: false,
   sit: { n: 0, pass: 0, fail: 0, streak: 0, best: 0, startedAt: Date.now() },
   poll: null,
-  list: [],                                                   
+  list: [],                                                  
   filters: { product: '', customer: '' },
   ctxFor: 0,
 
@@ -144,6 +146,27 @@ const QCBench = {
     QCBench.verdict = null;
     QCBench.reason = '';
     QCBench.note = '';
+    QCBench.customerImpact = false;
+  },
+
+  async recordCurrentStep() {
+    const q = QCBench.cur();
+    if (!q || QCBench.step >= 3) return;
+    const st = QCBench.STEPS[QCBench.step];
+    const allDone = st.checks.every(([k]) => QCBench.checks[k]);
+    const key = st.key + ':' + QCBench.step;
+    QCBench.stepResults[key] = {
+      orderId: q.id,
+      stepKey: st.key,
+      stepIndex: QCBench.step,
+      correct: allDone,
+      customerImpact: QCBench.customerImpact,
+      performedBy: (state && state.user && state.user.username) || '',
+      notes: '',
+    };
+    try {
+      await api('POST', '/api/v1/qcbench/step-result', QCBench.stepResults[key]);
+    } catch {  }
   },
 
   cur() { return QCBench.list[QCBench.idx] || null; },
@@ -250,8 +273,8 @@ const QCBench = {
           </header>
           <ul class="qcb-list">
             ${QCBench.list.map((it, i) => `
-              <li class="qcb-item ${i === QCBench.idx ? 'active' : ''} ${it.targetAt < Date.now() ? 'breached' : ''} ${QCBench._newIds && QCBench._newIds.has(it.id) ? 'qcb-new' : ''}" data-i="${i}">
-                <span class="mono qcb-item-num">${esc(it.orderNumber)}</span>
+              <li class="qcb-item ${i === QCBench.idx ? 'active' : ''} ${it.targetAt < Date.now() ? 'breached' : ''} ${QCBench._newIds && QCBench._newIds.has(it.id) ? 'qcb-new' : ''} ${it.isSplit ? 'split-from' : ''}" data-i="${i}" ${it.isSplit ? 'title="Split from another order"' : ''}>
+                <span class="mono qcb-item-num">${esc(it.orderNumber)}${it.isSplit ? ' ↬' : ''}</span>
                 ${it.productCode ? `<span class="qcb-pchip mono">${esc(it.productCode)}</span>` : ''}
                 <span class="qcb-item-meta">${esc(it.customer || '—')} · ${esc(it.device || '—')}</span>
                 <span class="qcb-item-foot mono">${it.tech ? '@' + esc(it.tech) : 'unassigned'} · ${waitLabel(it.updatedAt)} in queue</span>
@@ -287,14 +310,21 @@ const QCBench = {
                     <span class="qcb-keycap mono" aria-hidden="true">${i + 1}</span>
                     <span class="qcb-check-t">${esc(label)}</span>
                   </label></li>`).join('')}
-              </ul>` : QCBench.verdictHtml()}
+              </ul>
+              <div class="qcb-step-impact">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="qcb-customer-impact" ${QCBench.customerImpact ? 'checked' : ''}>
+                  <span>No customer impact — mistake does not count toward score</span>
+                </label>
+              </div>` : QCBench.verdictHtml()}
           </div>
           <footer class="qcb-foot">
             <button type="button" class="btn btn-ghost" id="qcb-back" ${QCBench.step === 0 ? 'disabled' : ''}>← Back</button>
             <span class="qcb-keys muted">1-3 tick · P pass · F fail · Enter submit · ↑/↓ queue</span>
             ${QCBench.step < 3
               ? `<button type="button" class="btn btn-primary" id="qcb-next" ${QCBench.stepDone() ? '' : 'disabled'}>Next step →</button>`
-              : `<button type="button" class="btn btn-primary" id="qcb-submit" ${QCBench.canSubmit() ? '' : 'disabled'}>Submit & next →</button>`}
+              : `<button type="button" class="btn btn-primary" id="qcb-submit" ${QCBench.canSubmit() ? '' : 'disabled'}>Submit & next →</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="qcb-rerun" title="Rerun workflow">↻</button>`}
           </footer>
         </section>
         <aside class="qcb-ctx">
@@ -328,31 +358,48 @@ const QCBench = {
   async loadContext(id) {
     QCBench.ctxFor = id;
     const box = $('#qcb-hist');
-    const q = QCBench.cur();
     if (!box) return;
-    if (!q || (!(q.customer || '') && !(q.productCode || ''))) {
-      box.innerHTML = '<span class="muted">No customer or product linked to this order.</span>';
-      return;
-    }
     try {
-      const d = await api('GET', '/api/v1/qc/context/' + id);
+      const [d, splits] = await Promise.all([
+        api('GET', '/api/v1/qc/context/' + id).catch(() => ({ recent: [] })),
+        api('GET', '/api/v1/orders/' + id + '/splits').catch(() => ({ splits: [] })),
+      ]);
       if (QCBench.ctxFor !== id) return;
       const rows = d.recent || [];
+      const splitList = splits.splits || [];
+
+      let html = '';
       if (!rows.length) {
-        box.innerHTML = '<span class="muted">First QC for this customer / product.</span>';
-        return;
+        html += '<span class="muted">First QC for this customer / product.</span>';
+      } else {
+        const fails = rows.filter((r) => r.status === 'FAIL').length;
+        html += `
+          <div class="qcb-hist-sum mono"><span>${rows.length} recent</span><span class="${fails ? 'bad-t' : 'good-t'}">${fails} failed</span></div>
+          ${rows.map((r) => `
+            <div class="qcb-hist-row" title="${esc(r.notes || r.status)}">
+              <span class="qcb-dot ${r.status === 'PASS' ? 'pass' : 'fail' } aria-hidden="true"></span>
+              <span class="mono">${esc(r.orderNumber)}</span>
+              <span class="qcb-hist-why">${esc(r.notes || (r.status === 'PASS' ? 'passed' : 'failed'))}</span>
+              ${r.sameProduct ? '<span class="qcb-pchip mono">product</span>' : ''}
+              <span class="mono muted">${waitLabel(r.at)}</span>
+            </div>`).join('')}`;
       }
-      const fails = rows.filter((r) => r.status === 'FAIL').length;
-      box.innerHTML = `
-        <div class="qcb-hist-sum mono"><span>${rows.length} recent</span><span class="${fails ? 'bad-t' : 'good-t'}">${fails} failed</span></div>
-        ${rows.map((r) => `
-          <div class="qcb-hist-row" title="${esc(r.notes || r.status)}">
-            <span class="qcb-dot ${r.status === 'PASS' ? 'pass' : 'fail'}" aria-hidden="true"></span>
-            <span class="mono">${esc(r.orderNumber)}</span>
-            <span class="qcb-hist-why">${esc(r.notes || (r.status === 'PASS' ? 'passed' : 'failed'))}</span>
-            ${r.sameProduct ? '<span class="qcb-pchip mono">product</span>' : ''}
-            <span class="mono muted">${waitLabel(r.at)}</span>
-          </div>`).join('')}`;
+
+      if (splitList.length) {
+        html += `
+          <div class="qcb-split-hist">
+            <div class="qcb-hist-sum mono" style="margin-top:10px"><span>Splits · ${splitList.length}</span></div>
+            ${splitList.map((s) => `
+              <div class="qcb-hist-row" title="${esc(s.reason || 'split')}">
+                <span class="qcb-dot ${s.status === 'accepted' ? 'pass' : 'fail' } aria-hidden="true"></span>
+                <span class="mono">#${s.splitOrderId || s.originalOrderId}</span>
+                <span class="qcb-hist-why">${esc(s.status)} · ${esc(s.requestedBy || '—')}</span>
+                ${s.acceptedBy ? `<span class="mono muted">accepted by ${esc(s.acceptedBy)}</span>` : ''}
+              </div>`).join('')}
+          </div>`;
+      }
+
+      box.innerHTML = html || '<span class="muted">No history.</span>';
     } catch (e) {
       if (QCBench.ctxFor === id) box.innerHTML = '<span class="muted">History unavailable.</span>';
     }
@@ -432,8 +479,18 @@ const QCBench = {
         return;
       }
       if (e.target.closest('#qcb-back')) { QCBench.step = Math.max(0, QCBench.step - 1); QCBench.render(); return; }
-      if (e.target.closest('#qcb-next')) { QCBench.step = Math.min(3, QCBench.step + 1); QCBench.render(); return; }
-      if (e.target.closest('#qcb-submit')) { QCBench.submit(); return; }
+      if (e.target.closest('#qcb-next')) {
+        QCBench.recordCurrentStep();
+        QCBench.step = Math.min(3, QCBench.step + 1);
+        QCBench.render();
+        return;
+      }
+      if (e.target.closest('#qcb-submit')) {
+        QCBench.recordCurrentStep();
+        QCBench.submit();
+        return;
+      }
+      if (e.target.closest('#qcb-rerun')) { QCBench.rerun(); return; }
       if (e.target.closest('#qcb-again')) { QCBench.refresh(false); return; }
       if (e.target.closest('#qcb-freset')) {
         QCBench.filters = { product: '', customer: '' };
@@ -453,6 +510,11 @@ const QCBench = {
     });
     box.addEventListener('input', (e) => {
       if (e.target.id === 'qcb-note') QCBench.note = e.target.value;
+    });
+    box.addEventListener('change', (e) => {
+      if (e.target.id === 'qcb-customer-impact') {
+        QCBench.customerImpact = e.target.checked;
+      }
     });
   },
 
@@ -489,6 +551,23 @@ const QCBench = {
     } catch (err) {
       toast(err.message || 'submit failed', true);
       if (sub) sub.disabled = false;
+    }
+  },
+
+  async rerun() {
+    const q = QCBench.cur();
+    if (!q) return;
+    if (!confirm('Rerun workflow on this order? This resets QC progress.')) return;
+    const btn = $('#qcb-rerun');
+    if (btn) { btn.disabled = true; btn.textContent = '…'; }
+    try {
+      const d = await api('POST', `/api/v1/qcbench/rerun/${q.id}`, {});
+      toast(`${q.orderNumber} workflow rerun`);
+      QCBench.resetOrderState();
+      QCBench.advance();
+    } catch (err) {
+      toast(err.message || 'rerun failed', true);
+      if (btn) { btn.disabled = false; btn.textContent = '↻'; }
     }
   },
 

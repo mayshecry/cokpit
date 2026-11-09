@@ -577,9 +577,6 @@
     if (typeof OrderCreate !== 'undefined' && OrderCreate) {
       let customers = [];
       try {
-        if (window.SLA && typeof SLA.ensureDefaultCustomers === 'function') {
-          await SLA.ensureDefaultCustomers();
-        }
         const d = await api('GET', '/api/v1/customers');
         customers = (d.customers || []).sort((a, b) => a.name.localeCompare(b.name));
       } catch (e) {                                  }

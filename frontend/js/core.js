@@ -540,10 +540,6 @@
                                                                                       
   const SLA_STORAGE_KEY = 'cockpit_customer_slas';
   const SLA_DEFAULTS_KEY = 'cockpit_sla_defaults';
-  const BUILTIN_CUSTOMER_SLAS = {
-    'kenter': { name: 'Kenter', workdays: 2, excludeWeekends: true },
-    'dela':   { name: 'Dela',   workdays: 5, excludeWeekends: true },
-  };
 
   const SLA = {
     TARGET_FLOOR: new Date('2000-01-01T00:00:00Z').getTime(),
@@ -591,9 +587,6 @@
       let raw = {};
       try { raw = JSON.parse(localStorage.getItem(SLA_STORAGE_KEY) || '{}') || {}; } catch {}
       const merged = {};
-      Object.keys(BUILTIN_CUSTOMER_SLAS).forEach((k) => {
-        merged[k] = { ...BUILTIN_CUSTOMER_SLAS[k] };
-      });
       if (state && state.config && state.config.customerSlas && typeof state.config.customerSlas === 'object') {
         Object.entries(state.config.customerSlas).forEach(([k, v]) => {
           const key = String(k || '').trim().toLowerCase();
@@ -611,7 +604,7 @@
       Object.entries(raw).forEach(([k, v]) => {
         const key = String(k || '').trim().toLowerCase();
         if (!key) return;
-        if (v && v.deleted && !BUILTIN_CUSTOMER_SLAS[key]) {
+        if (v && v.deleted) {
           delete merged[key];
           return;
         }
@@ -677,11 +670,7 @@
       if (!key) return;
       let raw = {};
       try { raw = JSON.parse(localStorage.getItem(SLA_STORAGE_KEY) || '{}') || {}; } catch {}
-      if (BUILTIN_CUSTOMER_SLAS[key]) {
-        raw[key] = { ...BUILTIN_CUSTOMER_SLAS[key] };
-      } else {
-        delete raw[key];
-      }
+      delete raw[key];
       SLA._writeMap(raw);
     },
 
@@ -793,47 +782,12 @@
 
     mergeCustomersWithDefaults(customers) {
       const list = Array.isArray(customers) ? customers.slice() : [];
-      const seen = new Set(list.map((c) => String(c.name || '').trim().toLowerCase()));
-      const rules = SLA.allCustomerRules();
-      const defaultNumbers = { kenter: '1010', dela: '1020' };
-      rules.forEach((r) => {
-        const k = String(r.name || '').trim().toLowerCase();
-        if (k && !seen.has(k)) {
-          seen.add(k);
-          list.push({
-            name: r.name,
-            number: defaultNumbers[k] || '',
-            managed: true,
-            custom: false,
-            hasFlow: false,
-            slaDays: r.workdays,
-          });
-        }
-      });
       return list.map((c) => ({
         ...c,
         slaDays: SLA.getCustomerDays(c.name),
       })).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
     },
 
-    _seeded: false,
-    async ensureDefaultCustomers() {
-      if (SLA._seeded || !state || !state.user) return;
-      SLA._seeded = true;
-      try {
-        const d = await api('GET', '/api/v1/customers');
-        const existing = new Set((d.customers || []).map((c) => String(c.name || '').trim().toLowerCase()));
-        const toSeed = [
-          { name: 'Kenter', number: '1010' },
-          { name: 'Dela', number: '1020' },
-        ];
-        for (const item of toSeed) {
-          if (!existing.has(item.name.toLowerCase())) {
-            try { await api('POST', '/api/v1/customers', item); } catch {}
-          }
-        }
-      } catch {}
-    },
   };
   window.SLA = SLA;
 

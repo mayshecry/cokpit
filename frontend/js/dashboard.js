@@ -32,36 +32,50 @@ const Dashboard = {
     const clockedHtml = Dash.clocked(d);
     const mix = d.slaMix || {};
     const mixTot = (mix.ON_TIME || 0) + (mix.WARNING || 0) + (mix.BREACHED || 0);
+    const breachedPct = mixTot ? Math.round(((mix.BREACHED || 0) / mixTot) * 100) : 0;
+    const ontimePct = mixTot ? Math.round(((mix.ON_TIME || 0) / mixTot) * 100) : 0;
+    const clockVals = (d.clockedPerDay || []).map((x) => x.ms || 0);
+    const clockMax = Math.max(3600000, ...clockVals);
+    const clockPeak = clockMax === 3600000 && Math.max(...clockVals) === 0 ? 0 : clockMax;
+
     el.innerHTML = `
       <div class="dash-kpis">
-        ${Dash.kpi('Open orders', d.open, '')}
-        ${Dash.kpi('Breached now', d.slaMix.BREACHED, d.slaMix.BREACHED ? 'bad' : '')}
-        ${Dash.kpi('Clocked in', actives, actives ? 'good' : '')}
-        ${Dash.kpi('Completed today', d.completedToday, '')}
-        ${Dash.kpi('Avg hands-on', Dash.dur(d.handleAvgMs), '')}
+        ${Dash.kpi('Open orders', d.open, d.open ? 'brand' : '', d.openTrend, d.openDelta)}
+        ${Dash.kpi('SLA breached', d.slaMix.BREACHED || 0, d.slaMix.BREACHED ? 'bad' : 'good', d.breachTrend, d.breachDelta)}
+        ${Dash.kpi('Clocked in', actives, actives ? 'good' : '', d.clockTrend, d.clockDelta)}
+        ${Dash.kpi('Completed today', d.completedToday, d.completedToday ? 'good' : '', d.doneTrend, d.doneDelta)}
+        ${Dash.kpi('Avg hands-on', Dash.dur(d.handleAvgMs), '', d.avgTrend, d.avgDelta)}
       </div>
       <div class="dash-grid">
-        <section class="card dash-card">
-          <header class="dash-card-head"><h3>Completed vs received</h3>
-            <div class="dash-legend"><span><i class="sw a"></i>completed</span><span><i class="sw b"></i>received</span><span class="muted">· last ${d.days} days</span></div></header>
+        <section class="dash-card dash-card-wide">
+          <header class="dash-card-head">
+            <div class="dash-card-title"><h3>Volume</h3><p class="dash-card-sub">Completed vs received · last ${d.days} days</p></div>
+            <div class="dash-legend"><span><i class="sw a"></i>Completed</span><span><i class="sw b"></i>Received</span></div>
+          </header>
           ${Dash.bars(d)}
         </section>
-        <section class="card dash-card">
-          <header class="dash-card-head"><h3>Open orders by SLA</h3><span class="muted">live</span></header>
-          ${Dash.donut(d.slaMix)}
-          ${mixTot ? `<div class="qc-donut-foot">
-            <div><span>breached</span><strong>${Math.round(((mix.BREACHED || 0) / mixTot) * 100)}%</strong></div>
-            <div><span>on time</span><strong>${Math.round(((mix.ON_TIME || 0) / mixTot) * 100)}%</strong></div>
-            <div><span>warning</span><strong>${mix.WARNING || 0}</strong></div>
-          </div>` : ''}
+        <section class="dash-card">
+          <header class="dash-card-head">
+            <div class="dash-card-title"><h3>SLA health</h3><p class="dash-card-sub">Open orders by status · live</p></div>
+            <span class="dash-chip ${breachedPct > 30 ? 'chip-bad' : breachedPct > 0 ? 'chip-warn' : 'chip-good'}">${breachedPct}% breached</span>
+          </header>
+          <div class="dash-two-col">${Dash.donut(d.slaMix)}<div class="dash-sla-summary">
+            ${mixTot ? `<div class="sla-row"><span class="sla-label">On time</span><span class="sla-val good">${mix.ON_TIME || 0}</span><span class="sla-pct good">${ontimePct}%</span></div>
+            <div class="sla-row"><span class="sla-label">Warning</span><span class="sla-val warn">${mix.WARNING || 0}</span><span class="sla-pct warn">${mixTot ? Math.round(((mix.WARNING || 0) / mixTot) * 100) : 0}%</span></div>
+            <div class="sla-row"><span class="sla-label">Breached</span><span class="sla-val bad">${mix.BREACHED || 0}</span><span class="sla-pct bad">${breachedPct}%</span></div>` : '<div class="dash-empty">No open orders</div>'}
+          </div></div>
         </section>
-        <section class="card dash-card">
-          <header class="dash-card-head"><h3>Team effort</h3><span class="muted">clocked time, last ${d.days} days</span></header>
+        <section class="dash-card dash-card-wide">
+          <header class="dash-card-head">
+            <div class="dash-card-title"><h3>Team effort</h3><p class="dash-card-sub">Clocked time · last ${d.days} days</p></div>
+          </header>
           ${Dash.team(d)}
         </section>
-        <section class="card dash-card">
-          <header class="dash-card-head"><h3>Clock time per day</h3>
-            <div class="dash-legend"><span><i class="sw c"></i>hours</span>${Dash._peak || ''}</div></header>
+        <section class="dash-card">
+          <header class="dash-card-head">
+            <div class="dash-card-title"><h3>Clock time</h3><p class="dash-card-sub">Hours per day · last ${d.days} days</p></div>
+            <span class="dash-chip chip-info">${Dash.dur(clockPeak)} peak</span>
+          </header>
           ${clockedHtml}
         </section>
       </div>`;
@@ -70,8 +84,9 @@ const Dashboard = {
 };
 
 const Dash = {
-  kpi(label, value, tone) {
-    return `<div class="kpi${tone ? ' ' + tone : ''}"><span class="kpi-v">${esc(value)}</span><span class="kpi-l">${esc(label)}</span></div>`;
+  kpi(label, value, tone, trend, delta) {
+    const trendHtml = trend ? `<span class="kpi-trend ${delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'}">${delta > 0 ? '▲' : delta < 0 ? '▼' : '–'}${Math.abs(delta || 0)}</span>` : '';
+    return `<div class="kpi${tone ? ' ' + tone : ''}"><div class="kpi-inner"><span class="kpi-v">${esc(value)}</span>${trendHtml}</div><span class="kpi-l">${esc(label)}</span></div>`;
   },
 
   dur(ms) {
@@ -109,7 +124,7 @@ const Dash = {
 
   donut(mix) {
     const tot = (mix.ON_TIME || 0) + (mix.WARNING || 0) + (mix.BREACHED || 0);
-    if (!tot) return '<p class="muted dash-empty">Nothing open — the floor is clear.</p>';
+    if (!tot) return '<p class="muted">Nothing open — the floor is clear.</p>';
     const r = 52, C = 2 * Math.PI * r;
     let off = 0;
     const parts = [['ON_TIME', 'var(--good)', 'On time'], ['WARNING', 'var(--warn)', 'Warning'], ['BREACHED', 'var(--bad)', 'Breached']]

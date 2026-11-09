@@ -437,9 +437,6 @@ let wfDraft = null;
   let custList = [];                                                
 
   async function refreshCustomersCard() {
-    if (window.SLA && typeof SLA.ensureDefaultCustomers === 'function') {
-      await SLA.ensureDefaultCustomers();
-    }
     try {
       const d = await api('GET', '/api/v1/customers');
       const raw = d.customers || [];
@@ -509,7 +506,7 @@ let wfDraft = null;
             <input type="number" id="sla-default-days" class="cust-sla-inp mono" min="1" max="60" value="${defs.defaultWorkdays || 2}">
             <span class="muted">workdays</span>
           </div>
-          <span class="cfg-pill ok">Kenter: ${window.SLA ? SLA.effectiveDays('Kenter') : 2}d · Dela: ${window.SLA ? SLA.effectiveDays('Dela') : 5}d</span>
+
         </div>
         <div class="cust-tools">
           <input id="cust-filter" class="cfg-search" type="search" placeholder="Filter customers&hellip;" autocomplete="off" spellcheck="false">

@@ -400,6 +400,7 @@ const WorkFlow = {
         <div class="wb-foot">
           <button type="button" class="btn btn-ghost" id="wb-back" ${WorkFlow.step === 0 ? 'disabled' : ''}>← ${esc(t('work.back'))}</button>
           <span class="wb-hint rel">${esc(WorkFlow.gateHint())}</span>
+          <button type="button" class="btn btn-ghost btn-sm" id="wb-split-wizard" title="Split order to colleague">⇄ Split</button>
           <button type="button" class="btn btn-work btn-lg" id="wb-next" ${WorkFlow.gateOk() ? '' : 'disabled'}>
             ${esc(last ? t('work.complete') : t('work.next'))} <span aria-hidden="true">→</span>
           </button>
@@ -473,6 +474,26 @@ const WorkFlow = {
         WorkFlow.renderWizard();
       });
     });
+
+    const splitWizBtn = root.querySelector('#wb-split-wizard');
+    if (splitWizBtn) {
+      splitWizBtn.addEventListener('click', () => {
+        openSplitModal(WorkFlow.order.id, () => {
+          const headRight = root.querySelector('.wb-head-right');
+          if (headRight && !headRight.querySelector('#wb-split-status')) {
+            const badge = document.createElement('span');
+            badge.id = 'wb-split-status';
+            badge.className = 'badge status-split';
+            badge.textContent = 'Split pending';
+            badge.style.cssText = 'margin-left:8px; font-size:11px; padding:2px 8px; background:var(--brand); color:#fff; border-radius:999px;';
+            headRight.appendChild(badge);
+          }
+          splitWizBtn.textContent = 'Split pending';
+          splitWizBtn.disabled = true;
+          toast('Split order created — colleague can pick up where you left off');
+        });
+      });
+    }
 
     const exitBtn = root.querySelector('#wb-exit');
     if (exitBtn) exitBtn.addEventListener('click', () => {

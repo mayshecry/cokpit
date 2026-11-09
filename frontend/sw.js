@@ -1,6 +1,6 @@
 'use strict';
 
-const CACHE = 'cockpit-scan-shell-v8';
+const CACHE = 'cockpit-scan-shell-v9';
 const SHELL = [
   '/',
   '/index.html',
