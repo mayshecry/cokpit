@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"cockpit/pkg/api"
-	"cockpit/pkg/auth"
 	"cockpit/pkg/db"
 )
 
@@ -68,7 +67,6 @@ func main() {
 	if err != nil {
 		logger.Fatalf("database init: %v", err)
 	}
-	defer conn.Close()
 
 	store := db.New(conn)
 
@@ -76,35 +74,30 @@ func main() {
 		logger.Fatalf("startup check failed: %v", err)
 	}
 
-	adminUser := envOr("ADMIN_USERNAME", "admin")
-	adminPass := os.Getenv("ADMIN_PASSWORD")
-	generatedAdminPassword := false
-	if adminPass == "" {
-		_, lookupErr := store.UserByUsername(ctx, adminUser)
-		switch {
-		case errors.Is(lookupErr, db.ErrNotFound):
-
-			adminPass, err = auth.NewToken()
-			if err != nil {
-				logger.Fatalf("generate bootstrap admin password: %v", err)
+	done, err := store.GetSetting(ctx, "setup_done")
+	if err != nil {
+		logger.Fatalf("read setup flag: %v", err)
+	}
+	if done != "1" {
+		if err := runSetup(ctx, logger, store); err != nil {
+			logger.Fatalf("setup: %v", err)
+		}
+		if v, err := store.GetSetting(ctx, "setup_port"); err == nil && v != "" {
+			port = v
+		}
+		if v, err := store.GetSetting(ctx, "setup_session_hours"); err == nil && v != "" {
+			if n, e := strconv.Atoi(v); e == nil && n > 0 {
+				sessionHours = n
 			}
-			generatedAdminPassword = true
-		case lookupErr != nil:
-			logger.Fatalf("lookup bootstrap admin: %v", lookupErr)
+		}
+		if v, err := store.GetSetting(ctx, "setup_sla_hours"); err == nil && v != "" {
+			if n, e := strconv.Atoi(v); e == nil && n > 0 {
+				slaHours = n
+			}
 		}
 	}
-	if adminPass != "" {
-		hash, err := auth.HashPassword(adminPass)
-		if err != nil {
-			logger.Fatalf("hash admin password: %v", err)
-		}
-		if _, err := store.EnsureUser(ctx, adminUser, hash, "Administrator", auth.RoleAdmin, time.Now().UTC()); err != nil {
-			logger.Fatalf("seed admin user: %v", err)
-		}
-	}
-	if generatedAdminPassword {
-		logger.Printf("bootstrap admin %q password: %s (store it securely; it will not be printed again)", adminUser, adminPass)
-	}
+
+	defer conn.Close()
 
 	clientGuard := api.NewClientGuard(
 		os.Getenv("COCKPIT_CLIENT_ONLY") == "1",
