@@ -704,32 +704,32 @@
         <div id="drawer-scan-feedback" class="scan-feedback" aria-live="polite"></div>
       </div>` : '';
 
-    const actions = [];
+    const actionsHtml = [];
     if (can('orders:transition') && !held && !completed && targets.length) {
-      actions.push(`
-        <form class="action-block" id="transition-form">
+      actionsHtml.push(`
+        <form class="od-action-block" id="transition-form">
           <span class="label">${esc(t('detail.next'))}</span>
-          <div class="action-row">
+          <div class="od-action-row">
             <select id="transition-target" aria-label="Target status">${targets.map((s) => `<option value="${s}">${statusLabel(s)}</option>`).join('')}</select>
             <button type="submit" class="btn btn-primary btn-sm">${esc(t('btn.transition'))}</button>
           </div>
         </form>`);
     }
     if (can('holds:create') && !completed && !onHold) {
-      actions.push(`
-        <form class="action-block" id="hold-form">
+      actionsHtml.push(`
+        <form class="od-action-block" id="hold-form">
           <span class="label">${esc(t('detail.placeHold'))}</span>
-          <div class="action-row">
+          <div class="od-action-row">
             <input id="hold-reason" placeholder="${esc(t('detail.holdReason'))}" required autocomplete="off">
             <button type="submit" class="btn btn-secondary btn-sm">${esc(t('btn.hold'))}</button>
           </div>
         </form>`);
     }
     if (can('qc:submit') && !completed) {
-      actions.push(`
-        <form class="action-block" id="qc-form">
+      actionsHtml.push(`
+        <form class="od-action-block" id="qc-form">
           <span class="label">${esc(t('detail.qc'))}</span>
-          <div class="action-row">
+          <div class="od-action-row">
             <select id="qc-status" aria-label="QC result" style="flex:0 0 96px"><option value="PASS">PASS</option><option value="FAIL">FAIL</option></select>
             <select id="qc-reason" class="hidden" aria-label="Fail reason" style="flex:1 1 150px"></select>
             <input id="qc-notes" placeholder="Notes (optional)" autocomplete="off">
@@ -739,63 +739,149 @@
     }
 
     const briefs = state.userBriefs || [];
+    const sharedWith = (o.sharedWith || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const allAssigned = [o.assignee].filter(Boolean).concat(sharedWith);
+    const assigneeDisplay = allAssigned.map((a) => '@' + esc(a)).join(', ') || esc(t('detail.unassigned'));
     const assigneeHtml = can('orders:transition') && briefs.length
       ? `<select id="assignee-select" aria-label="${esc(t('detail.assignee'))}">
            <option value="">${esc(t('detail.unassigned'))}</option>
            ${briefs.map((u) => `<option value="${esc(u.username)}"${o.assignee === u.username ? ' selected' : ''}>${esc(u.displayName || u.username)}</option>`).join('')}
          </select>`
-      : `<span>${o.assignee ? esc(o.assignee) : esc(t('detail.unassigned'))}</span>`;
+      : `<span class="assignee-list">${assigneeDisplay}</span>`;
+
+    const hasWorkflow = window.WorkFlow && WorkFlow.buttonFor(o);
+    const isShared = !!(o.sharedWith || '').trim();
+    const custAvatar = (o.customerName || '?').charAt(0).toUpperCase();
+    const custHue = (o.customerName || '?').charCodeAt(0) % 360;
 
     panel.innerHTML = `
-      <div class="detail-head">
-        <div class="detail-head-text">
-          <div class="eyebrow">Order #${o.id}</div>
-          <h2 class="copyable" data-copy="${esc(o.orderNumber)}" title="Click to copy">${esc(o.orderNumber)}</h2>
-          <div class="detail-badges">
-            ${badge('status-' + esc(statusClass(o.status)), statusLabel(o.status))}
-            ${badge('sla-' + esc(sla.status), String(sla.status).replace('_', ' '))}
+      <div class="od-wrap">
+        <div class="od-head">
+          <div class="od-head-left">
+            <div class="od-cust-card">
+              <div class="od-cust-ava" style="--h:${custHue}deg">${custAvatar}</div>
+              <div class="od-cust-info">
+                <div class="od-cust-name">${esc(o.customerName || '—')}</div>
+                <div class="od-cust-sub">${esc(t('orders.customer'))}</div>
+              </div>
+            </div>
+            <div class="od-head-main">
+              <div class="od-eyebrow">Order #${o.id}</div>
+              <h2 class="copyable" data-copy="${esc(o.orderNumber)}" title="Click to copy">${esc(o.orderNumber)}</h2>
+              <div class="od-badges">
+                ${badge('status-' + esc(statusClass(o.status)), statusLabel(o.status))}
+                ${badge('sla-' + esc(sla.status), String(sla.status).replace('_', ' '))}
+                ${isShared ? '<span class="od-chip status-share">Shared</span>' : ''}
+              </div>
+            </div>
+          </div>
+          <div class="od-head-actions">
+            ${hasWorkflow ? `<span data-work-slot="${o.id}">${WorkFlow.buttonFor(o)}</span>` : ''}
+            <button type="button" class="icon-btn od-act-btn" id="detail-share-btn" aria-label="Share order" title="Mark order as shared" ${o.status === 'Completed' ? 'disabled' : ''}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M5 12h14M12 5v14"/></svg>
+            </button>
+            <button type="button" class="icon-btn od-act-btn" id="detail-share-with-btn" aria-label="Share with colleague" title="Share with colleague" ${o.status === 'Completed' ? 'disabled' : ''}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><circle cx="9" cy="9" r="1"/></svg>
+            </button>
+            <button type="button" class="icon-btn od-act-btn" id="copy-link-btn" aria-label="Copy link" title="Copy link to this order">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54 .54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            </button>
+            <button type="button" class="icon-btn od-x" id="detail-close" aria-label="Close detail" title="Close (Esc)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
           </div>
         </div>
-        <div class="detail-head-actions">
-          ${window.WorkFlow ? `<span data-work-slot="${o.id}">${WorkFlow.buttonFor(o)}</span>` : ''}
-          <button type="button" class="icon-btn" id="detail-split-btn" aria-label="Split order" title="Split order to colleague" ${o.status === 'Completed' ? 'disabled' : ''}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5v13l11-6.5z"/><path d="M16 5.5v13l-11-6.5z"/></svg>
-          </button>
-          <button type="button" class="icon-btn" id="copy-link-btn" aria-label="Copy link" title="Copy link to this order">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          </button>
-          <button type="button" class="icon-btn" id="detail-close" aria-label="Close detail" title="Close (Esc)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-          </button>
-        </div>
-      </div>
-      <div class="detail-scroll">
-        <div class="meta">
-          <div class="item"><span class="k">${esc(t('detail.assignee'))}</span><span class="v" id="assignee-slot">${assigneeHtml}</span></div>
-          <div class="item"><span class="k">${esc(t('meta.target'))}</span><span class="v">${fmtTime(o.targetCompletionAt)}<span class="sub">${esc(relTime(o.targetCompletionAt))}</span></span></div>
-          <div class="item"><span class="k">${esc(t('meta.created'))}</span><span class="v">${fmtTime(o.createdAt)}<span class="sub">${esc(relTime(o.createdAt))}</span></span></div>
-          <div class="item"><span class="k">${esc(t('meta.updated'))}</span><span class="v">${fmtTime(o.updatedAt)}<span class="sub">${esc(relTime(o.updatedAt))}</span></span></div>
-          <div class="item"><span class="k">${esc(t('meta.holds'))}</span><span class="v">${holds.length ? holds.length + esc(t('meta.active')) : esc(t('meta.none'))}</span></div>
-        </div>
-        <div class="meta order-info-meta">
-          <div class="item"><span class="k">${esc(t('orders.customer'))}</span><span class="v">${esc(o.customerName || '—')}</span></div>
-          <div class="item"><span class="k">${esc(t('info.debit'))}</span><span class="v mono copyable" data-copy="${esc(o.debitNumber)}" title="Click to copy">${esc(o.debitNumber || '—')}</span></div>
-          <div class="item"><span class="k">${esc(t('info.device'))}</span><span class="v">${esc(o.device || '—')}</span></div>
-          <div class="item"><span class="k">${esc(t('info.asset'))}</span><span class="v mono copyable" data-copy="${esc(o.assetNumber)}" title="Click to copy">${esc(o.assetNumber || '—')}</span></div>
-          <div class="item"><span class="k">${esc(t('info.config'))}</span><span class="v">${esc(o.configuration || '—')}</span></div>
-          <div class="item"><span class="k">${esc(t('info.omni'))}</span><span class="v mono copyable" data-copy="${esc(o.omnitrackerTicket)}" title="Click to copy">${esc(o.omnitrackerTicket || '—')}</span></div>
-        </div>
-        ${actions.length ? `<section class="detail-section"><h3>${esc(t('detail.actions'))}</h3>${actions.join('')}</section>` : ''}
-        <section class="detail-section"><h3>${esc(t('detail.holds'))} ${holds.length ? `<span class="count">${holds.length}</span>` : ''}</h3>${holdsHtml}</section>
-        <section class="detail-section"><h3>${esc(t('detail.qcs'))} ${qcs.length ? `<span class="count">${qcs.length}</span>` : ''}</h3>${qcHtml}</section>
-        ${checklistSectionHtml()}
-        ${manualSectionHtml()}
-        <section class="detail-section" id="comments-section"><h3>${esc(t('detail.comments'))} ${state.comments && state.comments.length ? `<span class="count">${state.comments.length}</span>` : ''}</h3>${commentsHtml}</section>
-        ${can('scan:use') ? `<section class="detail-section"><h3>${esc(t('detail.scan'))}</h3>${scanHtml}</section>` : ''}
-        <section class="detail-section"><h3>${esc(t('detail.audit'))} ${state.audit.length ? `<span class="count">${state.audit.length}</span>` : ''}</h3>${auditHtml}</section>
-      </div>`;
-  populateQCReasons();
+        <div class="od-body">
+          <section class="od-sec" id="order-meta-sec">
+            <div class="od-sec-head">
+              <span class="od-sec-title">${esc(t('detail.meta'))}</span>
+            </div>
+            <div class="od-grid2">
+              <div class="od-field">
+                <label class="f-label">${esc(t('detail.assignee'))}</label>
+                <div class="f-value"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span><span>${assigneeHtml}</span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('meta.target'))}</label>
+                <div class="f-value"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="8" r="7"></circle><polyline points="12 8 12 12 15 15"></polyline></svg></span><span>${fmtTime(o.targetCompletionAt)}<span class="f-sub">${esc(relTime(o.targetCompletionAt))}</span></span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('meta.created'))}</label>
+                <div class="f-value"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></span><span>${fmtTime(o.createdAt)}<span class="f-sub">${esc(relTime(o.createdAt))}</span></span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('meta.updated'))}</label>
+                <div class="f-value"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><polyline points="1 4 1 10 7 10"></polyline><polyline points="23 20 23 14 17 14"></polyline><polyline points="1 10 7 10 7 16"></polyline><polyline points="23 14 17 14 17 20"></polyline><path d="M5 18V8M19 8V18M8 5H17M6 14H18"></path></svg></span><span>${fmtTime(o.updatedAt)}<span class="f-sub">${esc(relTime(o.updatedAt))}</span></span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('meta.holds'))}</label>
+                <div class="f-value"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></span><span>${holds.length ? holds.length + esc(t('meta.active')) : esc(t('meta.none'))}</span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('orders.customer'))}</label>
+                <div class="f-value"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span><span>${esc(o.customerName || '—')}</span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('info.debit'))}</label>
+                <div class="f-value mono copyable" data-copy="${esc(o.debitNumber)}" title="Click to copy"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><line x1="12" y1="1" x2="12" y2="23"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg></span><span>${esc(o.debitNumber || '—')}</span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('info.device'))}</label>
+                <div class="f-value"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg></span><span>${esc(o.device || '—')}</span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('info.asset'))}</label>
+                <div class="f-value mono copyable" data-copy="${esc(o.assetNumber)}" title="Click to copy"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M14.5 2h3a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM15 7h2v4h-2z"></path></svg></span><span>${esc(o.assetNumber || '—')}</span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('info.config'))}</label>
+                <div class="f-value"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1M3 3l18 18"></path></svg></span><span>${esc(o.configuration || '—')}</span></div>
+              </div>
+              <div class="od-field">
+                <label class="f-label">${esc(t('info.omni'))}</label>
+                <div class="f-value mono copyable" data-copy="${esc(o.omnitrackerTicket)}" title="Click to copy"><span class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg></span><span>${esc(o.omnitrackerTicket || '—')}</span></div>
+              </div>
+            </div>
+          </section>
 
+          ${actionsHtml.length ? `<section class="od-sec" id="order-actions-sec">
+            <div class="od-sec-head"><span class="od-sec-title">${esc(t('detail.actions'))}</span></div>
+            <div class="od-actions">${actionsHtml.join('')}</div>
+          </section>` : ''}
+
+          <section class="od-sec" id="order-holds-sec">
+            <div class="od-sec-head"><span class="od-sec-title">${esc(t('detail.holds'))}</span>${holds.length ? `<span class="count">${holds.length}</span>` : ''}</div>
+            ${holdsHtml}
+          </section>
+
+          <section class="od-sec" id="order-qc-sec">
+            <div class="od-sec-head"><span class="od-sec-title">${esc(t('detail.qcs'))}</span>${qcs.length ? `<span class="count">${qcs.length}</span>` : ''}</div>
+            ${qcHtml}
+          </section>
+
+          ${checklistSectionHtml().replace('detail-section', 'od-sec')}
+          ${manualSectionHtml().replace('detail-section', 'od-sec')}
+
+          <section class="od-sec" id="order-comments-sec">
+            <div class="od-sec-head"><span class="od-sec-title">${esc(t('detail.comments'))}</span>${state.comments && state.comments.length ? `<span class="count">${state.comments.length}</span>` : ''}</div>
+            ${commentsHtml}
+          </section>
+
+          ${can('scan:use') ? `<section class="od-sec" id="order-scan-sec">
+            <div class="od-sec-head"><span class="od-sec-title">${esc(t('detail.scan'))}</span></div>
+            ${scanHtml}
+          </section>` : ''}
+
+          <section class="od-sec" id="order-audit-sec">
+            <div class="od-sec-head"><span class="od-sec-title">${esc(t('detail.audit'))}</span>${state.audit.length ? `<span class="count">${state.audit.length}</span>` : ''}</div>
+            ${auditHtml}
+          </section>
+        </div>
+        <div class="od-foot">
+          <div class="od-sum"></div>
+          <div class="od-foot-btns"></div>
+        </div>
+      </div>`;
     panel.classList.remove('hidden');
     $('#orders-split').classList.remove('no-detail');
 
@@ -818,101 +904,84 @@
     }
 
   }
-  const splitBtn = $('#detail-split-btn');
-  if (splitBtn) {
-    splitBtn.addEventListener('click', () => openSplitModal(o.id, () => {
-      splitBtn.title = 'Split pending';
-      splitBtn.style.opacity = '0.6';
-      splitBtn.disabled = true;
-    }));
-  }
-
-
-
-  async function loadSplitUsersInto(selectEl) {
-    try {
-      const d = await api('GET', '/api/v1/users/brief');
-      const users = d.users || [];
-      selectEl.innerHTML = users.map((u) =>
-        `<option value="${esc(u.username)}">${esc(u.displayName || u.username)}</option>`).join('');
-    } catch {  }
-  }
-
-  window.openSplitModal = async function(orderId, onSuccess) {
-    const modal = $('#split-modal');
-    const backdrop = $('#split-modal-backdrop');
-    const card = $('#split-modal-card');
-    const targetSel = $('#split-target');
-    const reasonTxt = $('#split-reason');
-    const confirmBtn = $('#split-confirm');
-    const cancelBtn = $('#split-cancel');
-
-    if (!modal) return;
-
-    targetSel.innerHTML = '<option>Loading colleagues…</option>';
-    reasonTxt.value = '';
-    confirmBtn.disabled = true;
-
-    await loadSplitUsersInto(targetSel);
-
-    // Select first user by default
-    if (targetSel.options.length > 0) {
-      targetSel.selectedIndex = 0;
-      confirmBtn.disabled = false;
-    }
-
-    const show = () => {
-      modal.style.display = 'block';
-      modal.classList.remove('hidden');
-      backdrop.classList.remove('hidden');
-      card.classList.remove('hidden');
-      targetSel.focus();
-    };
-    const hide = () => {
-      modal.style.display = 'none';
-      modal.classList.add('hidden');
-      backdrop.classList.add('hidden');
-      card.classList.add('hidden');
-    };
-
-    targetSel.addEventListener('change', () => {
-      confirmBtn.disabled = !targetSel.value;
-    });
-
-    cancelBtn.addEventListener('click', () => { hide(); });
-
-    backdrop.addEventListener('click', (e) => {
-      if (e.target === backdrop) hide();
-    });
-
-    confirmBtn.addEventListener('click', async () => {
-      const target = targetSel.value;
-      const reason = reasonTxt.value.trim();
-      if (!target) { toast('Choose a colleague', true); return; }
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Splitting…';
+  const shareBtn = $('#detail-share-btn');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', async () => {
+      const parentId = prompt('Enter parent order ID (leave blank for none):');
+      if (parentId === null) return;
+      const parentIdNum = parentId.trim() ? parseInt(parentId.trim(), 10) : 0;
+      if (parentId.trim() && isNaN(parentIdNum)) { toast('Invalid order ID', true); return; }
+      shareBtn.disabled = true;
+      shareBtn.style.opacity = '0.6';
       try {
-        await api('POST', `/api/v1/orders/${orderId}/split`, {
-          targetUser: target,
-          reason: reason,
-        });
-        hide();
-        if (onSuccess) onSuccess();
-        toast('Split order created — colleague can pick up where you left off');
+        await api('POST', `/api/v1/orders/${o.id}/share`, { parentOrderId: parentIdNum || undefined });
+        shareBtn.title = 'Shared';
+        toast('Order marked as shared');
       } catch (err) {
-        toast(err.message || 'Split failed', true);
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = 'Split order';
+        toast(err.message || 'Share failed', true);
+        shareBtn.disabled = false;
+        shareBtn.style.opacity = '1';
       }
     });
+  }
 
-    show();
-  };
+  const shareWithBtn = $('#detail-share-with-btn');
+  if (shareWithBtn) {
+    let detailShareSelect = null;
+    shareWithBtn.addEventListener('click', async () => {
+      if (detailShareSelect) {
+        detailShareSelect.remove();
+        detailShareSelect = null;
+        return;
+      }
+      try {
+        const briefs = state.userBriefs || [];
+        const already = (o.sharedWith || '').split(',').map((s) => s.trim()).filter(Boolean);
+        const others = briefs.filter((u) => u.username !== (state.user && state.user.username) && !already.includes(u.username));
+        if (!others.length) { toast('No colleagues available', true); return; }
+        const wrap = document.createElement('div');
+        wrap.className = 'detail-share-with-wrap';
+        wrap.style.cssText = 'display:inline-flex; gap:6px; align-items:center; margin-left:8px;';
+        const sel = document.createElement('select');
+        sel.className = 'detail-share-with-select';
+        sel.innerHTML = '<option value="">— select colleague —</option>' + others.map((u) => `<option value="${esc(u.username)}">@${esc(u.username)} ${u.displayName ? '(' + esc(u.displayName) + ')' : ''}</option>`).join('');
+        const goBtn = document.createElement('button');
+        goBtn.type = 'button';
+        goBtn.className = 'icon-btn';
+        goBtn.title = 'Add';
+        goBtn.disabled = true;
+        goBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>';
+        sel.addEventListener('change', () => { goBtn.disabled = !sel.value; });
+        goBtn.addEventListener('click', async () => {
+          const username = sel.value;
+          if (!username) return;
+          goBtn.disabled = true;
+          try {
+            await api('POST', `/api/v1/orders/${o.id}/share-with`, { sharedWith: username });
+            detailShareSelect.remove();
+            detailShareSelect = null;
+            shareWithBtn.title = 'Shared with ' + username;
+            toast('Shared with ' + username);
+            try { await api('GET', '/api/v1/orders/' + o.id); } catch { }
+          } catch (err) {
+            toast(err.message || 'Share failed', true);
+            goBtn.disabled = false;
+          }
+        });
+        wrap.appendChild(sel);
+        wrap.appendChild(goBtn);
+        shareWithBtn.parentNode.insertBefore(wrap, shareWithBtn.nextSibling);
+        detailShareSelect = wrap;
+        sel.focus();
+      } catch (err) {
+        toast('Could not load users: ' + (err.message || ''), true);
+      }
+    });
+  }
 
 
 
-                                               
-async function populateQCReasons() {
+  async function populateQCReasons() {
   const sel = $('#qc-reason');
   if (!sel || sel.options.length) return;
   try {

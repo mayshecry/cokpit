@@ -500,9 +500,14 @@
         <td class="strong">${esc(o.orderNumber)}</td>
         <td>${badge('status-' + esc(statusClass(o.status)), statusLabel(o.status))}</td>
         <td class="clip">${esc(o.customerName || '—')}</td>
-        <td>${can('orders:transition')
-          ? `<button type="button" class="assignee-btn${o.assignee ? '' : ' none'}" data-assign="${o.id}" title="Assign…">${o.assignee ? '@' + esc(o.assignee) : '—'}</button>`
-          : (o.assignee ? '@' + esc(o.assignee) : '<span class="muted">—</span>')}</td>
+        <td>${(function(){
+          const shared = (o.sharedWith || '').split(',').map((s)=>s.trim()).filter(Boolean);
+          const all = [o.assignee].filter(Boolean).concat(shared);
+          const disp = all.length ? all.map((a)=>'@'+esc(a)).join(', ') : '<span class="muted">—</span>';
+          return can('orders:transition')
+            ? `<button type="button" class="assignee-btn${o.assignee ? '' : ' none'}" data-assign="${o.id}" title="Assign…">${disp}</button>`
+            : disp;
+        })()}</td>
         <td class="time">${fmtCell(o.targetCompletionAt)}<span class="rel">${esc(relTime(o.targetCompletionAt))}</span></td>
         <td>${badge('sla-' + sla, sla.replace('_', ' '))}</td>
         <td class="time">${fmtCell(o.createdAt)}</td>

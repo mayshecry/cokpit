@@ -360,42 +360,78 @@ const QCBench = {
     const box = $('#qcb-hist');
     if (!box) return;
     try {
-      const [d, splits] = await Promise.all([
+      const [d, splits, workedBy] = await Promise.all([
         api('GET', '/api/v1/qc/context/' + id).catch(() => ({ recent: [] })),
         api('GET', '/api/v1/orders/' + id + '/splits').catch(() => ({ splits: [] })),
+        api('GET', '/api/v1/orders/' + id + '/worked-by').catch(() => ({ users: [] })),
       ]);
       if (QCBench.ctxFor !== id) return;
       const rows = d.recent || [];
       const splitList = splits.splits || [];
+      const currentWorkedBy = workedBy.users || [];
+
+      let originalWorkedBy = [];
+      const q = QCBench.cur();
+      if (q && q.isSplit && q.splitFrom) {
+        const ob = await api('GET', '/api/v1/orders/' + q.splitFrom + '/worked-by').catch(() => ({ users: [] }));
+        originalWorkedBy = ob.users || [];
+      }
 
       let html = '';
       if (!rows.length) {
         html += '<span class="muted">First QC for this customer / product.</span>';
       } else {
         const fails = rows.filter((r) => r.status === 'FAIL').length;
-        html += `
-          <div class="qcb-hist-sum mono"><span>${rows.length} recent</span><span class="${fails ? 'bad-t' : 'good-t'}">${fails} failed</span></div>
-          ${rows.map((r) => `
-            <div class="qcb-hist-row" title="${esc(r.notes || r.status)}">
-              <span class="qcb-dot ${r.status === 'PASS' ? 'pass' : 'fail' } aria-hidden="true"></span>
-              <span class="mono">${esc(r.orderNumber)}</span>
-              <span class="qcb-hist-why">${esc(r.notes || (r.status === 'PASS' ? 'passed' : 'failed'))}</span>
-              ${r.sameProduct ? '<span class="qcb-pchip mono">product</span>' : ''}
-              <span class="mono muted">${waitLabel(r.at)}</span>
+        html += `\n
+          <div class="qcb-hist-sum mono"><span>${rows.length} recent</span><span class="${fails ? 'bad-t' : 'good-t'}">${fails} failed</span></div>\n
+          ${rows.map((r) => `\n
+            <div class="qcb-hist-row" title="${esc(r.notes || r.status)}">\n
+              <span class="qcb-dot ${r.status === 'PASS' ? 'pass' : 'fail' } aria-hidden=\"true\"></span>\n
+              <span class="mono">${esc(r.orderNumber)}</span>\n
+              <span class="qcb-hist-why">${esc(r.notes || (r.status === 'PASS' ? 'passed' : 'failed'))}</span>\n
+              ${r.sameProduct ? '<span class="qcb-pchip mono">product</span>' : ''}\n
+              <span class="mono muted">${waitLabel(r.at)}</span>\n
             </div>`).join('')}`;
       }
 
       if (splitList.length) {
-        html += `
+        html += `\n
           <div class="qcb-split-hist">
-            <div class="qcb-hist-sum mono" style="margin-top:10px"><span>Splits · ${splitList.length}</span></div>
-            ${splitList.map((s) => `
-              <div class="qcb-hist-row" title="${esc(s.reason || 'split')}">
-                <span class="qcb-dot ${s.status === 'accepted' ? 'pass' : 'fail' } aria-hidden="true"></span>
-                <span class="mono">#${s.splitOrderId || s.originalOrderId}</span>
-                <span class="qcb-hist-why">${esc(s.status)} · ${esc(s.requestedBy || '—')}</span>
-                ${s.acceptedBy ? `<span class="mono muted">accepted by ${esc(s.acceptedBy)}</span>` : ''}
-              </div>`).join('')}
+            <div class="qcb-hist-sum mono" style="margin-top:10px"><span>Splits · ${splitList.length}</span></div>\n
+            ${splitList.map((s) => `\n
+              <div class="qcb-hist-row" title="${esc(s.reason || 'split')}">\n
+                <span class="qcb-dot ${s.status === 'accepted' ? 'pass' : 'fail' } aria-hidden=\"true\"></span>\n
+                <span class="mono">#${s.splitOrderId || s.originalOrderId}</span>\n
+                <span class="qcb-hist-why">${esc(s.status)} · ${esc(s.requestedBy || '—')}</span>\n
+                ${s.acceptedBy ? `<span class="mono muted">accepted by ${esc(s.acceptedBy)}</span>` : ''}\n
+              </div>`).join('')}\n
+          </div>`;
+      }
+
+      const allWorkedBy = [...new Set([...originalWorkedBy, ...currentWorkedBy])];
+      if (allWorkedBy.length) {
+        const labels = [];
+        if (originalWorkedBy.length) labels.push('original: ' + originalWorkedBy.join(', '));
+        if (currentWorkedBy.length) labels.push('split: ' + currentWorkedBy.join(', '));
+        html += `\n
+          <div class="qcb-worked-by" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+            <div class="qcb-hist-sum mono"><span>Worked by · ${allWorkedBy.length}</span></div>\n
+            <div class="qcb-hist-row">${labels.join(' · ')}</div>\n
+          </div>`;
+      }
+
+      // Shared order info (parent/child relationship)
+      const sharedInfo = await api('GET', '/api/v1/orders/' + id + '/shared-info').catch(() => null);
+      if (sharedInfo && sharedInfo.shared) {
+        const si = sharedInfo.shared;
+        const isParent = si.SplitFromOrderID === 0 && si.Shared;
+        const isChild = si.SplitFromOrderID > 0;
+        html += `\n
+          <div class="qcb-shared-info" style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);background:var(--brand-soft);border-radius:var(--r-md);">
+            <div class="qcb-hist-sum mono" style="color:var(--brand)">${isParent ? 'PARENT ORDER (shared)' : isChild ? 'CHILD ORDER (shared)' : 'SHARED ORDER'}</div>
+            ${isParent ? `<div class="qcb-hist-row"><span>Children:</span> <span>${si.Children ? si.Children.map((c) => '#'+c.OrderNumber+' '+c.Status).join(', ') : 'none'}</span></div>` : ''}
+            ${isChild ? `<div class="qcb-hist-row"><span>Parent:</span> <span>#${si.ParentOrderNumber} (${si.ParentStatus}) · ${si.ParentAssignee || '—'}</span></div>` : ''}
+            <div class="qcb-hist-row"><span>Worked by:</span> <span>${si.WorkedBy ? si.WorkedBy.join(', ') : '—'}</span></div>
           </div>`;
       }
 
@@ -404,6 +440,7 @@ const QCBench = {
       if (QCBench.ctxFor === id) box.innerHTML = '<span class="muted">History unavailable.</span>';
     }
   },
+
 
   doneUpto(k) {
     for (let i = 0; i < k && i < 3; i++) {

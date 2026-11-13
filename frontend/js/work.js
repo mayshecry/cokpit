@@ -121,7 +121,8 @@ const WorkFlow = {
     if (!o || o.status === 'Completed') return '';
     const sess = WorkFlow.activeFor(o.id);
     const sz = size === 'sm' ? ' btn-sm' : '';
-    if (sess && sess.username === state.user.username) {
+    const curUser = state.user ? state.user.username : '';
+    if (sess && sess.username === curUser) {
       return `<button type="button" class="btn btn-work${sz}" data-work-open="${o.id}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v6l4 2"/><circle cx="12" cy="12" r="9"/></svg>
         ${esc(t('work.resume'))} <span class="mono" data-work-timer="${sess.startedAt}">${WorkFlow.fmtElapsed(Date.now() - sess.startedAt)}</span>
@@ -133,7 +134,8 @@ const WorkFlow = {
         ${esc(t('work.inprogress'))} @${esc(sess.username)}
       </button>`;
     }
-    if (!WorkFlow.mine(o)) return '';
+    const sharedWith = (o.sharedWith || '').split(',').map((s) => s.trim()).filter(Boolean);
+    if (!WorkFlow.mine(o) && !sharedWith.includes(curUser)) return '';
     return `<button type="button" class="btn btn-work${sz}" data-work-open="${o.id}">
       <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M8 5.5v13l11-6.5z"/></svg>
       ${esc(t('work.start'))}
@@ -185,9 +187,12 @@ const WorkFlow = {
     const root = WorkFlow.ensureRoot();
     root.classList.remove('hidden');
     const sess = WorkFlow.activeFor(o.id);
-    if (sess && sess.username === state.user.username) {
+    const curUser = state.user ? state.user.username : '';
+    if (sess && sess.username === curUser) {
       WorkFlow.session = sess;
       await WorkFlow.enterWizard();
+    } else if (sess) {
+      WorkFlow.renderBusy(sess);
     } else {
       WorkFlow.renderReady();
     }
@@ -228,11 +233,38 @@ const WorkFlow = {
     root.querySelector('#wb-start').addEventListener('click', async (e) => {
       const b = e.currentTarget;
       b.disabled = true;
-      const d = await api('POST', `/api/v1/orders/${o.id}/work/start`);
-      if (d.error) { toast(d.error.message || d.error.code, true); b.disabled = false; return; }
-      WorkFlow.session = d.session;
-      await WorkFlow.enterWizard();
+      try {
+        const d = await api('POST', `/api/v1/orders/${o.id}/work/start`);
+        WorkFlow.session = d.session;
+        await WorkFlow.enterWizard();
+      } catch (err) {
+        b.disabled = false;
+        if (err.status === 409) {
+          const code = err.data && err.data.error && err.data.error.code;
+          if (code === 'session_taken') {
+            try {
+              const resp = await api('GET', `/api/v1/orders/${o.id}/work`);
+              WorkFlow.renderBusy(resp.session || resp);
+              return;
+            } catch { }
+            toast('Another user is already working on this order', true);
+            return;
+          }
+          if (code === 'order_completed') {
+            toast('This order is completed and cannot be clocked into', true);
+            return;
+          }
+        }
+        toast(err.message || 'Start failed', true);
+      }
     });
+  },
+
+  renderBusy(sess) {
+    const o = WorkFlow.order;
+    const root = WorkFlow.ensureRoot();
+    root.innerHTML = '<div class="wb-backdrop" data-wb-close></div><div class="wb-panel" role="dialog" aria-modal="true" aria-label="' + esc(t('work.title')) + '"><div class="wb-head"><div><div class="eyebrow">' + esc(t('work.title')) + '</div><h2 class="mono">' + esc(o.orderNumber) + '</h2><p class="wb-sub">' + esc(t('work.inprogress')) + ' @' + esc(sess.username) + '</p></div><button type="button" class="icon-btn" data-wb-close aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div><div class="wb-ready"><p>' + esc(t('work.busySub')) + '</p></div></div>';
+    WorkFlow.bindClose(root);
   },
 
   async enterWizard() {
@@ -400,7 +432,8 @@ const WorkFlow = {
         <div class="wb-foot">
           <button type="button" class="btn btn-ghost" id="wb-back" ${WorkFlow.step === 0 ? 'disabled' : ''}>← ${esc(t('work.back'))}</button>
           <span class="wb-hint rel">${esc(WorkFlow.gateHint())}</span>
-          <button type="button" class="btn btn-ghost btn-sm" id="wb-split-wizard" title="Split order to colleague">⇄ Split</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="wb-share-wizard" title="Mark order as shared">🤝 Share</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="wb-share-with-wizard" title="Share with colleague">👥 Share with</button>
           <button type="button" class="btn btn-work btn-lg" id="wb-next" ${WorkFlow.gateOk() ? '' : 'disabled'}>
             ${esc(last ? t('work.complete') : t('work.next'))} <span aria-hidden="true">→</span>
           </button>
@@ -475,23 +508,97 @@ const WorkFlow = {
       });
     });
 
-    const splitWizBtn = root.querySelector('#wb-split-wizard');
-    if (splitWizBtn) {
-      splitWizBtn.addEventListener('click', () => {
-        openSplitModal(WorkFlow.order.id, () => {
+    const shareWizBtn = root.querySelector('#wb-share-wizard');
+    if (shareWizBtn) {
+      shareWizBtn.addEventListener('click', async () => {
+        const parentId = prompt('Enter parent order ID (leave blank for none):');
+        if (parentId === null) return;
+        const parentIdNum = parentId.trim() ? parseInt(parentId.trim(), 10) : 0;
+        if (parentId.trim() && isNaN(parentIdNum)) { toast('Invalid order ID', true); return; }
+        shareWizBtn.disabled = true;
+        shareWizBtn.textContent = 'Sharing…';
+        try {
+          await api('POST', `/api/v1/orders/${WorkFlow.order.id}/share`, { parentOrderId: parentIdNum || undefined });
+          shareWizBtn.textContent = 'Shared';
+          shareWizBtn.disabled = true;
           const headRight = root.querySelector('.wb-head-right');
-          if (headRight && !headRight.querySelector('#wb-split-status')) {
+          if (headRight && !headRight.querySelector('#wb-share-status')) {
             const badge = document.createElement('span');
-            badge.id = 'wb-split-status';
-            badge.className = 'badge status-split';
-            badge.textContent = 'Split pending';
+            badge.id = 'wb-share-status';
+            badge.className = 'badge status-share';
+            badge.textContent = 'Shared';
             badge.style.cssText = 'margin-left:8px; font-size:11px; padding:2px 8px; background:var(--brand); color:#fff; border-radius:999px;';
             headRight.appendChild(badge);
           }
-          splitWizBtn.textContent = 'Split pending';
-          splitWizBtn.disabled = true;
-          toast('Split order created — colleague can pick up where you left off');
-        });
+          toast('Order marked as shared');
+        } catch (err) {
+          toast(err.message || 'Share failed', true);
+          shareWizBtn.disabled = false;
+          shareWizBtn.textContent = '🤝 Share';
+        }
+      });
+    }
+
+    const shareWithWizBtn = root.querySelector('#wb-share-with-wizard');
+    if (shareWithWizBtn) {
+      let wizShareSelect = null;
+      shareWithWizBtn.addEventListener('click', async () => {
+        if (wizShareSelect) {
+          wizShareSelect.remove();
+          wizShareSelect = null;
+          return;
+        }
+        try {
+          const d = await api('GET', '/api/v1/users/brief');
+          const already = (WorkFlow.order && WorkFlow.order.sharedWith) ? WorkFlow.order.sharedWith.split(',').map((s) => s.trim()).filter(Boolean) : [];
+          const users = (d.users || []).filter((u) => u.username !== (WorkFlow.order && WorkFlow.order.assignee) && !already.includes(u.username));
+          if (!users.length) { toast('No colleagues available', true); return; }
+          const wrap = document.createElement('div');
+          wrap.className = 'wb-share-with-wrap';
+          wrap.style.cssText = 'display:inline-flex; gap:6px; align-items:center; margin-left:8px;';
+          const sel = document.createElement('select');
+          sel.className = 'wb-share-with-select';
+          sel.innerHTML = '<option value="">— select colleague —</option>' + users.map((u) => `<option value="${esc(u.username)}">@${esc(u.username)} ${u.displayName ? '(' + esc(u.displayName) + ')' : ''}</option>`).join('');
+          const goBtn = document.createElement('button');
+          goBtn.type = 'button';
+          goBtn.className = 'btn btn-ghost btn-sm';
+          goBtn.textContent = 'Add';
+          goBtn.disabled = true;
+          sel.addEventListener('change', () => { goBtn.disabled = !sel.value; });
+          goBtn.addEventListener('click', async () => {
+            const username = sel.value;
+            if (!username) return;
+            goBtn.disabled = true;
+            goBtn.textContent = 'Adding…';
+            try {
+              await api('POST', `/api/v1/orders/${WorkFlow.order.id}/share-with`, { sharedWith: username });
+              goBtn.textContent = 'Added';
+              wizShareSelect.remove();
+              wizShareSelect = null;
+              const headRight = root.querySelector('.wb-head-right');
+              if (headRight && !headRight.querySelector('#wb-share-status')) {
+                const badge = document.createElement('span');
+                badge.id = 'wb-share-status';
+                badge.className = 'badge status-share';
+                badge.textContent = 'Shared';
+                badge.style.cssText = 'margin-left:8px; font-size:11px; padding:2px 8px; background:var(--brand); color:#fff; border-radius:999px;';
+                headRight.appendChild(badge);
+              }
+              toast('Shared with ' + username);
+            } catch (err) {
+              toast(err.message || 'Share failed', true);
+              goBtn.disabled = false;
+              goBtn.textContent = 'Add';
+            }
+          });
+          wrap.appendChild(sel);
+          wrap.appendChild(goBtn);
+          shareWithWizBtn.parentNode.insertBefore(wrap, shareWithWizBtn.nextSibling);
+          wizShareSelect = wrap;
+          sel.focus();
+        } catch (err) {
+          toast('Could not load users: ' + (err.message || ''), true);
+        }
       });
     }
 

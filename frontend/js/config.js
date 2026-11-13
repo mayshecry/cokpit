@@ -597,6 +597,8 @@ let wfDraft = null;
     }));
   }
 
+  let wfRequiresSplit = false;
+
   async function loadWorkflowEditor() {
     try {
       const d = wfProfileID
@@ -606,7 +608,8 @@ let wfDraft = null;
       wfDraft = steps
         ? steps.map((st) => ({ key: st.key, title: st.title || '', desc: st.desc || '', location: st.location || '', checks: (st.checks || []).map((c) => ({ key: c.key, label: c.label })), next: st.next || '', pick: !!st.pick, qcGate: !!st.qcGate }))
         : wfDefaultDraft();
-    } catch { wfDraft = wfDefaultDraft(); }
+      wfRequiresSplit = wfProfileID ? !!(d.profile && d.profile.requires_split) : !!(d.requires_split);
+    } catch { wfDraft = wfDefaultDraft(); wfRequiresSplit = false; }
     wfDrafts[wfScope] = wfDraft;
     renderWorkflowEditor();
     updateScopeUI();
@@ -740,7 +743,7 @@ let wfDraft = null;
     });
     $('#wf-save', root).addEventListener('click', async () => {
       try {
-        const body = { name: wfProfileName, steps: wfCollect() };
+        const body = { name: wfProfileName, steps: wfCollect(), requires_split: wfRequiresSplit };
         if (wfScope && wfProfileName) {
           const result = wfProfileID
             ? await api('PUT', `/api/v1/workflow-profiles/${wfProfileID}`, body)
@@ -751,13 +754,21 @@ let wfDraft = null;
           toast(`Workflow profile “${wfProfileName}” saved for ${wfScope}`);
         } else {
           const qs = wfScope ? '?customer=' + encodeURIComponent(wfScope) : '';
-          await api('PUT', '/api/v1/workflow' + qs, { steps: wfCollect() });
+          await api('PUT', '/api/v1/workflow' + qs, { steps: wfCollect(), requires_split: wfRequiresSplit });
           toast(wfScope ? `Customer flow saved — only "${wfScope}" orders use it` : 'Work flow saved — everyone uses it now');
         }
         if (window.WorkFlow) WorkFlow.loadFlow(true, true);
         refreshCustomersCard();
       } catch (err) { toast(err.message, true); }
     });
+
+    const requiresSplitChk = root.querySelector('#wf-requires-split');
+    if (requiresSplitChk) {
+      requiresSplitChk.checked = wfRequiresSplit;
+      requiresSplitChk.addEventListener('change', () => {
+        wfRequiresSplit = requiresSplitChk.checked;
+      });
+    }
     $('#wf-reset', root).addEventListener('click', async () => {
       if (wfScope) {
         const ok = await modal({
@@ -798,6 +809,8 @@ let wfDraft = null;
       await loadWorkflowEditor();
       renderWorkflowProfilePicker();
       updateScopeUI();
+      const requiresSplitChk = root.querySelector('#wf-requires-split');
+      if (requiresSplitChk) requiresSplitChk.checked = wfRequiresSplit;
     });
     const newProfileBtn = $('#wf-profile-new', root);
     if (newProfileBtn) newProfileBtn.addEventListener('click', newWorkflowProfile);
@@ -896,6 +909,7 @@ let wfDraft = null;
           <div class="wf-profile-tools hidden" id="wf-profile-tools">
             <label for="wf-profile">Customer workflow</label>
             <select id="wf-profile" class="wf-profile-select"></select>
+            <label class="wf-flag" style="margin-left:16px"><input type="checkbox" id="wf-requires-split"> Requires split</label>
             <button type="button" class="btn btn-secondary btn-sm" id="wf-profile-new">+ New profile</button>
           </div>
         </div>
