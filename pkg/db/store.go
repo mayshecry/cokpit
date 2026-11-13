@@ -35,13 +35,14 @@ func (s *Store) DB() *sql.DB { return s.db }
 
 const orderCols = `id, order_number, status, target_completion_at, created_at, updated_at, assigned_to, paused_seconds,
 		debit_number, customer_name, omnitracker_ticket, device, asset_number, configuration,
-		COALESCE(NULLIF(workflow_profile_id, ''), 0) AS workflow_profile_id, workflow_profile_name, si_id, barcode`
+		COALESCE(NULLIF(workflow_profile_id, ''), 0) AS workflow_profile_id, workflow_profile_name, si_id, barcode,
+		shared, shared_with, split_from_order_id`
 
 type orderScanner interface {
 	Scan(dest ...any) error
 }
 
-func orderScanDest(o *order.Order, tgt, created, updated *int64, siID, wpID *sql.NullInt64) []any {
+func orderScanDest(o *order.Order, tgt, created, updated *int64, siID, wpID *sql.NullInt64, shared *int64, sharedWith *string, splitFrom *sql.NullInt64) []any {
 	return []any{
 		&o.ID,
 		&o.OrderNumber,
@@ -61,6 +62,9 @@ func orderScanDest(o *order.Order, tgt, created, updated *int64, siID, wpID *sql
 		&o.WorkflowProfileName,
 		siID,
 		&o.Barcode,
+		shared,
+		sharedWith,
+		splitFrom,
 	}
 }
 
@@ -68,7 +72,10 @@ func scanOrderRow(sc orderScanner) (order.Order, error) {
 	var o order.Order
 	var tgt, created, updated int64
 	var siID, wpID sql.NullInt64
-	err := sc.Scan(orderScanDest(&o, &tgt, &created, &updated, &siID, &wpID)...)
+	var sharedVal int64
+	var sharedWithVal string
+	var splitFromVal sql.NullInt64
+	err := sc.Scan(orderScanDest(&o, &tgt, &created, &updated, &siID, &wpID, &sharedVal, &sharedWithVal, &splitFromVal)...)
 	if err != nil {
 		return order.Order{}, err
 	}
@@ -80,6 +87,11 @@ func scanOrderRow(sc orderScanner) (order.Order, error) {
 	}
 	if wpID.Valid {
 		o.WorkflowProfileID = wpID.Int64
+	}
+	o.Shared = sharedVal == 1
+	o.SharedWith = sharedWithVal
+	if splitFromVal.Valid {
+		o.SplitFromOrderID = splitFromVal.Int64
 	}
 	return o, nil
 }
@@ -94,7 +106,10 @@ func orderScanCount() int {
 	var probe order.Order
 	var tgt, created, updated int64
 	var siID, wpID sql.NullInt64
-	return len(orderScanDest(&probe, &tgt, &created, &updated, &siID, &wpID))
+	var sharedVal int64
+	var sharedWithVal string
+	var splitFromVal sql.NullInt64
+	return len(orderScanDest(&probe, &tgt, &created, &updated, &siID, &wpID, &sharedVal, &sharedWithVal, &splitFromVal))
 }
 
 func countOrderColumns(ctx context.Context, db *sql.DB) (int, error) {
@@ -611,10 +626,10 @@ func (s *Store) ListOrdersFiltered(ctx context.Context, q ListQuery) ([]order.Or
 	}
 	switch {
 	case q.OnlyUnassigned:
-		where = append(where, "assigned_to = ''")
+		where = append(where, "assigned_to = '' AND shared_with = ''")
 	case q.Assignee != "":
-		where = append(where, "assigned_to = ?")
-		args = append(args, q.Assignee)
+		where = append(where, "(assigned_to = ? OR shared_with LIKE ?)")
+		args = append(args, q.Assignee, "%"+q.Assignee+"%")
 	}
 
 	whereSQL := ""
@@ -828,369 +843,116 @@ func (s *Store) BarcodeScanHistory(ctx context.Context, orderID int64) ([]order.
 	return events, rows.Err()
 }
 
-func (s *Store) CreateOrderSplit(ctx context.Context, originalOrderID int64, req order.SplitRequest, now time.Time) (order.OrderSplit, error) {
-	if req.RequestedBy == "" {
-		req.RequestedBy = "system"
-	}
-	if req.TargetUser == "" {
-		return order.OrderSplit{}, fmt.Errorf("target user is required")
+func (s *Store) ShareOrder(ctx context.Context, orderID int64, sharedWith string, now time.Time) error {
+	// Get current shared_with
+	var currentSharedWith string
+	err := s.db.QueryRowContext(ctx, `SELECT shared_with FROM orders WHERE id = ?`, orderID).Scan(&currentSharedWith)
+	if err != nil {
+		return fmt.Errorf("get order shared_with: %w", err)
 	}
 
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("begin: %w", err)
+	// Add user if not already present
+	users := map[string]bool{}
+	for _, u := range splitComma(currentSharedWith) {
+		if u != "" {
+			users[u] = true
+		}
 	}
-	defer tx.Rollback()
+	if users[sharedWith] {
+		return nil // already shared
+	}
+	users[sharedWith] = true
 
-	var exists int
-	err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE username = ?`, req.TargetUser).Scan(&exists)
-	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("check target user: %w", err)
-	}
-	if exists == 0 {
-		return order.OrderSplit{}, fmt.Errorf("target user %q does not exist", req.TargetUser)
-	}
-
-	var origStatus string
-	err = tx.QueryRowContext(ctx, `SELECT status FROM orders WHERE id = ?`, originalOrderID).Scan(&origStatus)
-	if errors.Is(err, sql.ErrNoRows) {
-		return order.OrderSplit{}, ErrNotFound
-	}
-	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("get original order: %w", err)
-	}
-	if origStatus == string(order.StatusCompleted) {
-		return order.OrderSplit{}, fmt.Errorf("cannot split a completed order")
-	}
-
-	var origProfileID sql.NullInt64
-	var origProfileName string
-	var origTargetAt int64
-	err = tx.QueryRowContext(ctx,
-		`SELECT workflow_profile_id, workflow_profile_name, target_completion_at FROM orders WHERE id = ?`,
-		originalOrderID).Scan(&origProfileID, &origProfileName, &origTargetAt)
-	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("get original order profile: %w", err)
-	}
-	var origProfileIDInt int64
-	if origProfileID.Valid {
-		origProfileIDInt = origProfileID.Int64
+	var b strings.Builder
+	first := true
+	for u := range users {
+		if !first {
+			b.WriteString(",")
+		}
+		b.WriteString(u)
+		first = false
 	}
 
 	ms := now.UTC().UnixMilli()
-	baseNumber := fmt.Sprintf("%d-SPLIT-%d", originalOrderID, now.UnixNano())
+	_, err = s.db.ExecContext(ctx,
+		`UPDATE orders SET shared_with = ?, updated_at = ? WHERE id = ?`,
+		b.String(), ms, orderID)
+	if err != nil {
+		return fmt.Errorf("share order: %w", err)
+	}
+	return nil
+}
 
-	var splitID int64
-	for i := 0; i < 5; i++ {
-		candidate := baseNumber
-		if i > 0 {
-			candidate = fmt.Sprintf("%s-%d", baseNumber, i)
-		}
-		res, err := tx.ExecContext(ctx,
-			`INSERT INTO orders (order_number, status, target_completion_at, created_at, updated_at, assigned_to, split_from_order_id, split_reason, workflow_profile_id, workflow_profile_name)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			candidate, string(order.StatusReceived), origTargetAt, ms, ms, ms, req.TargetUser, originalOrderID, req.Reason, origProfileIDInt, origProfileName)
-		if err == nil {
-			splitID, err = res.LastInsertId()
-			if err != nil {
-				return order.OrderSplit{}, fmt.Errorf("last insert id: %w", err)
-			}
-			break
-		}
-		if i == 4 {
-			return order.OrderSplit{}, fmt.Errorf("insert split order: %w", err)
+func splitComma(s string) []string {
+	var out []string
+	for _, part := range strings.Split(s, ",") {
+		if p := strings.TrimSpace(part); p != "" {
+			out = append(out, p)
 		}
 	}
-	if splitID == 0 {
-		return order.OrderSplit{}, fmt.Errorf("insert split order: unable to generate unique order number")
+	return out
+}
+
+func (s *Store) MarkOrderShared(ctx context.Context, orderID, parentOrderID int64, now time.Time) error {
+	ms := now.UTC().UnixMilli()
+	_, err := s.db.ExecContext(ctx,
+		`UPDATE orders SET shared = 1, split_from_order_id = ?, updated_at = ? WHERE id = ?`,
+		parentOrderID, ms, orderID)
+	if err != nil {
+		return fmt.Errorf("mark order shared: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) GetOrderSharedInfo(ctx context.Context, orderID int64) (order.SharedInfo, error) {
+	o, err := scanOrderRow(s.db.QueryRowContext(ctx, `SELECT `+orderCols+` FROM orders WHERE id = ?`, orderID))
+	if err != nil {
+		return order.SharedInfo{}, fmt.Errorf("get order: %w", err)
 	}
 
-	// Copy workflow progress: latest work session step/checks to the split order (target user)
-	var prevStep int
-	var prevChecks string
-	err = tx.QueryRowContext(ctx,
-		`SELECT step, checks FROM work_sessions
-		WHERE order_id = ? AND ended_at IS NOT NULL AND completed = 0
-		ORDER BY id DESC LIMIT 1`, originalOrderID).Scan(&prevStep, &prevChecks)
-	if err == nil {
-		_, err = tx.ExecContext(ctx,
-			`INSERT INTO work_sessions (order_id, username, started_at, step, checks, completed)
-			VALUES (?, ?, ?, ?, ?, 0)`,
-			splitID, req.TargetUser, ms, prevStep, prevChecks)
+	var info order.SharedInfo
+
+	info.OrderID = o.ID
+	info.OrderNumber = o.OrderNumber
+	info.Shared = o.Shared
+	info.SplitFromOrderID = o.SplitFromOrderID
+
+	if o.Shared && o.SplitFromOrderID > 0 {
+		parent, err := scanOrderRow(s.db.QueryRowContext(ctx, `SELECT `+orderCols+` FROM orders WHERE id = ?`, o.SplitFromOrderID))
 		if err != nil {
-			return order.OrderSplit{}, fmt.Errorf("copy work session: %w", err)
+			return order.SharedInfo{}, fmt.Errorf("get parent order: %w", err)
 		}
+		info.ParentOrderNumber = parent.OrderNumber
+		info.ParentStatus = string(parent.Status)
+		info.ParentAssignee = parent.Assignee
 	}
 
-	// Copy checklist items from original to split order (unchecked, unassigned)
-	_, err = tx.ExecContext(ctx,
-		`INSERT INTO checklist_items (order_id, seq, artikel, omschrijving, locatie, aantal, checked_by, checked_at, created_at)
-		SELECT ?, seq, artikel, omschrijving, locatie, aantal, NULL, NULL, created_at
-		FROM checklist_items WHERE order_id = ? ORDER BY seq ASC, id ASC`,
-		splitID, originalOrderID)
+	children, err := s.db.QueryContext(ctx,
+		`SELECT `+orderCols+` FROM orders WHERE split_from_order_id = ? AND shared = 1`, orderID)
 	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("copy checklist items: %w", err)
+		return order.SharedInfo{}, fmt.Errorf("get shared children: %w", err)
 	}
-
-	// Copy order manuals and their blocks from original to split order
-	manualRows, err := tx.QueryContext(ctx,
-		`SELECT id, product_id, product_code, product_name, created_by, created_at FROM order_manuals WHERE order_id = ? ORDER BY id ASC`, originalOrderID)
-	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("query order manuals: %w", err)
-	}
-	type manualCopy struct {
-		id          int64
-		productID   int
-		productCode string
-		productName string
-		createdBy   string
-		createdAt   int64
-	}
-	var manuals []manualCopy
-	for manualRows.Next() {
-		var m manualCopy
-		if err := manualRows.Scan(&m.id, &m.productID, &m.productCode, &m.productName, &m.createdBy, &m.createdAt); err != nil {
-			manualRows.Close()
-			return order.OrderSplit{}, fmt.Errorf("scan order manual: %w", err)
-		}
-		manuals = append(manuals, m)
-	}
-	manualRows.Close()
-
-	for _, m := range manuals {
-		res2, err := tx.ExecContext(ctx,
-			`INSERT INTO order_manuals (order_id, product_id, product_code, product_name, created_by, created_at)
-			VALUES (?, ?, ?, ?, ?, ?)`,
-			splitID, m.productID, m.productCode, m.productName, req.TargetUser, m.createdAt)
+	defer children.Close()
+	for children.Next() {
+		c, err := scanOrderRow(children)
 		if err != nil {
-			return order.OrderSplit{}, fmt.Errorf("insert order manual: %w", err)
+			return order.SharedInfo{}, fmt.Errorf("scan child: %w", err)
 		}
-		newManualID, _ := res2.LastInsertId()
-
-		blockRows, err := tx.QueryContext(ctx,
-			`SELECT seq, title, body, assignee, answer, answered_by, answered_at, flagged, flagged_by, flagged_at, flag_reason, created_at FROM order_manual_blocks WHERE manual_id = ? ORDER BY seq ASC`, m.id)
-		if err != nil {
-			return order.OrderSplit{}, fmt.Errorf("query manual blocks: %w", err)
-		}
-		type blockCopy struct {
-			seq         int
-			title       string
-			body        string
-			assignee    string
-			answer      string
-			answeredBy  string
-			answeredAt  int64
-			flagged     int
-			flaggedBy   string
-			flaggedAt   int64
-			flagReason  string
-			createdAt   int64
-		}
-		var blocks []blockCopy
-		for blockRows.Next() {
-			var b blockCopy
-			if err := blockRows.Scan(&b.seq, &b.title, &b.body, &b.assignee, &b.answer, &b.answeredBy, &b.answeredAt, &b.flagged, &b.flaggedBy, &b.flaggedAt, &b.flagReason, &b.createdAt); err != nil {
-				blockRows.Close()
-				return order.OrderSplit{}, fmt.Errorf("scan manual block: %w", err)
-			}
-			blocks = append(blocks, b)
-		}
-		blockRows.Close()
-
-		for _, b := range blocks {
-			_, err = tx.ExecContext(ctx,
-				`INSERT INTO order_manual_blocks (manual_id, seq, title, body, assignee, answer, answered_by, answered_at, flagged, flagged_by, flagged_at, flag_reason, created_at)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				newManualID, b.seq, b.title, b.body, b.assignee, b.answer, b.answeredBy, b.answeredAt, b.flagged, b.flaggedBy, b.flaggedAt, b.flagReason, b.createdAt)
-			if err != nil {
-				return order.OrderSplit{}, fmt.Errorf("insert manual block: %w", err)
-			}
-		}
+		info.Children = append(info.Children, order.SharedChildInfo{
+			OrderID:      c.ID,
+			OrderNumber:  c.OrderNumber,
+			Status:       string(c.Status),
+			Assignee:     c.Assignee,
+		})
 	}
 
-	res2, err := tx.ExecContext(ctx,
-		`INSERT INTO order_splits (original_order_id, requested_by, reason, status, created_at)
-		VALUES (?, ?, ?, 'pending', ?)`,
-		originalOrderID, req.RequestedBy, req.Reason, millis(now))
+	workedBy, err := s.GetWorkedByUsers(ctx, orderID)
 	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("insert split record: %w", err)
+		return order.SharedInfo{}, fmt.Errorf("get worked by: %w", err)
 	}
-	splitRecordID, _ := res2.LastInsertId()
+	info.WorkedBy = workedBy
 
-	if err := tx.Commit(); err != nil {
-		return order.OrderSplit{}, fmt.Errorf("commit: %w", err)
-	}
-
-	return order.OrderSplit{
-		ID:              splitRecordID,
-		OriginalOrderID: originalOrderID,
-		SplitOrderID:    splitID,
-		RequestedBy:     req.RequestedBy,
-		Status:          "pending",
-		Reason:          req.Reason,
-		CreatedAt:       now.UTC(),
-	}, nil
-}
-
-func (s *Store) AcceptOrderSplit(ctx context.Context, splitID int64, req order.SplitAcceptRequest, now time.Time) (order.OrderSplit, error) {
-	if req.AcceptedBy == "" {
-		req.AcceptedBy = "system"
-	}
-
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("begin: %w", err)
-	}
-	defer tx.Rollback()
-
-	var originalOrderID, splitOrderID int64
-	var status string
-	err = tx.QueryRowContext(ctx,
-		`SELECT original_order_id, split_order_id, status FROM order_splits WHERE id = ?`, splitID).Scan(&originalOrderID, &splitOrderID, &status)
-	if errors.Is(err, sql.ErrNoRows) {
-		return order.OrderSplit{}, ErrNotFound
-	}
-	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("get split: %w", err)
-	}
-	if status != "pending" {
-		return order.OrderSplit{}, fmt.Errorf("split is already %s", status)
-	}
-
-	_, err = tx.ExecContext(ctx,
-		`UPDATE order_splits SET accepted_by = ?, status = 'accepted', accepted_at = ? WHERE id = ?`,
-		req.AcceptedBy, millis(now), splitID)
-	if err != nil {
-		return order.OrderSplit{}, fmt.Errorf("update split: %w", err)
-	}
-
-	if _, err := tx.ExecContext(ctx,
-		`UPDATE orders SET assigned_to = ?, updated_at = ? WHERE id = ?`,
-		req.AcceptedBy, millis(now), splitOrderID); err != nil {
-		return order.OrderSplit{}, fmt.Errorf("assign split order: %w", err)
-	}
-
-	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO audit_logs (order_id, action, performed_by, timestamp) VALUES (?, ?, ?, ?)`,
-		splitOrderID, "accepted split from order "+fmt.Sprintf("%d", originalOrderID), req.AcceptedBy, millis(now)); err != nil {
-		return order.OrderSplit{}, fmt.Errorf("insert audit: %w", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return order.OrderSplit{}, fmt.Errorf("commit: %w", err)
-	}
-
-	return order.OrderSplit{
-		ID:              splitID,
-		OriginalOrderID: originalOrderID,
-		SplitOrderID:    splitOrderID,
-		AcceptedBy:      req.AcceptedBy,
-		Status:          "accepted",
-		AcceptedAt:      &now,
-	}, nil
-}
-
-func (s *Store) ListOrderSplits(ctx context.Context, status string) ([]order.OrderSplit, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, original_order_id, split_order_id, requested_by, accepted_by, status, reason, created_at, accepted_at FROM order_splits WHERE status = ? ORDER BY created_at DESC`, status)
-	if err != nil {
-		return nil, fmt.Errorf("query splits: %w", err)
-	}
-	defer rows.Close()
-
-	var splits []order.OrderSplit
-	for rows.Next() {
-		var s order.OrderSplit
-		var acceptedAt sql.NullInt64
-		var created int64
-		if err := rows.Scan(&s.ID, &s.OriginalOrderID, &s.SplitOrderID, &s.RequestedBy, &s.AcceptedBy, &s.Status, &s.Reason, &created, &acceptedAt); err != nil {
-			return nil, fmt.Errorf("scan split: %w", err)
-		}
-		s.CreatedAt = fromMillis(created)
-		if acceptedAt.Valid {
-			t := fromMillis(acceptedAt.Int64)
-			s.AcceptedAt = &t
-		}
-		splits = append(splits, s)
-	}
-	return splits, rows.Err()
-}
-
-func (s *Store) GetOrderSplits(ctx context.Context, orderID int64) ([]order.OrderSplit, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, original_order_id, split_order_id, requested_by, accepted_by, status, reason, created_at, accepted_at FROM order_splits WHERE original_order_id = ? OR split_order_id = ? ORDER BY created_at DESC`, orderID, orderID)
-	if err != nil {
-		return nil, fmt.Errorf("query order splits: %w", err)
-	}
-	defer rows.Close()
-
-	var splits []order.OrderSplit
-	for rows.Next() {
-		var s order.OrderSplit
-		var acceptedAt sql.NullInt64
-		var created int64
-		if err := rows.Scan(&s.ID, &s.OriginalOrderID, &s.SplitOrderID, &s.RequestedBy, &s.AcceptedBy, &s.Status, &s.Reason, &created, &acceptedAt); err != nil {
-			return nil, fmt.Errorf("scan split: %w", err)
-		}
-		s.CreatedAt = fromMillis(created)
-		if acceptedAt.Valid {
-			t := fromMillis(acceptedAt.Int64)
-			s.AcceptedAt = &t
-		}
-		splits = append(splits, s)
-	}
-	return splits, rows.Err()
-}
-
-func (s *Store) RecordWorkflowStepResult(ctx context.Context, req order.WorkflowStepResultRequest, now time.Time) (order.WorkflowStepResult, error) {
-	if req.PerformedBy == "" {
-		req.PerformedBy = "system"
-	}
-
-	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO workflow_step_results (order_id, step_key, step_index, performed_by, correct, customer_impact, notes, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		req.OrderID, req.StepKey, req.StepIndex, req.PerformedBy, boolInt(req.Correct), boolInt(req.CustomerImpact), req.Notes, millis(now))
-	if err != nil {
-		return order.WorkflowStepResult{}, fmt.Errorf("insert step result: %w", err)
-	}
-	id, _ := res.LastInsertId()
-
-	return order.WorkflowStepResult{
-		ID:            id,
-		OrderID:       req.OrderID,
-		StepKey:       req.StepKey,
-		StepIndex:     req.StepIndex,
-		PerformedBy:   req.PerformedBy,
-		Correct:       req.Correct,
-		CustomerImpact: req.CustomerImpact,
-		Notes:         req.Notes,
-		CreatedAt:     now.UTC(),
-	}, nil
-}
-
-func (s *Store) GetWorkflowStepResults(ctx context.Context, orderID int64) ([]order.WorkflowStepResult, error) {
-	rows, err := s.db.QueryContext(ctx,
-		`SELECT id, order_id, step_key, step_index, performed_by, correct, customer_impact, notes, created_at FROM workflow_step_results WHERE order_id = ? ORDER BY step_index, created_at`, orderID)
-	if err != nil {
-		return nil, fmt.Errorf("query step results: %w", err)
-	}
-	defer rows.Close()
-
-	var results []order.WorkflowStepResult
-	for rows.Next() {
-		var r order.WorkflowStepResult
-		var created int64
-		var correct, ci int
-		if err := rows.Scan(&r.ID, &r.OrderID, &r.StepKey, &r.StepIndex, &r.PerformedBy, &correct, &ci, &r.Notes, &created); err != nil {
-			return nil, fmt.Errorf("scan step result: %w", err)
-		}
-		r.Correct = correct == 1
-		r.CustomerImpact = ci == 1
-		r.CreatedAt = fromMillis(created)
-		results = append(results, r)
-	}
-	return results, rows.Err()
+	return info, nil
 }
 
 func boolInt(b bool) int {

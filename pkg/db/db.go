@@ -703,10 +703,27 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		"si_id":                   `ALTER TABLE orders ADD COLUMN si_id INTEGER`,
 		"barcode":                 `ALTER TABLE orders ADD COLUMN barcode TEXT NOT NULL DEFAULT ''`,
 		"split_from_order_id":     `ALTER TABLE orders ADD COLUMN split_from_order_id INTEGER`,
-		"split_reason":            `ALTER TABLE orders ADD COLUMN split_reason TEXT NOT NULL DEFAULT ''`,
+		"shared":                  `ALTER TABLE orders ADD COLUMN shared INTEGER NOT NULL DEFAULT 0`,
+		"shared_with":             `ALTER TABLE orders ADD COLUMN shared_with TEXT NOT NULL DEFAULT ''`,
 	}
 	for name, ddl := range orderMigrations {
 		if orderCols[name] {
+			continue
+		}
+		if _, err := conn.ExecContext(ctx, ddl); err != nil {
+			return fmt.Errorf("add column %s: %w", name, err)
+		}
+	}
+
+	profileCols, err := tableColumns(ctx, conn, "workflow_profiles")
+	if err != nil {
+		return err
+	}
+	profileDDL := map[string]string{
+		"requires_split": `ALTER TABLE workflow_profiles ADD COLUMN requires_split INTEGER NOT NULL DEFAULT 0`,
+	}
+	for name, ddl := range profileDDL {
+		if profileCols[name] {
 			continue
 		}
 		if _, err := conn.ExecContext(ctx, ddl); err != nil {
@@ -749,24 +766,6 @@ func migrate(ctx context.Context, conn *sql.DB) error {
 		CREATE INDEX IF NOT EXISTS idx_barcode_scans_barcode ON barcode_scans(barcode);
 	`); err != nil {
 		return fmt.Errorf("create barcode_scans table: %w", err)
-	}
-
-	if _, err := conn.ExecContext(ctx, `
-		CREATE TABLE IF NOT EXISTS order_splits (
-			id             INTEGER PRIMARY KEY AUTOINCREMENT,
-			original_order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
-			split_order_id   INTEGER REFERENCES orders(id) ON DELETE SET NULL,
-			requested_by     TEXT    NOT NULL,
-			accepted_by      TEXT    NOT NULL DEFAULT '',
-			status           TEXT    NOT NULL DEFAULT 'pending',
-			reason           TEXT    NOT NULL DEFAULT '',
-			created_at       BIGINT  NOT NULL,
-			accepted_at      BIGINT
-		);
-		CREATE INDEX IF NOT EXISTS idx_order_splits_original ON order_splits(original_order_id);
-		CREATE INDEX IF NOT EXISTS idx_order_splits_status ON order_splits(status, created_at);
-	`); err != nil {
-		return fmt.Errorf("create order_splits table: %w", err)
 	}
 
 	if _, err := conn.ExecContext(ctx, `

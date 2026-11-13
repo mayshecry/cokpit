@@ -23,6 +23,10 @@ type Order struct {
 	WorkflowProfileName string     `json:"workflowProfileName,omitempty"`
 	SIID                *int64     `json:"siId,omitempty"`
 	Barcode             string     `json:"barcode,omitempty"`
+	WorkedBy            []string   `json:"workedBy,omitempty"`
+	Shared              bool       `json:"shared,omitempty"`
+	SharedWith          string     `json:"sharedWith,omitempty"`
+	SplitFromOrderID    int64      `json:"splitFromOrderId,omitempty"`
 }
 
 type Hold struct {
@@ -231,28 +235,6 @@ type ChecklistItemInput struct {
 	Aantal       int    `json:"aantal"`
 }
 
-type OrderSplit struct {
-	ID              int64     `json:"id"`
-	OriginalOrderID int64     `json:"originalOrderId"`
-	SplitOrderID    int64     `json:"splitOrderId"`
-	RequestedBy     string    `json:"requestedBy"`
-	AcceptedBy      string    `json:"acceptedBy,omitempty"`
-	Status          string    `json:"status"`
-	Reason          string    `json:"reason"`
-	CreatedAt       time.Time `json:"createdAt"`
-	AcceptedAt      *time.Time `json:"acceptedAt,omitempty"`
-}
-
-type SplitRequest struct {
-	RequestedBy string `json:"requestedBy"`
-	Reason      string `json:"reason"`
-	TargetUser  string `json:"targetUser"`
-}
-
-type SplitAcceptRequest struct {
-	AcceptedBy string `json:"acceptedBy"`
-}
-
 type WorkflowStepResult struct {
 	ID            int64     `json:"id"`
 	OrderID       int64     `json:"orderId"`
@@ -276,6 +258,33 @@ type WorkflowStepResultRequest struct {
 }
 
 type RerunWorkflowRequest struct {
-	OrderID   int64  `json:"orderId"`
+	OrderID     int64  `json:"orderId"`
 	PerformedBy string `json:"performedBy"`
+}
+
+type SharedInfo struct {
+	OrderID          int64               `json:"orderId"`
+	OrderNumber      string              `json:"orderNumber"`
+	Shared           bool                `json:"shared"`
+	SplitFromOrderID int64               `json:"splitFromOrderId"`
+	ParentOrderNumber string             `json:"parentOrderNumber,omitempty"`
+	ParentStatus     string              `json:"parentStatus,omitempty"`
+	ParentAssignee   string              `json:"parentAssignee,omitempty"`
+	Children         []SharedChildInfo   `json:"children,omitempty"`
+	WorkedBy         []string            `json:"workedBy,omitempty"`
+}
+
+type SharedChildInfo struct {
+	OrderID   int64  `json:"orderId"`
+	OrderNumber string `json:"orderNumber"`
+	Status    string `json:"status"`
+	Assignee  string `json:"assignee,omitempty"`
+}
+
+type MarkSharedRequest struct {
+	ParentOrderID int64  `json:"parentOrderId"`
+}
+
+type ShareOrderRequest struct {
+	SharedWith string `json:"sharedWith"`
 }

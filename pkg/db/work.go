@@ -4,7 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
+
+	"cockpit/pkg/order"
 )
 
 var ErrWorkSessionTaken = errors.New("work session already active for another user")
@@ -88,6 +91,7 @@ func (s *Store) StartWorkSession(ctx context.Context, orderID int64, username st
 	step, checks := 0, "{}"
 	var prevStep int
 	var prevChecks string
+	// First try the current user's own previous incomplete session on this order
 	err = s.db.QueryRowContext(ctx,
 		`SELECT step, checks FROM work_sessions
 		 WHERE order_id = ? AND username = ? AND ended_at IS NOT NULL AND completed = 0
@@ -96,6 +100,16 @@ func (s *Store) StartWorkSession(ctx context.Context, orderID int64, username st
 		step, checks = prevStep, prevChecks
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return nil, err
+	} else {
+		err = s.db.QueryRowContext(ctx,
+			`SELECT step, checks FROM work_sessions
+			 WHERE order_id = ? AND ended_at IS NOT NULL AND completed = 0
+			 ORDER BY id DESC LIMIT 1`, orderID).Scan(&prevStep, &prevChecks)
+		if err == nil {
+			step, checks = prevStep, prevChecks
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
 	}
 	res, err := s.db.ExecContext(ctx,
 		`INSERT INTO work_sessions (order_id, username, started_at, step, checks, completed)
@@ -181,8 +195,8 @@ func (s *Store) EndWorkSession(ctx context.Context, orderID int64, username stri
 func (s *Store) ActiveSessionsAll(ctx context.Context) ([]*WorkSession, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT `+workSessionCols+` FROM work_sessions
-		 WHERE ended_at IS NULL
-		 ORDER BY started_at DESC`)
+		WHERE ended_at IS NULL
+		ORDER BY started_at DESC`)
 	if err != nil {
 		return nil, err
 	}
@@ -194,6 +208,78 @@ func (s *Store) ActiveSessionsAll(ctx context.Context) ([]*WorkSession, error) {
 			return nil, err
 		}
 		out = append(out, ws)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) GetWorkedByUsers(ctx context.Context, orderID int64) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT DISTINCT username FROM work_sessions
+			WHERE order_id = ? AND username IS NOT NULL AND username != ''
+			ORDER BY id ASC`, orderID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []string{}
+	for rows.Next() {
+		var u string
+		if err := rows.Scan(&u); err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) RecordWorkflowStepResult(ctx context.Context, req order.WorkflowStepResultRequest, now time.Time) (*order.WorkflowStepResult, error) {
+	ms := now.UTC().UnixMilli()
+	res, err := s.db.ExecContext(ctx,
+		`INSERT INTO workflow_step_results (order_id, step_key, step_index, performed_by, correct, customer_impact, notes, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		req.OrderID, req.StepKey, req.StepIndex, req.PerformedBy, boolInt(req.Correct), boolInt(req.CustomerImpact), req.Notes, ms)
+	if err != nil {
+		return nil, fmt.Errorf("insert workflow step result: %w", err)
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("last insert id: %w", err)
+	}
+	return &order.WorkflowStepResult{
+		ID:            id,
+		OrderID:       req.OrderID,
+		StepKey:       req.StepKey,
+		StepIndex:     req.StepIndex,
+		PerformedBy:   req.PerformedBy,
+		Correct:       req.Correct,
+		CustomerImpact: req.CustomerImpact,
+		Notes:         req.Notes,
+		CreatedAt:     now,
+	}, nil
+}
+
+func (s *Store) GetWorkflowStepResults(ctx context.Context, orderID int64) ([]order.WorkflowStepResult, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT id, order_id, step_key, step_index, performed_by, correct, customer_impact, notes, created_at
+		 FROM workflow_step_results
+		 WHERE order_id = ?
+		 ORDER BY step_index ASC, created_at ASC`, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("query workflow step results: %w", err)
+	}
+	defer rows.Close()
+	out := []order.WorkflowStepResult{}
+	for rows.Next() {
+		var r order.WorkflowStepResult
+		var correct, ci int
+		var created int64
+		if err := rows.Scan(&r.ID, &r.OrderID, &r.StepKey, &r.StepIndex, &r.PerformedBy, &correct, &ci, &r.Notes, &created); err != nil {
+			return nil, fmt.Errorf("scan workflow step result: %w", err)
+		}
+		r.Correct = correct != 0
+		r.CustomerImpact = ci != 0
+		r.CreatedAt = fromMillis(created)
+		out = append(out, r)
 	}
 	return out, rows.Err()
 }

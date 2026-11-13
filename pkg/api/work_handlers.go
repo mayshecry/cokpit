@@ -31,7 +31,14 @@ func (s *Server) workOrder(w http.ResponseWriter, r *http.Request) (order.Order,
 		return order.Order{}, false
 	}
 	me := s.currentUser(r)
-	if o.Assignee != me.Username && me.Role != auth.RoleAdmin {
+	shared := false
+	for _, u := range strings.Split(o.SharedWith, ",") {
+		if strings.TrimSpace(u) == me.Username {
+			shared = true
+			break
+		}
+	}
+	if o.Assignee != me.Username && me.Role != auth.RoleAdmin && !shared {
 		s.writeError(w, http.StatusForbidden, "not_assignee", "this order is not assigned to you")
 		return order.Order{}, false
 	}
